@@ -12,8 +12,7 @@ class AppColors {
   static const Color ctaBrightBlue = Color(0xFF2563EB);
   static const Color wellcome = Color(0xFF3B82F6);
 
-
-    static const Color cardBackground = Color(0xFFE4E7F2);
+  static const Color cardBackground = Color(0xFFE4E7F2);
 
   /// Background of an unselected pill (Gender / Practice sessions).
   static const Color pillInactive = Color(0xFFEEF1F5);
@@ -23,7 +22,6 @@ class AppColors {
 
   /// Alternating highlight stripe used in the age scroll-picker.
   static const Color ageStripeHighlight = Color(0xFFD9E1F7);
-
 
   /// background/off-white — Screen backgrounds
   static const Color backgroundOffWhite = Color(0xFFF4F6F9);
@@ -85,40 +83,35 @@ class AppColors {
     ],
   );
 
-
-
   // ===== Extra semantic tints used across dashboard components =====
   // (Not in the original Figma export, but sampled from the dashboard mock
   // so components render pixel-accurate. Keep these here rather than
   // hardcoding hex values inside widgets.)
- 
+
   /// "Coach Reviewing" status pill background
   static const Color statusInfoBg = Color(0xFFDBEAFE);
- 
+
   /// Carousel active-dot accent
   static const Color carouselActiveDot = Color(0xFFDB2777);
- 
+
   /// Unread indicator (coach feedback card)
   static const Color successGreen = Color(0xFF22C55E);
- 
+
   /// Quick action — AI Analysis
   static const Color quickActionAiBg = Color(0xFFE0E7FF);
   static const Color quickActionAiIcon = Color(0xFF6366F1);
- 
+
   /// Quick action — Logbook
   static const Color quickActionLogbookBg = Color(0xFFDCFCE7);
   static const Color quickActionLogbookIcon = Color(0xFF16A34A);
- 
+
   /// Quick action — Share with Coach
   static const Color quickActionShareBg = Color(0xFFFFEDD5);
   static const Color quickActionShareIcon = Color(0xFFF97316);
- 
+
   /// Quick action — Library
   static const Color quickActionLibraryBg = Color(0xFFEDE9FE);
   static const Color quickActionLibraryIcon = Color(0xFF7C3AED);
- 
-  
-  
 
   static const LinearGradient heroImageScrimGradient = LinearGradient(
     begin: Alignment.bottomCenter,
@@ -153,4 +146,17 @@ class AppColors {
 
   /// Destructive action (delete practice-plan day).
   static const Color destructiveRed = Color(0xFFEF4444);
+
+  // ===== Extra semantic colors used across screens (derived, not in original tokens) =====
+  static const Color warningBg = Color(0xFFFCF3D6);
+  static const Color warningBorder = Color(0xFFF2DE9B);
+  static const Color warningText = Color(0xFF8A6D1D);
+
+  static const Color insightNegativeIconBg = Color(0xFFFBE7E7);
+  static const Color insightNegativeIcon = Color(0xFFE0575B);
+  static const Color insightPositiveIconBg = Color(0xFFE1F5E8);
+  static const Color insightPositiveIcon = Color(0xFF2E9E5B);
+
+  static const Color proFeedbackBg = Color(0xFFEAF1FE);
+  static const Color chatBubbleAiBg = Color(0xFFE3E8F5);
 }
