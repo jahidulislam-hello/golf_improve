@@ -67,6 +67,11 @@ class _GolferNavbarState extends State<GolferNavbar> {
                 passiveImage: "assets/icons/pass_settings.png",
                 index: 3,
               ),
+              _buildNavItem(
+                activeImage: "assets/icons/act_settings.png",
+                passiveImage: "assets/icons/pass_settings.png",
+                index: 3,
+              ),
 
 
 
