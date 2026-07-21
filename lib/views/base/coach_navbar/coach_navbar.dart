@@ -67,8 +67,11 @@ class _CoachNavbarState extends State<CoachNavbar> {
                 passiveImage: "assets/icons/pass_settings.png",
                 index: 3,
               ),
-
-
+              _buildNavItem(
+                activeImage: "assets/icons/act_profile.png",
+                passiveImage: "assets/icons/pass_profile.png",
+                index: 4,
+              ),
 
             ],
           ),
