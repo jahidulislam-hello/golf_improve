@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
+import 'coach_navbar_controller.dart';
+
 
 class CoachNavbar extends StatefulWidget {
   const CoachNavbar({super.key});
@@ -16,10 +18,6 @@ class _CoachNavbarState extends State<CoachNavbar> {
 
   final List<Widget> pages = [
 
-    NewDateScreen(),
-    CalendarScreen(),
-    AnalyticsScreen(),
-    SettingsScreen(),
 
   ];
 

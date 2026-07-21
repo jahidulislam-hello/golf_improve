@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
+import 'golfer_navbar_controller.dart';
+
 class GolferNavbar extends StatefulWidget {
   const GolferNavbar({super.key});
 
@@ -15,10 +17,7 @@ class _GolferNavbarState extends State<GolferNavbar> {
 
   final List<Widget> pages = [
 
-    NewDateScreen(),
-    CalendarScreen(),
-    AnalyticsScreen(),
-    SettingsScreen(),
+
 
   ];
 
