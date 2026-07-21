@@ -35,12 +35,16 @@ class OnboardingCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Image.asset(
-                      'assets/images/logo_mark.png',
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/logo.png',
                       width: 24,
                       height: 24,
                       color: Colors.white,
@@ -56,8 +60,11 @@ class OnboardingCard extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
+                const SizedBox(width: 16),
                 GestureDetector(
                   onTap: onSkip,
                   child: const Text(

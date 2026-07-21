@@ -27,6 +27,7 @@ class MyApp extends StatelessWidget {
     return ScreenUtilInit(
       designSize: const Size(393, 852),
       minTextAdapt: true,
+
       splitScreenMode: true,
       builder: (_, child) {
         return GetMaterialApp(
@@ -41,7 +42,7 @@ class MyApp extends StatelessWidget {
           defaultTransition: Transition.topLevel,
           transitionDuration: const Duration(milliseconds: 500),
           getPages: AppRoutes.page,
-          initialRoute: AppRoutes.homeScreen,
+          initialRoute: AppRoutes.splashScreen,
         );
       },
     );
