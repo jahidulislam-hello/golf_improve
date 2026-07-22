@@ -1,7 +1,8 @@
 // import 'package:flutter/material.dart';
-// import '../core/app_colors.dart';
-// import '../core/app_text_styles.dart';
-
+// import 'package:golf_training_app/core/app_colors.dart';
+// import 'package:golf_training_app/core/app_styles.dart';
+//
+//
 // /// A single tappable row used in settings-style lists: a rounded icon
 // /// chip, a title (+ optional subtitle), and a trailing chevron. Used for
 // /// "Personal Info", "Logbook", "Privacy & Security", "Log out", etc.
@@ -13,7 +14,7 @@
 //   final Color iconBackground;
 //   final Color titleColor;
 //   final VoidCallback? onTap;
-
+//
 //   const SettingsRow({
 //     super.key,
 //     required this.icon,
@@ -24,7 +25,7 @@
 //     this.titleColor = AppColors.textPrimary,
 //     this.onTap,
 //   });
-
+//
 //   /// Convenience constructor for destructive rows (Log out, Delete Account).
 //   const SettingsRow.destructive({
 //     super.key,
@@ -35,7 +36,7 @@
 //   })  : iconColor = const Color(0xFFE53E3E),
 //         iconBackground = AppColors.iconChipRedBackground,
 //         titleColor = const Color(0xFFE53E3E);
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return InkWell(

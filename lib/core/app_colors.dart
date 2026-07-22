@@ -159,4 +159,19 @@ class AppColors {
 
   static const Color proFeedbackBg = Color(0xFFEAF1FE);
   static const Color chatBubbleAiBg = Color(0xFFE3E8F5);
+
+
+  // ===== Supplementary accent colors =====
+  // NOTE: These are not present in the original design-token file you shared.
+  // The "My Progress" mock uses an orange/peach streak badge and a purple
+  // stat icon that don't map to any token above, so they are added here
+  // as clearly-separated extras. Swap these for real tokens whenever your
+  // design system defines them.
+  static const Color accentOrange = Color(0xFFF97316);
+  static const Color accentOrangeBg = Color(0xFFFDECD8);
+  static const Color accentGreen = Color(0xFF16A34A);
+  static const Color accentPurple = Color(0xFF7C3AED);
+  static const Color accentPurpleBg = Color(0xFFF1E9FE);
+  static const Color accentBlueBg = Color(0xFFE3ECFD);
+  static const Color chartFillTop = Color(0xFFC9DBFB);
 }

@@ -1,111 +1,97 @@
 import 'package:flutter/material.dart';
 
-class PersonalInfoController extends ChangeNotifier {
-  PersonalInfoController({
+enum Gender { man, woman, nonBinary, preferNotToSay }
+
+extension GenderLabel on Gender {
+  String get label {
+    switch (this) {
+      case Gender.man:
+        return 'Man';
+      case Gender.woman:
+        return 'Woman';
+      case Gender.nonBinary:
+        return 'Non-binary';
+      case Gender.preferNotToSay:
+        return 'Prefer not to say';
+    }
+  }
+}
+
+/// Holds all editable state for the "Personal Info" screen:
+/// name, email, age range, gender, handicap index and weekly practice
+/// sessions. Exposes [TextEditingController]s for the text fields so the
+/// screen can stay a thin, mostly-stateless layout.
+class GolferPersonalInfoController extends ChangeNotifier {
+  GolferPersonalInfoController({
     String name = 'Alex Thompson',
     String email = '',
-    String? ageRange,
-    String gender = 'Man',
+    this.ageRange,
+    Gender gender = Gender.man,
     double handicapIndex = 12.4,
-    int sessionsPerWeek = 2,
+    int practiceSessionsPerWeek = 2,
   })  : nameController = TextEditingController(text: name),
         emailController = TextEditingController(text: email),
-        _ageRange = ageRange,
         _gender = gender,
         _handicapIndex = handicapIndex,
-        _sessionsPerWeek = sessionsPerWeek;
+        _practiceSessionsPerWeek = practiceSessionsPerWeek;
 
-  // ----- Static option lists -----
   static const double minHandicap = -9.9;
   static const double maxHandicap = 54.0;
-  static const double handicapStep = 0.1;
+  static const List<int> practiceOptions = [1, 2]; // "3+" handled separately
 
-  static const List<String> genderOptions = [
-    'Man',
-    'Woman',
-    'Non-binary',
-    'Prefer not to say',
-  ];
-
-  static const List<int> sessionOptions = [1, 2, 3]; // 3 renders as "3+"
-
-  static const List<String> ageRanges = [
-    'Under 18',
-    '18–24',
-    '25–34',
-    '35–44',
-    '45–54',
-    '55–64',
-    '65+',
-  ];
-
-  // ----- Text fields -----
   final TextEditingController nameController;
   final TextEditingController emailController;
 
-  // ----- Avatar -----
-  String? avatarPath;
-  void setAvatar(String path) {
-    avatarPath = path;
+  String? ageRange;
+  Gender _gender;
+  double _handicapIndex;
+  int _practiceSessionsPerWeek;
+
+  Gender get gender => _gender;
+  double get handicapIndex => _handicapIndex;
+  int get practiceSessionsPerWeek => _practiceSessionsPerWeek;
+
+  /// 0.0–1.0 fill amount for the handicap progress bar
+  /// ("PRO LEVEL" ... "BEGINNER").
+  double get handicapProgress =>
+      (_handicapIndex - minHandicap) / (maxHandicap - minHandicap);
+
+  void setAgeRange(String? value) {
+    ageRange = value;
     notifyListeners();
   }
 
-  // ----- Age range -----
-  String? _ageRange;
-  String? get ageRange => _ageRange;
-  void setAgeRange(String value) {
-    _ageRange = value;
-    notifyListeners();
-  }
-
-  // ----- Gender -----
-  String _gender;
-  String get gender => _gender;
-  void setGender(String value) {
+  void setGender(Gender value) {
+    if (_gender == value) return;
     _gender = value;
     notifyListeners();
   }
 
-  // ----- Handicap index -----
-  double _handicapIndex;
-  double get handicapIndex => _handicapIndex;
-  String get handicapLabel => _handicapIndex.toStringAsFixed(1);
-
-  void incrementHandicap() {
-    _handicapIndex =
-        (_handicapIndex + handicapStep).clamp(minHandicap, maxHandicap);
+  void incrementHandicap({double step = 0.1}) {
+    _handicapIndex = (_handicapIndex + step).clamp(minHandicap, maxHandicap);
     notifyListeners();
   }
 
-  void decrementHandicap() {
-    _handicapIndex =
-        (_handicapIndex - handicapStep).clamp(minHandicap, maxHandicap);
+  void decrementHandicap({double step = 0.1}) {
+    _handicapIndex = (_handicapIndex - step).clamp(minHandicap, maxHandicap);
     notifyListeners();
   }
 
-  // ----- Practice sessions per week -----
-  int _sessionsPerWeek;
-  int get sessionsPerWeek => _sessionsPerWeek;
-  void setSessionsPerWeek(int value) {
-    _sessionsPerWeek = value;
+  /// Pass 1, 2, or 3 to mean "3+".
+  void setPracticeSessionsPerWeek(int sessions) {
+    if (_practiceSessionsPerWeek == sessions) return;
+    _practiceSessionsPerWeek = sessions;
     notifyListeners();
   }
 
-  // ----- Save -----
-  bool get isValid =>
-      nameController.text.trim().isNotEmpty && emailController.text.trim().isNotEmpty;
+  bool get isDirty =>
+      nameController.text.isNotEmpty || emailController.text.isNotEmpty;
 
-  /// Returns the payload to persist / hand back to the caller.
-  Map<String, dynamic> save() {
-    return {
-      'name': nameController.text.trim(),
-      'email': emailController.text.trim(),
-      'ageRange': _ageRange,
-      'gender': _gender,
-      'handicapIndex': _handicapIndex,
-      'sessionsPerWeek': _sessionsPerWeek,
-      'avatarPath': avatarPath,
-    };
+  /// Persists the edits. Replace with a real repository/API call and
+  /// surface success/failure to the caller as needed.
+  Future<void> saveChanges() async {
+    // TODO: send nameController.text, emailController.text, ageRange,
+    // gender, handicapIndex and practiceSessionsPerWeek to your backend.
   }
 
   @override

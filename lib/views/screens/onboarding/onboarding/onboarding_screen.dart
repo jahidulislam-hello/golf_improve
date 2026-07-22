@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/core/app_colors.dart';
 import 'onboarding_card.dart';
 import 'onboarding_controller.dart';
 
@@ -35,6 +36,51 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 20,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              width: 24,
+              height: 24,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'GOLFIMPROVE',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => _controller.skip(widget.onComplete),
+            child: const Text(
+              'Skip',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ctaBrightBlue,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: PageView.builder(
         controller: _controller.pageController,
         itemCount: _controller.pages.length,
@@ -45,7 +91,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             data: data,
             currentIndex: _controller.currentIndex,
             pageCount: _controller.pages.length,
-            onSkip: () => _controller.skip(widget.onComplete),
             onContinue: () => _controller.next(widget.onComplete),
           );
         },

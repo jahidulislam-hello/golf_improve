@@ -17,7 +17,11 @@ enum CaptureMode { slowMo, swing, video }
 /// Screens 1-3: live camera capture with alignment guide -> auto-detect
 /// skeleton overlay, mode tabs, and record button.
 class CameraCaptureScreen extends StatefulWidget {
-  const CameraCaptureScreen({super.key});
+  /// Called when the user taps close. Use this when the screen is embedded
+  /// in a tab (e.g. golfer navbar) so the parent can hide Record / show home.
+  final VoidCallback? onClose;
+
+  const CameraCaptureScreen({super.key, this.onClose});
 
   @override
   State<CameraCaptureScreen> createState() => _CameraCaptureScreenState();
@@ -183,7 +187,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
         _TopBar(
           isRecording: _isRecording,
           elapsed: _formatDuration(_elapsed),
-          onClose: () => Navigator.of(context).maybePop(),
+          onClose: () {
+            if (widget.onClose != null) {
+              widget.onClose!();
+            } else {
+              Navigator.of(context).maybePop();
+            }
+          },
         ),
         const SizedBox(height: 12),
         _ModeTabs(

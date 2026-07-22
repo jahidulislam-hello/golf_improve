@@ -1,17 +1,17 @@
 // import 'package:flutter/material.dart';
 // import '../app_colors.dart';
 // import '../app_text_styles.dart';
-
+//
 // class PlanCard extends StatelessWidget {
 //   const PlanCard({
 //     super.key,
 //     required this.isFreePlan,
 //     required this.onUpgrade,
 //   });
-
+//
 //   final bool isFreePlan;
 //   final VoidCallback onUpgrade;
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return Container(
@@ -71,12 +71,12 @@
 //     );
 //   }
 // }
-
+//
 // class _UpgradePill extends StatelessWidget {
 //   const _UpgradePill({required this.onTap});
-
+//
 //   final VoidCallback onTap;
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return Material(

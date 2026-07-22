@@ -1,7 +1,7 @@
 // import 'package:flutter/material.dart';
 // import '../app_colors.dart';
 // import '../app_text_styles.dart';
-
+//
 // class ProfileHeader extends StatelessWidget {
 //   const ProfileHeader({
 //     super.key,
@@ -9,11 +9,11 @@
 //     required this.handicapLabel,
 //     this.avatarUrl,
 //   });
-
+//
 //   final String name;
 //   final String handicapLabel;
 //   final String? avatarUrl;
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return Container(

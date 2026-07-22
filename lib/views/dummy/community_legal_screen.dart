@@ -1,15 +1,17 @@
 // import 'package:flutter/material.dart';
+// import 'package:golf_training_app/core/app_colors.dart';
+// import 'package:golf_training_app/views/screens/golfer/profile/personal_info/profile_controller.dart';
 // import 'package:provider/provider.dart';
-// import '../controllers/profile_controller.dart';
-
-
+//
+//
+//
 // class CommunityLegalScreen extends StatelessWidget {
 //   const CommunityLegalScreen({super.key});
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     final profile = context.read<ProfileController>();
-
+//
 //     return Scaffold(
 //       backgroundColor: AppColors.backgroundOffWhite,
 //       appBar: const SimpleAppBar(title: 'Community & Legal'),

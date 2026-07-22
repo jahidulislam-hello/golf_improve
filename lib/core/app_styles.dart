@@ -285,4 +285,33 @@ class AppTextStyles {
     fontWeight: FontWeight.w700,
     color: AppColors.surfaceWhite,
   );
+
+
+  // ===== Profile / Personal Info screens (added for this feature) =====
+
+  /// "Alex Thompson" name on the Profile screen header.
+  static const TextStyle profileName = TextStyle(fontFamily: fontFamily, fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary);
+
+  /// Row title inside a settings list item ("Personal Info", "Logbook"...).
+  static const TextStyle listItemTitle = TextStyle(fontFamily: fontFamily, fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary);
+
+  /// Row subtitle inside a settings list item ("Name, email, handicap").
+  static const TextStyle listItemSubtitle = TextStyle(fontFamily: fontFamily, fontSize: 12.5, fontWeight: FontWeight.w400, color: AppColors.textSecondary);
+
+  /// "Log out" red label.
+  static const TextStyle destructiveLabel = TextStyle(fontFamily: fontFamily, fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.destructiveRed);
+
+  /// Small uppercase field label ("FULL NAME", "AGE RANGE"...) on Personal Info.
+  static const TextStyle fieldLabel = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 11.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.4,
+    color: AppColors.textSecondary,
+  );
+
+  /// Segmented-pill label ("Man", "1", "2", "3+"...).
+  static const TextStyle segmentLabel = TextStyle(fontFamily: fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary);
+
+  static const TextStyle segmentLabelActive = TextStyle(fontFamily: fontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.surfaceWhite);
 }

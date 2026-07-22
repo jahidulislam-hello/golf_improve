@@ -19,7 +19,6 @@ void main() {
             data: onboardingPages.first,
             currentIndex: 0,
             pageCount: onboardingPages.length,
-            onSkip: () {},
             onContinue: () {},
           ),
         ),

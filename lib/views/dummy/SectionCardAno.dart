@@ -1,6 +1,6 @@
 // import 'package:flutter/material.dart';
 // import '../app_colors.dart';
-
+//
 // /// The plain white rounded-corner card container that shows up everywhere
 // /// in the design (settings rows, form fields, the stat card, etc).
 // class SectionCardAno extends StatelessWidget {
@@ -13,14 +13,14 @@
 //     this.color = AppColors.surfaceWhite,
 //     this.onTap,
 //   });
-
+//
 //   final Widget child;
 //   final EdgeInsetsGeometry padding;
 //   final EdgeInsetsGeometry? margin;
 //   final double radius;
 //   final Color color;
 //   final VoidCallback? onTap;
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     final card = Container(

@@ -1,19 +1,16 @@
 // import 'package:flutter/material.dart';
-// import '../app_colors.dart';
-// import '../app_text_styles.dart';
-// import 'section_card.dart';
 // import 'icon_chip.dart';
-
+//
 // class StandConnectedTile extends StatelessWidget {
 //   const StandConnectedTile({
 //     super.key,
 //     required this.isConnected,
 //     this.onTap,
 //   });
-
+//
 //   final bool isConnected;
 //   final VoidCallback? onTap;
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return SectionCard(

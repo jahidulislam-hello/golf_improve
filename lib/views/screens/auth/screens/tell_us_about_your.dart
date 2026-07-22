@@ -1,7 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/helpers/routes.dart';
 import 'package:provider/provider.dart';
 
 import '../widgets/age_picker_sheet.dart';
@@ -194,8 +196,11 @@ class ProfileSetUpScreen extends StatelessWidget {
                 icon: Icons.chevron_right,
                 isLoading: auth.isLoading,
                 onPressed: () async {
-                  await auth.completeOnboarding();
-                  // Navigate to your home/dashboard screen from here.
+                  final success = await auth.completeOnboarding();
+                  if (success && context.mounted) {
+                    // Golfer profile setup complete → GolferNavbar
+                    AppRoutes.goToHomeForRole(auth.selectedRole);
+                  }
                 },
               ),
             ],

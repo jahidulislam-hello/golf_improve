@@ -2,7 +2,7 @@
 // import '../app_colors.dart';
 // import '../app_text_styles.dart';
 // import 'icon_chip.dart';
-
+//
 // /// A single row inside the grouped settings card: icon chip, title,
 // /// optional subtitle, trailing chevron.
 // class SettingsTile extends StatelessWidget {
@@ -18,7 +18,7 @@
 //     this.showDivider = true,
 //     this.onTap,
 //   });
-
+//
 //   final IconData icon;
 //   final String title;
 //   final String? subtitle;
@@ -28,7 +28,7 @@
 //   final Color chevronColor;
 //   final bool showDivider;
 //   final VoidCallback? onTap;
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return Column(
@@ -77,15 +77,15 @@
 //     );
 //   }
 // }
-
+//
 // /// A group of [SettingsTile]s wrapped in one white rounded card, matching
 // /// the "Personal Info / Logbook / Notifications / Help & Support /
 // /// Community & Legal" block in the design.
 // class SettingsListCard extends StatelessWidget {
 //   const SettingsListCard({super.key, required this.tiles});
-
+//
 //   final List<SettingsTile> tiles;
-
+//
 //   @override
 //   Widget build(BuildContext context) {
 //     return Container(

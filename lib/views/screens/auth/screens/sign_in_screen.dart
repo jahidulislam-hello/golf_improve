@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/helpers/routes.dart';
 import 'package:provider/provider.dart';
 
 import '../widgets/auth_text_field.dart';
@@ -12,7 +13,6 @@ import 'forgot_password_screen.dart';
 import 'sign_up_screen.dart';
 
 class SignInScreen extends StatelessWidget {
-  
   const SignInScreen({super.key});
 
   @override
@@ -84,9 +84,8 @@ class SignInScreen extends StatelessWidget {
                 onPressed: () async {
                   final success = await auth.signIn();
                   if (success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Signed in successfully!')),
-                    );
+                    // Coach → CoachNavbar, Golfer → GolferNavbar
+                    AppRoutes.goToHomeForRole(auth.selectedRole);
                   }
                 },
               ),

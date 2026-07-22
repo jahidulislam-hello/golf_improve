@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
 
 /// One controller class for the whole auth + onboarding flow, as requested.
 /// Wire it up with `provider`:
@@ -9,6 +10,19 @@ import 'package:flutter/material.dart';
 ///
 ///   final auth = context.watch<AuthController>();
 class AuthController extends ChangeNotifier {
+  // ---------------------------------------------------------------------
+  // Selected role (golfer / coach) — set on role selection screen
+  // ---------------------------------------------------------------------
+  UserRole? selectedRole;
+
+  bool get isCoach => selectedRole == UserRole.coach;
+  bool get isGolfer => selectedRole == UserRole.golfer;
+
+  void setSelectedRole(UserRole role) {
+    selectedRole = role;
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------------
   // Shared loading / error state
   // ---------------------------------------------------------------------

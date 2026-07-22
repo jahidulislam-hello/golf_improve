@@ -29,13 +29,13 @@ class LineAreaChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Chart area + gap + label row (label line-height needs ~18px).
     return SizedBox(
-      height: height + 22,
+      height: height + 26,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: height,
+          Expanded(
             child: CustomPaint(
               painter: _LineAreaPainter(
                 values: values,
@@ -58,6 +58,7 @@ class LineAreaChart extends StatelessWidget {
                       fontFamily: 'Inter',
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
+                      height: 1.2,
                       color: Color(0xFF94A3B8),
                     ),
                   ),

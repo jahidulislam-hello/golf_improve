@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/helpers/routes.dart';
+import 'package:golf_training_app/views/screens/auth/screens/tell_us_about_your.dart';
+import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
 import 'package:provider/provider.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/golf_logo.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
-import 'onboarding_screen.dart';
 import 'sign_in_screen.dart';
 
 class SignUpScreen extends StatelessWidget {
@@ -77,13 +79,20 @@ class SignUpScreen extends StatelessWidget {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.signUp();
-                  if (success && context.mounted) {
-                    // Sign up -> straight into the "Tell us about yourself"
-                    // onboarding screen (screen 6), as requested.
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ProfileSetUpScreen()),
-                    );
+                  if (!success || !context.mounted) return;
+
+                  // Coach skips "Tell us about yourself" → CoachNavbar
+                  if (auth.selectedRole == UserRole.coach) {
+                    AppRoutes.goToHomeForRole(UserRole.coach);
+                    return;
                   }
+
+                  // Golfer → profile setup, then GolferNavbar
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const ProfileSetUpScreen(),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 20),
