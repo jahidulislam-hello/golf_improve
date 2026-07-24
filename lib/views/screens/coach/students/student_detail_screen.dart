@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'student.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 class StudentDetailScreen extends StatelessWidget {
   final Student student;
@@ -64,15 +65,35 @@ class StudentDetailScreen extends StatelessWidget {
               Text('Recent Uploads', style: AppTextStyles.sectionHeader),
               const SizedBox(height: 12),
               Expanded(
-                child: ListView.separated(
-                  itemCount: student.recentUploads.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final u = student.recentUploads[i];
-                    return _UploadRow(
-                      title: u['title'], time: u['time'], score: u['score'],
-                    );
-                  },
+                child: ListView(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceWhite,
+                        borderRadius: AppRadii.cardBorderRadius,
+                        border: AppRadii.cardBorder,
+                      ),
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < student.recentUploads.length; i++) ...[
+                            _UploadRow(
+                              title: student.recentUploads[i]['title'],
+                              time: student.recentUploads[i]['time'],
+                              score: student.recentUploads[i]['score'],
+                            ),
+                            if (i != student.recentUploads.length - 1)
+                              const Divider(
+                                height: 1.11,
+                                thickness: 1.11,
+                                color: Color(0xFFF1F5F9),
+                                indent: 16,
+                                endIndent: 16,
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -94,8 +115,8 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         children: [
@@ -116,13 +137,8 @@ class _UploadRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
-      ),
       child: Row(
         children: [
           Container(
@@ -132,7 +148,7 @@ class _UploadRow extends StatelessWidget {
               color: AppColors.quickActionLogbookBg,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.golf_course, color: AppColors.quickActionLogbookIcon),
+            child: const Icon(Icons.golf_course, color: AppColors.quickActionLogbookIcon),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -145,8 +161,13 @@ class _UploadRow extends StatelessWidget {
               ],
             ),
           ),
-          Text('$score%',
-              style: AppTextStyles.type16.copyWith(fontWeight: FontWeight.w800, color: AppColors.primaryNavy)),
+          Text(
+            '$score%',
+            style: AppTextStyles.type16.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.primaryNavy,
+            ),
+          ),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/reviewers/review_models.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 
@@ -22,15 +23,15 @@ class PendingReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceWhite,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadii.cardBorderRadius,
       clipBehavior: Clip.antiAlias,
       elevation: 0,
       child: InkWell(
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.borderCard),
+            borderRadius: AppRadii.cardBorderRadius,
+            border: AppRadii.cardBorder,
             boxShadow: [
               BoxShadow(
                 color: AppColors.primaryNavy.withOpacity(0.06),

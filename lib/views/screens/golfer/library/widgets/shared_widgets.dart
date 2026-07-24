@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import '../models/models.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Small uppercase gray label used above filter rows ("CLUB", "ANGLE").
 class SectionLabel extends StatelessWidget {
@@ -58,10 +59,10 @@ class FilterChipRow extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected ? selectedColor : AppColors.surfaceWhite,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: AppRadii.cardBorderRadius,
                 border: isSelected
                     ? null
-                    : Border.all(color: AppColors.borderLightGray),
+                    : AppRadii.cardBorder,
               ),
               child: Text(
                 option,
@@ -101,7 +102,7 @@ class StatSplitCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.primaryNavy,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       padding: const EdgeInsets.symmetric(vertical: 22),
       child: Row(
@@ -163,7 +164,7 @@ class SwingThumbnailCard extends StatelessWidget {
           AspectRatio(
             aspectRatio: 1,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadii.cardBorderRadius,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -281,9 +282,9 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: color,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadii.buttonBorderRadius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.buttonBorderRadius,
         onTap: onTap,
         child: Container(
           height: 56,
@@ -321,8 +322,8 @@ class WarningBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.warningBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warningBorder),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: Border.all(color: AppColors.warningBorder, width: AppRadii.cardBorderWidth),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,8 +356,8 @@ class InsightCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderLightGray),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,7 +416,8 @@ class ProFeedbackCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.proFeedbackBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,8 +538,8 @@ class ShareIncludeTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderLightGray),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Row(
         children: [

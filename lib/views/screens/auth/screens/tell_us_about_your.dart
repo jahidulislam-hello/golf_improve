@@ -10,6 +10,7 @@ import '../widgets/age_picker_sheet.dart';
 import '../widgets/golf_logo.dart';
 import '../widgets/pill_selector.dart';
 import '../widgets/primary_button.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 class ProfileSetUpScreen extends StatelessWidget {
   const ProfileSetUpScreen({super.key});
@@ -20,7 +21,8 @@ class ProfileSetUpScreen extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: child,
     );
@@ -70,8 +72,8 @@ class ProfileSetUpScreen extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.borderLightGray),
+                          borderRadius: AppRadii.cardBorderRadius,
+                          border: AppRadii.cardBorder,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

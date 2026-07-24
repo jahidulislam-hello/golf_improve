@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import '../models/pending_review.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// A single row in the "Pending Reviews" list. Fully tappable — wraps
@@ -26,8 +27,8 @@ class PendingReviewCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryNavy.withOpacity(0.04),
@@ -105,7 +106,7 @@ class _Avatar extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: AppRadii.cardBorderRadius,
           child: Image.network(
             url,
             width: 48,
@@ -147,10 +148,10 @@ class _ReviewPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.statusInfoBg,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           child: Text(

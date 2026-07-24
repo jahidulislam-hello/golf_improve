@@ -5,6 +5,7 @@ import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/dashed_border_box.dart';
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/settings_toggle_row.dart';
 import 'share_with_coach_controller.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 class ShareWithCoachScreen extends StatefulWidget {
@@ -73,7 +74,7 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                         child: Text('View All', style: AppTextStyles.linkText),
                       ),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: AppRadii.cardBorderRadius,
                         onTap: () {
                           // TODO: hook up to your media picker, then:
                           // _controller.selectVideo(pickedFileName);
@@ -222,7 +223,7 @@ class _EmptyVideoContent extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: AppColors.pillInactive,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.cardBorderRadius,
           ),
           child: const Icon(
             Icons.videocam_outlined,
@@ -251,7 +252,7 @@ class _EmptyVideoContent extends StatelessWidget {
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: AppRadii.buttonBorderRadius,
               ),
             ),
             child: Text(
@@ -285,7 +286,7 @@ class _SelectedVideoContent extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: AppColors.statusInfoBg,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.cardBorderRadius,
           ),
           child: const Icon(
             Icons.videocam_rounded,
@@ -311,7 +312,7 @@ class _SelectedVideoContent extends StatelessWidget {
               side: const BorderSide(color: AppColors.borderLightGray),
               padding: const EdgeInsets.symmetric(horizontal: 24),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: AppRadii.buttonBorderRadius,
               ),
             ),
             child: const Text(

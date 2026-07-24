@@ -3,6 +3,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'student.dart';
 import 'student_detail_screen.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 class StudentsScreen extends StatelessWidget {
   const StudentsScreen({super.key});
@@ -84,15 +85,15 @@ class _StudentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceWhite,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: AppRadii.cardBorderRadius,
         onTap: onTap, // <-- THIS is what pushes to the second screen
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.borderCard),
+            borderRadius: AppRadii.cardBorderRadius,
+            border: AppRadii.cardBorder,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../widgets/capture_overlays.dart';
 import 'review_swing_screen.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 enum SwingView { faceOn, downTheLine, sideOn }
 
@@ -205,7 +206,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppRadii.cardBorderRadius,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -311,7 +312,7 @@ class _TopBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: AppCaptureColors.scrimPillBg,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: AppRadii.cardBorderRadius,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -377,7 +378,7 @@ class _ModeTabs extends StatelessWidget {
             color: isSelected
                 ? AppCaptureColors.modeTabSelectedBg
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: AppRadii.cardBorderRadius,
           ),
           child: Text(
             label,
@@ -397,7 +398,7 @@ class _ModeTabs extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: AppCaptureColors.scrimPillBg,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -418,7 +419,7 @@ class _AutoDetectPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: AppCaptureColors.autoDetectPillBg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -446,7 +447,7 @@ class _AlignmentTipCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppCaptureColors.alignmentCardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

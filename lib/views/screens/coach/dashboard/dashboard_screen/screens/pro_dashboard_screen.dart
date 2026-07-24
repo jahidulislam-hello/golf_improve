@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/views/screens/coach/dashboard/dashboard_screen/models/swing_review.dart';
+import 'package:golf_training_app/views/screens/coach/dashboard/review_swing/review_swing_screen.dart';
 import '../controllers/pro_dashboard_controller.dart';
 import '../models/pending_review.dart';
 import '../widgets/activity_tile.dart';
 import '../widgets/pending_review_card.dart';
 import '../widgets/stat_card.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Pixel-matched recreation of the "Pro Dashboard" screen:
 /// header (name + notification bell + avatar), 3 stat tiles,
@@ -40,14 +43,27 @@ class _ProDashboardScreenState extends State<ProDashboardScreen> {
   void _onReviewTap(PendingReview review) {
     _controller.openReview(review.id);
 
-    // Hook your navigation to a review-detail screen here, e.g.:
-    // Navigator.of(context).push(MaterialPageRoute(
-    //   builder: (_) => ReviewDetailScreen(reviewId: review.id),
-    // ));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening review for ${review.studentName}'),
-        duration: const Duration(milliseconds: 900),
+    final mock = SwingReview.mockAlexThompson();
+    final swingReview = SwingReview(
+      id: review.id,
+      studentName: review.studentName,
+      studentAvatarUrl: review.avatarUrl,
+      club: review.club,
+      angle: review.angle,
+      duration: mock.duration,
+      videoThumbnailUrl: mock.videoThumbnailUrl,
+      currentPositionLabel: mock.currentPositionLabel,
+      studentQuestion: mock.studentQuestion,
+      studentSessionNotes: mock.studentSessionNotes,
+      sessionTags: mock.sessionTags,
+      aiAnalysisPoints: mock.aiAnalysisPoints,
+      lastNoteOnStudent: mock.lastNoteOnStudent,
+      practicePlan: mock.practicePlan,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CoachReviewSwingScreen(review: swingReview),
       ),
     );
   }
@@ -84,8 +100,8 @@ class _ProDashboardScreenState extends State<ProDashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceWhite,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.borderCard),
+                  borderRadius: AppRadii.cardBorderRadius,
+                  border: AppRadii.cardBorder,
                 ),
                 child: Column(
                   children: [
@@ -167,7 +183,7 @@ class _NotificationBell extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surfaceWhite,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.borderLightGray),
+            border: AppRadii.cardBorder,
           ),
           child: const Icon(
             Icons.notifications_none_rounded,

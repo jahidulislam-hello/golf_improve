@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// The rounded white "card" container reused across the My Progress screen
@@ -23,7 +24,8 @@ class SectionCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryNavy.withOpacity(0.04),
@@ -56,7 +58,7 @@ class Pill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Text(
         label,

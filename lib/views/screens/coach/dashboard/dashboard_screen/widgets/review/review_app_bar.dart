@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// "< Review Swing / Alex Thompson · Driver · Face On" header used at the
 /// top of the Review Swing screen.
@@ -23,7 +24,7 @@ class ReviewAppBar extends StatelessWidget {
       children: [
         InkWell(
           onTap: onBack ?? () => Navigator.of(context).maybePop(),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadii.cardBorderRadius,
           child: Container(
             width: 36,
             height: 36,

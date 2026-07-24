@@ -6,6 +6,7 @@ import '../controllers/share_coach_controller.dart';
 import '../controllers/review_swing_controller.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/video_preview.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Screen 3 — Share with Coach.
 /// Reached from Screen 2 by tapping "Send to James Keller".
@@ -67,7 +68,7 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: AppRadii.cardBorderRadius,
                         child: VideoPreview(
                           position: previewController.position,
                           total: previewController.total,
@@ -75,7 +76,7 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                           onPlayToggle: previewController.togglePlay,
                           showOverlayButtons: false,
                           aspectRatio: 16 / 11,
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: AppRadii.cardBorderRadius,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -85,8 +86,8 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceWhite,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.borderLightGray),
+                          borderRadius: AppRadii.cardBorderRadius,
+                          border: AppRadii.cardBorder,
                         ),
                         child: TextField(
                           controller: controller.questionController,

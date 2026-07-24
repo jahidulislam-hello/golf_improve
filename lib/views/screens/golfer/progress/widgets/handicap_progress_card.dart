@@ -5,6 +5,7 @@ import 'package:golf_training_app/views/screens/golfer/progress/progress_control
 import 'package:golf_training_app/views/screens/golfer/progress/widgets/handicap_update_dialog.dart';
 import 'package:golf_training_app/views/screens/golfer/progress/widgets/line_area_chart.dart';
 import 'section_card.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 class HandicapProgressCard extends StatelessWidget {
   const HandicapProgressCard({super.key, required this.controller});
@@ -54,7 +55,7 @@ class HandicapProgressCard extends StatelessWidget {
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: AppRadii.buttonBorderRadius,
                   ),
                 ),
                 child: const Text(
@@ -115,8 +116,8 @@ class _StatBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.backgroundOffWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderLightGray),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

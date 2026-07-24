@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// The soft green "Where is my code?" callout explaining where to find
@@ -21,7 +22,7 @@ class InfoCalloutCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.quickActionLogbookBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

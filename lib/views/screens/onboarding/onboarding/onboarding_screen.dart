@@ -48,19 +48,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           children: [
             Image.asset(
               'assets/images/logo.png',
-              width: 24,
-              height: 24,
-              color: Colors.white,
+              width: 56,
+              height: 44,
+              color: Color(0xFF1E293B),
             ),
             const SizedBox(width: 8),
             const Text(
               'GOLFIMPROVE',
               style: TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.2,
-                color: Colors.white,
+                color: Color(0xFF1E293B),
               ),
             ),
           ],

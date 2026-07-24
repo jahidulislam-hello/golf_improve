@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// "Activation Code" label + a rounded, bordered text field for the
@@ -44,22 +45,22 @@ class ActivationCodeField extends StatelessWidget {
             contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadii.buttonBorderRadius,
               borderSide: BorderSide(color: AppColors.borderLightGray),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadii.buttonBorderRadius,
               borderSide: BorderSide(color: AppColors.borderLightGray),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadii.buttonBorderRadius,
               borderSide: const BorderSide(
                 color: AppColors.ctaBrightBlue,
                 width: 1.5,
               ),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadii.buttonBorderRadius,
               borderSide: const BorderSide(color: AppColors.destructiveRed),
             ),
             errorText: errorText,

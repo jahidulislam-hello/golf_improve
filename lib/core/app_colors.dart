@@ -32,8 +32,8 @@ class AppColors {
   /// border/light-gray — Dividers, card borders
   static const Color borderLightGray = Color(0xFFE2E8F0);
 
-  /// border/card — Subtle card outline (e.g. Recent Activity card)
-  static const Color borderCard = Color(0xFFF1F5F9);
+  /// border/card — Card outline (#E2E8F0, typically 1.11px via [AppRadii])
+  static const Color borderCard = Color(0xFFE2E8F0);
 
   /// text/primary — Body text, labels
   static const Color textPrimary = Color(0xFF1E293B);
@@ -113,15 +113,17 @@ class AppColors {
   static const Color quickActionLibraryBg = Color(0xFFEDE9FE);
   static const Color quickActionLibraryIcon = Color(0xFF7C3AED);
 
+
+
   static const LinearGradient heroImageScrimGradient = LinearGradient(
-    begin: Alignment.bottomCenter,
-    end: Alignment.topCenter,
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    stops: [0.0, 0.5, 1.0],
     colors: [
-      Color(0xE60A1628),
-      Color(0x330A1628),
-      Color(0x000A1628),
+      Color(0xF20A1628), // #0A1628 @ 95%
+      Color(0x800A1628), // #0A1628 @ 50%
+      Color(0x00000000), // #000000 @ 0% (transparent)
     ],
-    stops: [0.0, 0.55, 1.0],
   );
 
   /// Notification badge red — used on the bell icon's unread-count dot.

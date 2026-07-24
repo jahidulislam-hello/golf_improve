@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// The outlined "Scan QR / Activation code" button between the text
@@ -16,14 +17,14 @@ class ScanQrButton extends StatelessWidget {
       width: double.infinity,
       child: Material(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: AppRadii.cardBorderRadius,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: AppRadii.buttonBorderRadius,
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadii.buttonBorderRadius,
               border: Border.all(color: AppColors.primaryNavy, width: 1.4),
             ),
             alignment: Alignment.center,

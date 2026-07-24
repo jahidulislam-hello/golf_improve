@@ -13,8 +13,8 @@ import 'package:golf_training_app/views/screens/coach/dashboard/dashboard_screen
 /// and a sticky "Send Feedback" button. All state lives in
 /// [ReviewSwingController] — pass one in, or let the screen create its
 /// own from [review].
-class ReviewSwingScreen extends StatefulWidget {
-  const ReviewSwingScreen({
+class CoachReviewSwingScreen extends StatefulWidget {
+  const CoachReviewSwingScreen({
     super.key,
     this.review,
     this.controller,
@@ -25,16 +25,16 @@ class ReviewSwingScreen extends StatefulWidget {
         );
 
   final SwingReview? review;
-  final ReviewSwingController? controller;
+  final CoachReviewSwingController? controller;
   final VoidCallback? onBack;
 
   @override
-  State<ReviewSwingScreen> createState() => _ReviewSwingScreenState();
+  State<CoachReviewSwingScreen> createState() => _ReviewSwingScreenState();
 }
 
-class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
-  late final ReviewSwingController _controller =
-      widget.controller ?? ReviewSwingController(review: widget.review!);
+class _ReviewSwingScreenState extends State<CoachReviewSwingScreen> {
+  late final CoachReviewSwingController _controller =
+      widget.controller ?? CoachReviewSwingController(review: widget.review!);
 
   @override
   void initState() {

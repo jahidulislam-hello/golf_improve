@@ -10,8 +10,8 @@ enum ReviewSwingTab { submission, yourFeedback }
 ///
 /// Wire it up with Provider/ChangeNotifierProvider, or instantiate it
 /// directly inside a StatefulWidget as shown in [ReviewSwingScreen].
-class ReviewSwingController extends ChangeNotifier {
-  ReviewSwingController({required this.review}) {
+class CoachReviewSwingController extends ChangeNotifier {
+  CoachReviewSwingController({required this.review}) {
     _coachFeedbackController = TextEditingController(text: review.coachFeedback)
       ..addListener(() => review.coachFeedback = _coachFeedbackController.text);
     _recommendedDrillController =

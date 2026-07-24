@@ -3,6 +3,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/progress/progress_controller.dart';
 import 'section_card.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 class StreakCard extends StatelessWidget {
   const StreakCard({super.key, required this.controller});
@@ -18,7 +19,7 @@ class StreakCard extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               color: AppColors.accentOrangeBg,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadii.cardBorderRadius,
             ),
             child: const Icon(
               Icons.local_fire_department_rounded,

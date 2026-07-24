@@ -1,7 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
+import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/share_with_coach_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/home/coach_feedback/coach_feedback_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_logbook_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_controller.dart';
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/library/screens/swing_analysis_screen.dart';
 
 
 /// Central controller for the Home / Dashboard screen.
@@ -30,19 +38,19 @@ class HomeController extends ChangeNotifier {
 
   final List<HeroBannerModel> heroBanners = const [
     HeroBannerModel(
-      imageAsset: 'assets/images/hero_train_smarter.jpg',
+      imageAsset: 'assets/images/golf_01.png',
       eyebrow: 'READY TO IMPROVE',
       title: 'Train smarter.\nPlay better.',
       ctaLabel: 'Start Recording',
     ),
     HeroBannerModel(
-      imageAsset: 'assets/images/hero_analyze_swing.jpg',
+      imageAsset: 'assets/images/golf_02.png',
       eyebrow: 'AI POWERED',
       title: 'Analyze every\nswing instantly.',
       ctaLabel: 'Start Recording',
     ),
     HeroBannerModel(
-      imageAsset: 'assets/images/hero_coach_review.jpg',
+      imageAsset: 'assets/images/golf_03.png',
       eyebrow: 'STAY ON TRACK',
       title: 'Get feedback\nfrom your coach.',
       ctaLabel: 'Start Recording',
@@ -186,11 +194,11 @@ class HomeController extends ChangeNotifier {
   }
 
   void onActiveSessionTap(BuildContext context) {
-    _toast(context, 'Opening "${activeSession.title}" session');
+    _openSessionTimeline(context);
   }
 
   void onViewTimelineTap(BuildContext context) {
-    _toast(context, 'Opening timeline');
+    _openSessionTimeline(context);
   }
 
   void onCoachFeedbackTap(BuildContext context) {
@@ -201,11 +209,49 @@ class HomeController extends ChangeNotifier {
       isUnread: false,
     );
     notifyListeners();
-    _toast(context, 'Opening coach feedback');
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CoachFeedbackScreen()),
+    );
+  }
+
+  void _openSessionTimeline(BuildContext context) {
+    final timelineController = SessionTimelineController();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => SessionTimelineScreen(controller: timelineController),
+          ),
+        )
+        .then((_) => timelineController.dispose());
   }
 
   void onQuickActionTap(BuildContext context, QuickActionModel action) {
-    _toast(context, '${action.title} tapped');
+    switch (action.type) {
+      case QuickActionType.aiAnalysis:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SwingAnalysisScreen()),
+        );
+        break;
+      case QuickActionType.logbook:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const GolfLogbookScreen()),
+        );
+        break;
+      case QuickActionType.shareWithCoach:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ShareWithCoachScreen()),
+        );
+        break;
+      case QuickActionType.library:
+        _openLibraryTab();
+        break;
+    }
+  }
+
+  void _openLibraryTab() {
+    if (Get.isRegistered<GolferNavbarController>()) {
+      Get.find<GolferNavbarController>().changeIndex(1);
+    }
   }
 
   void onSeeAllActivityTap(BuildContext context) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/swing_review.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// "AI Analysis Included [BETA]" card: a tappable header row plus a list
@@ -22,8 +23,8 @@ class AiAnalysisCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(

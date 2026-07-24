@@ -7,6 +7,7 @@ import '../widgets/video_preview.dart';
 import 'ai_golf_coach_screen.dart';
 import 'share_with_coach_screen.dart';
 import 'review_swing_screen.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Screen 2 — Swing Analysis (AI Golf Coach summary for one recorded swing).
 /// - Tapping the video opens Screen 5 (Review Swing).
@@ -154,7 +155,7 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               color: AppColors.primaryNavy,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: AppRadii.cardBorderRadius,
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

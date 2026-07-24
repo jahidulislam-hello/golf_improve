@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/views/screens/choose_plan/choose_plan_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/golf_stand/screen/golf_stand_activation.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/personal_info/personal_info_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/profile/profile_controller.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/profile/settings_list_item.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/settings/community_legal.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/settings/help_support_screen.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 class GolferProfileScreen extends StatefulWidget {
@@ -103,8 +108,8 @@ class _ProfileHeader extends StatelessWidget {
           ),
         ),
         Container(
-          width: 36,
-          height: 36,
+          width: 64,
+          height: 46,
           decoration: const BoxDecoration(
             color: AppColors.pillInactive,
             shape: BoxShape.circle,
@@ -119,15 +124,23 @@ class _PlanUpsellCard extends StatelessWidget {
   const _PlanUpsellCard({required this.controller});
   final GolferProfileController controller;
 
+  void _openChoosePlan(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ChoosePlanScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!controller.isFreePlan) return const SizedBox.shrink();
 
     return Container(
+      height: 104,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: AppColors.heroNavyGradient,
         borderRadius: BorderRadius.circular(20),
+        border: AppRadii.cardBorder,
       ),
       child: Row(
         children: [
@@ -144,6 +157,7 @@ class _PlanUpsellCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text('Free Plan',
                     style: AppTextStyles.body.copyWith(
@@ -160,7 +174,7 @@ class _PlanUpsellCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           ElevatedButton(
-            onPressed: controller.upgradePlan,
+            onPressed: () => _openChoosePlan(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accentOrange,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -179,33 +193,50 @@ class _GolfStandConnectedRow extends StatelessWidget {
   const _GolfStandConnectedRow({required this.controller});
   final GolferProfileController controller;
 
+  void _openGolfStand(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const GolfStandActivationScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: AppColors.successGreen,
-              shape: BoxShape.circle,
-            ),
+    return Material(
+      color: AppColors.surfaceWhite,
+      borderRadius: AppRadii.cardBorderRadius,
+      child: InkWell(
+        borderRadius: AppRadii.cardBorderRadius,
+        onTap: () => _openGolfStand(context),
+        child: Container(
+          height: 73,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: AppRadii.cardBorderRadius,
+            border: AppRadii.cardBorder,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              controller.golfStandConnected ? 'Golf Stand Connected' : 'Golf Stand Not Connected',
-              style: AppTextStyles.listItemTitle,
-            ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppColors.successGreen,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  controller.golfStandConnected
+                      ? 'Golf Stand Connected'
+                      : 'Golf Stand Not Connected',
+                  style: AppTextStyles.listItemTitle,
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
+            ],
           ),
-          const Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
-        ],
+        ),
       ),
     );
   }
@@ -220,7 +251,8 @@ class _SettingsListCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         children: [
@@ -246,13 +278,21 @@ class _SettingsListCard extends StatelessWidget {
             icon: Icons.help_outline,
             title: 'Help & Support',
             subtitle: 'Contact us anytime',
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+              );
+            },
           ),
           SettingsListItem(
             icon: Icons.grid_view_rounded,
             title: 'Community & Legal',
             subtitle: 'Privacy, data & more',
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const OthersScreen()),
+              );
+            },
             showDivider: false,
           ),
         ],
@@ -267,20 +307,46 @@ class _LogOutRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: SettingsListItem(
-        icon: Icons.logout,
-        title: 'Log out',
-        subtitle: '',
-        iconBackgroundColor: AppColors.backButtonBorder,
-        iconColor: AppColors.destructiveRed,
-        titleStyle: AppTextStyles.destructiveLabel,
-        showDivider: false,
+    return Material(
+      color: AppColors.surfaceWhite,
+      borderRadius: AppRadii.cardBorderRadius,
+      child: InkWell(
+        borderRadius: AppRadii.cardBorderRadius,
         onTap: onTap,
+        child: Container(
+          height: 73,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: AppRadii.cardBorderRadius,
+            border: AppRadii.cardBorder,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: AppColors.backButtonBorder,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.logout,
+                  size: 18,
+                  color: AppColors.destructiveRed,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('Log out', style: AppTextStyles.destructiveLabel),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.destructiveRed,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

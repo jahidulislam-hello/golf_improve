@@ -4,6 +4,7 @@ import 'package:golf_training_app/core/app_styles.dart';
 import '../../models/swing_review.dart';
 
 import 'labeled_text_area_card.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// "Respond to AI Analysis [BETA]" card: prompt text, an Agreed / Correct
 /// it pair of toggle pills, and a free-text field for extra context.
@@ -25,8 +26,8 @@ class AiAgreementCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,14 +132,14 @@ class _ChoicePill extends StatelessWidget {
 
     return Material(
       color: bg,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: AppRadii.cardBorderRadius,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: AppRadii.cardBorderRadius,
             border: Border.all(color: borderColor),
           ),
           alignment: Alignment.center,

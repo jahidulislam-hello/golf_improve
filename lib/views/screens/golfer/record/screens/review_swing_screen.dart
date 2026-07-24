@@ -6,6 +6,7 @@ import 'package:golf_training_app/core/app_styles.dart';
 import 'package:video_player/video_player.dart';
 
 import 'analysing_screen.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Screens 4-5: review the just-recorded clip, scrub through it, pick a
 /// playback speed, then either send it for AI analysis or discard it.
@@ -94,7 +95,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppRadii.cardBorderRadius,
                 ),
               ),
               onPressed: () {},
@@ -151,7 +152,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: AppRadii.buttonBorderRadius,
                           ),
                         ),
                         onPressed: _analyze,
@@ -168,7 +169,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                           foregroundColor: AppColors.destructiveRed,
                           side: BorderSide(color: AppColors.borderLightGray),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: AppRadii.buttonBorderRadius,
                           ),
                         ),
                         onPressed: _discard,
@@ -250,7 +251,7 @@ class _ScrubberCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.pillInactive,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -310,7 +311,7 @@ class _ScrubberCard extends StatelessWidget {
                       color: selected
                           ? AppCaptureColors.speedPillActiveBg
                           : AppCaptureColors.speedPillInactiveBg,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: AppRadii.cardBorderRadius,
                     ),
                     child: Text(
                       '${s == 1.0 ? '1' : s}x',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/profile/profile_screen/profile_controller.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 class PersonalInfoScreen extends StatefulWidget {
@@ -93,8 +94,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.surfaceWhite,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.borderLightGray),
+                  borderRadius: AppRadii.cardBorderRadius,
+                  border: AppRadii.cardBorder,
                 ),
                 child: TextField(
                   controller: c.fullNameController,
@@ -114,7 +115,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.pillInactive,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: AppRadii.buttonBorderRadius,
+                  border: AppRadii.cardBorder,
                 ),
                 child: TextField(
                   controller: c.emailController,

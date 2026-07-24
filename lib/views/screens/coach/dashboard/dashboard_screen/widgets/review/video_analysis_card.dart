@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// The dark video card at the top of the Review Swing screen: swing
 /// thumbnail/player, top-right expand + target (draw-annotation) buttons,
@@ -50,7 +51,7 @@ class VideoAnalysisCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadii.cardBorderRadius,
       child: AspectRatio(
         aspectRatio: 4 / 3.1,
         child: Stack(

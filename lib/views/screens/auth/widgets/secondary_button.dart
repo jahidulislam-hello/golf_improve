@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// The social-sign-in style button: a full-width pill with a leading
@@ -56,9 +57,12 @@ class SecondaryButton extends StatelessWidget {
           backgroundColor: backgroundColor,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.buttonBorderRadius,
             side: withBorder
-                ? const BorderSide(color: AppColors.borderLightGray)
+                ? const BorderSide(
+                    color: AppColors.borderCard,
+                    width: AppRadii.cardBorderWidth,
+                  )
                 : BorderSide.none,
           ),
         ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_capture_colors.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 
@@ -65,7 +66,7 @@ class _AnalysingScreenState extends State<AnalysingScreen>
                   height: 88,
                   decoration: BoxDecoration(
                     color: AppCaptureColors.analysingIconBg,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: AppRadii.cardBorderRadius,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.06),

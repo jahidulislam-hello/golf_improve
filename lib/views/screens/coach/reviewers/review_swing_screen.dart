@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/reviewers/review_models.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 
@@ -62,7 +63,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
             decoration: BoxDecoration(
               color: AppColors.noteHighlightBg,
               border: Border.all(color: AppColors.noteHighlightBorder),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadii.cardBorderRadius,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,7 +99,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
               filled: true,
               fillColor: AppColors.surfaceWhite,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: AppRadii.cardBorderRadius,
                 borderSide: BorderSide(color: AppColors.borderLightGray),
               ),
             ),
@@ -115,7 +116,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
               onPressed: _submitting ? null : _submitFeedback,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryNavy,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(borderRadius: AppRadii.buttonBorderRadius),
               ),
               child: _submitting
                   ? const SizedBox(
@@ -140,7 +141,7 @@ class _VideoPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadii.cardBorderRadius,
       child: AspectRatio(
         aspectRatio: 16 / 10,
         child: Stack(
@@ -178,8 +179,8 @@ class _AiAnalysisCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

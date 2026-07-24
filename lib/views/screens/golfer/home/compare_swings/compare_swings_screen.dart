@@ -4,6 +4,7 @@ import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/compare_swings/clip_header_row.dart';
 import 'package:golf_training_app/views/screens/golfer/home/compare_swings/video_compare_card.dart';
 import 'compare_swings_controller.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 class CompareSwingsScreen extends StatefulWidget {
@@ -98,7 +99,7 @@ class _CompareSwingsScreenState extends State<CompareSwingsScreen> {
                                   padding:
                                       const EdgeInsets.symmetric(horizontal: 22),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(22),
+                                    borderRadius: AppRadii.buttonBorderRadius,
                                   ),
                                 ),
                                 child: Text(

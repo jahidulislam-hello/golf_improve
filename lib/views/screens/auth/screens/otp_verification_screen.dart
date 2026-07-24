@@ -7,6 +7,7 @@ import '../widgets/auth_app_bar.dart';
 import '../widgets/auth_card.dart';
 import '../widgets/primary_button.dart';
 import 'reset_password_screen.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
@@ -78,7 +79,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                               fillColor: AppColors.surfaceWhite,
                               hintText: '-',
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: AppRadii.buttonBorderRadius,
                                 borderSide: BorderSide.none,
                               ),
                             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// A small caps label (optionally with a leading icon) above a white
 /// rounded text area. Used for "Your Coaching Feedback", "Recommended
@@ -48,8 +49,8 @@ class LabeledTextAreaCard extends StatelessWidget {
           padding: EdgeInsets.all(dense ? 12 : 14),
           decoration: BoxDecoration(
             color: AppColors.surfaceWhite,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderCard),
+            borderRadius: AppRadii.cardBorderRadius,
+            border: AppRadii.cardBorder,
           ),
           child: TextField(
             controller: controller,

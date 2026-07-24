@@ -3,6 +3,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/profile/profile_info_screen/profile_info_screen.dart';
 import 'profile_controller.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 class ProfileScreen extends StatefulWidget {
@@ -69,7 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: AppColors.heroNavyGradient,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: AppRadii.cardBorderRadius,
               ),
               child: Row(
                 children: [
@@ -99,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.betaBadgeBg,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: AppRadii.cardBorderRadius,
                       ),
                       child: Text('Active',
                           style: AppTextStyles.pillLabel.copyWith(color: AppColors.betaBadgeText)),
@@ -123,8 +124,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               decoration: BoxDecoration(
                 color: AppColors.surfaceWhite,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.borderCard),
+                borderRadius: AppRadii.cardBorderRadius,
+                border: AppRadii.cardBorder,
               ),
               child: Column(
                 children: [
@@ -170,17 +171,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ---- Log out ----
             Material(
               color: AppColors.surfaceWhite,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: AppRadii.cardBorderRadius,
               child: InkWell(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: AppRadii.cardBorderRadius,
                 onTap: () {
                   c.logOut();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.borderCard),
+                    borderRadius: AppRadii.cardBorderRadius,
+                    border: AppRadii.cardBorder,
                   ),
                   child: Row(
                     children: [
@@ -222,8 +223,8 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         children: [

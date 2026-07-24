@@ -14,7 +14,7 @@ import '../../widgets/review/video_analysis_card.dart';
 class YourFeedbackTab extends StatelessWidget {
   const YourFeedbackTab({super.key, required this.controller});
 
-  final ReviewSwingController controller;
+  final CoachReviewSwingController controller;
 
   @override
   Widget build(BuildContext context) {

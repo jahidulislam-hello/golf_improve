@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// A soft-tinted callout card. Two presets cover the mock:
 /// - [TintedInfoCard.question] — light blue, avatar + label + quoted text.
@@ -71,7 +72,7 @@ class TintedInfoCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
         border: Border.all(color: borderColor),
       ),
       child: Column(

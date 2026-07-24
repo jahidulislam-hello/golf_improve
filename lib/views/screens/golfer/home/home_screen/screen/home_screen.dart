@@ -10,6 +10,7 @@ import '../widgets/quick_action_card.dart';
 import '../widgets/recent_activity_tile.dart';
 import '../widgets/section_header.dart';
 import '../widgets/stat_card.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Pixel-mapped recreation of the dashboard mock: greeting header, an
 /// auto-swiping hero carousel, stat chips, an active session card, a coach
@@ -144,8 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           decoration: BoxDecoration(
                             color: AppColors.surfaceWhite,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.borderCard),
+                            borderRadius: AppRadii.cardBorderRadius,
+                            border: AppRadii.cardBorder,
                           ),
                           padding:
                               const EdgeInsets.symmetric(horizontal: 16),

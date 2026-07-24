@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/personal_info/personal_info_controller.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 class GolferPersonalInfoScreen extends StatefulWidget {
@@ -66,34 +67,39 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
           const SizedBox(height: 8),
           Center(child: _AvatarPicker()),
           const SizedBox(height: 28),
-          _FieldLabel('Full Name'),
-          const SizedBox(height: 8),
-          _TextInputBox(
-            controller: _controller.nameController,
-            hintText: 'Alex Thompson',
+          _FieldCard(
+            label: 'Full Name',
+            child: _TextInputBox(
+              controller: _controller.nameController,
+              hintText: 'Alex Thompson',
+            ),
           ),
-          const SizedBox(height: 20),
-          _FieldLabel('Email'),
-          const SizedBox(height: 8),
-          _TextInputBox(
-            controller: _controller.emailController,
-            hintText: 'example@gmail.com',
-            enabled: false,
+          const SizedBox(height: 16),
+          _FieldCard(
+            label: 'Email',
+            child: _TextInputBox(
+              controller: _controller.emailController,
+              hintText: 'example@gmail.com',
+              enabled: false,
+            ),
           ),
-          const SizedBox(height: 20),
-          _FieldLabel('Age Range'),
-          const SizedBox(height: 8),
-          _AgeRangeDropdown(controller: _controller),
-          const SizedBox(height: 20),
-          _FieldLabel('Gender'),
-          const SizedBox(height: 8),
-          _GenderPicker(controller: _controller),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          _FieldCard(
+            label: 'Age Range',
+            child: _AgeRangeDropdown(controller: _controller),
+          ),
+          const SizedBox(height: 16),
+          _FieldCard(
+            label: 'Gender',
+            child: _GenderPicker(controller: _controller),
+          ),
+          const SizedBox(height: 16),
           _HandicapCard(controller: _controller),
-          const SizedBox(height: 20),
-          _FieldLabel('Practice Sessions Per Week'),
-          const SizedBox(height: 8),
-          _PracticeSessionsPicker(controller: _controller),
+          const SizedBox(height: 16),
+          _FieldCard(
+            label: 'Practice Sessions Per Week',
+            child: _PracticeSessionsPicker(controller: _controller),
+          ),
           const SizedBox(height: 28),
           _SaveChangesButton(onPressed: _handleSave),
         ],
@@ -113,6 +119,36 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
         onPressed: () => Navigator.of(context).maybePop(),
       ),
       title: const Text('Personal Info', style: AppTextStyles.appBarTitle),
+    );
+  }
+}
+
+/// White card that holds a field label + its control together,
+/// matching the "Full Name" / "Email" / "Age Range" / "Gender" /
+/// "Practice Sessions Per Week" cards in the design.
+class _FieldCard extends StatelessWidget {
+  const _FieldCard({required this.label, required this.child});
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceWhite,
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FieldLabel(label),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
     );
   }
 }
@@ -140,7 +176,7 @@ class _AvatarPicker extends StatelessWidget {
             width: 96,
             height: 96,
             decoration: const BoxDecoration(
-              color: AppColors.cardBackground,
+              color: AppColors.backButtonBorder, // light pink — matches avatar bg in design
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.camera_alt_outlined, size: 28, color: AppColors.ctaBrightBlue),
@@ -181,7 +217,8 @@ class _TextInputBox extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: enabled ? AppColors.surfaceWhite : AppColors.borderLightGray,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(28), // fully pill-shaped, per design
+        border: enabled ? Border.all(color: AppColors.borderLightGray, width: AppRadii.cardBorderWidth) : null,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: TextField(
@@ -218,8 +255,9 @@ class _AgeRangeDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.backgroundOffWhite,
+        borderRadius: BorderRadius.circular(28), // pill shape, matches text inputs
+        border: Border.all(color: AppColors.borderLightGray, width: AppRadii.cardBorderWidth),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: DropdownButtonHideUnderline(
@@ -273,9 +311,9 @@ class _SegmentPill extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryNavy : AppColors.surfaceWhite,
+          color: selected ? AppColors.primaryNavy : AppColors.pillInactive,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -293,61 +331,72 @@ class _HandicapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const _FieldLabel('Handicap Index'),
-            Text(
-              'Range: ${GolferPersonalInfoController.minHandicap} to ${GolferPersonalInfoController.maxHandicap}',
-              style: AppTextStyles.type11,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceWhite,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceWhite,
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _StepperButton(icon: Icons.remove, onTap: controller.decrementHandicap),
-                  Text(
-                    controller.handicapIndex.toStringAsFixed(1),
-                    style: AppTextStyles.statNumber.copyWith(fontSize: 28),
-                  ),
-                  _StepperButton(icon: Icons.add, onTap: controller.incrementHandicap),
-                ],
-              ),
-              const SizedBox(height: 14),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: controller.handicapProgress.clamp(0.0, 1.0),
-                  minHeight: 6,
-                  backgroundColor: AppColors.borderLightGray,
-                  valueColor: const AlwaysStoppedAnimation(AppColors.ctaBrightBlue),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text('PRO LEVEL', style: AppTextStyles.type10),
-                  Text('BEGINNER', style: AppTextStyles.type10),
-                ],
+              const _FieldLabel('Handicap Index'),
+              Text(
+                'Range: ${GolferPersonalInfoController.minHandicap} to ${GolferPersonalInfoController.maxHandicap}',
+                style: AppTextStyles.type11,
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          // Inner white card — holds only the stepper row + underline.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundOffWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: AppRadii.cardBorder,
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _StepperButton(icon: Icons.remove, onTap: controller.decrementHandicap),
+                    Text(
+                      controller.handicapIndex.toStringAsFixed(1),
+                      style: AppTextStyles.statNumber.copyWith(fontSize: 28),
+                    ),
+                    _StepperButton(icon: Icons.add, onTap: controller.incrementHandicap),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.ctaBrightBlue,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text('PRO LEVEL', style: AppTextStyles.type10),
+              Text('BEGINNER', style: AppTextStyles.type10),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -392,7 +441,7 @@ class _PracticeSessionsPicker extends StatelessWidget {
                 alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: selected ? AppColors.primaryNavy : AppColors.surfaceWhite,
+                  color: selected ? AppColors.primaryNavy : AppColors.pillInactive,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
@@ -421,7 +470,7 @@ class _SaveChangesButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.ctaBrightBlue,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadii.buttonBorderRadius),
           elevation: 0,
         ),
         child: Row(

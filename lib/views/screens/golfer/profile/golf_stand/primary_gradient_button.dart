@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// Generic full-width gradient CTA button (e.g. "Activate Golf Stand",
@@ -28,16 +29,16 @@ class PrimaryGradientButton extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadii.buttonBorderRadius,
       child: InkWell(
         onTap: isActive ? onPressed : null,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.buttonBorderRadius,
         child: Container(
           height: 54,
           decoration: BoxDecoration(
             gradient: enabled ? AppColors.ctaBlueGradient : null,
             color: enabled ? null : AppColors.borderLightGray,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.buttonBorderRadius,
             boxShadow: enabled
                 ? [
               BoxShadow(

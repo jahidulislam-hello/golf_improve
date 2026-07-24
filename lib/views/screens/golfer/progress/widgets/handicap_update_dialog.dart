@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// The "Handicap Index" popup shown when the user taps the "Update HCP"
@@ -48,12 +49,10 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = ((_value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
-
     return Dialog(
       backgroundColor: AppColors.surfaceWhite,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: AppRadii.cardBorderRadius),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
         child: Column(
@@ -66,7 +65,7 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               decoration: BoxDecoration(
                 color: AppColors.backgroundOffWhite,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: AppRadii.cardBorderRadius,
               ),
               child: Column(
                 children: [
@@ -82,13 +81,14 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 4,
-                      backgroundColor: AppColors.borderLightGray,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.ctaBrightBlue),
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.ctaBrightBlue,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
                 ],
@@ -113,7 +113,7 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
                       foregroundColor: AppColors.textPrimary,
                       side: BorderSide.none,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadii.buttonBorderRadius),
                     ),
                     child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
@@ -127,7 +127,7 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadii.buttonBorderRadius),
                     ),
                     child: const Text('Update', style: TextStyle(fontWeight: FontWeight.w600)),
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'onboarding_page_data.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Reusable full-screen onboarding slide widget — used for screens 2, 3, 4 & 5.
 /// Full-bleed background image and a bottom glass/dark card holding eyebrow,
@@ -84,7 +85,7 @@ class OnboardingCard extends StatelessWidget {
                         backgroundColor: AppColors.ctaBrightBlue,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: AppRadii.buttonBorderRadius,
                         ),
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
