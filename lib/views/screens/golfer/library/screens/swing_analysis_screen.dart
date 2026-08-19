@@ -14,7 +14,9 @@ import 'package:golf_training_app/core/app_radii.dart';
 /// - Tapping "AI Golf Coach" opens Screen 4 (AI chat).
 /// - Tapping "Send to James Keller" opens Screen 3 (Share with Coach).
 class SwingAnalysisScreen extends StatefulWidget {
-  const SwingAnalysisScreen({super.key});
+  const SwingAnalysisScreen({super.key, this.initialData});
+
+  final Map<String, dynamic>? initialData;
 
   @override
   State<SwingAnalysisScreen> createState() => _SwingAnalysisScreenState();

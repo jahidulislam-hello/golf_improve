@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Holds all profile data and business logic.
 /// Create ONE instance and pass it down to both screens so edits
@@ -58,8 +60,10 @@ class ProfileController extends ChangeNotifier {
     return true;
   }
 
-  void logOut() {
-    // TODO: clear session / navigate to auth flow.
+  Future<void> logOut() async {
+    final sharedPreferences = await SharedPreferences.getInstance();
+    final apiService = ApiService(sharedPreferences: sharedPreferences);
+    await apiService.clearUserData();
   }
 
   @override

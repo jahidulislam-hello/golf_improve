@@ -32,6 +32,19 @@ class PracticePlanItem {
   final String id;
   String dayRangeLabel;
   String description;
+
+  Map<String, dynamic> toJson() => {
+        'dayRange': dayRangeLabel,
+        'description': description,
+      };
+
+  factory PracticePlanItem.fromJson(Map<String, dynamic> json) {
+    return PracticePlanItem(
+      id: '${json['id'] ?? DateTime.now().microsecondsSinceEpoch}',
+      dayRangeLabel: '${json['dayRange'] ?? json['dayRangeLabel'] ?? ''}',
+      description: '${json['description'] ?? ''}',
+    );
+  }
 }
 
 /// Everything the "Review Swing" screen needs: the submitted swing itself,
@@ -96,58 +109,104 @@ class SwingReview {
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
-  /// Sample data matching the "Alex Thompson · Driver · Face On" mock —
-  /// handy for previews/demos. Swap for your real repository call.
-  factory SwingReview.mockAlexThompson() {
+  factory SwingReview.fromShareApi(Map<String, dynamic> data) {
+    final user = _asMap(data['user']);
+    final swing = _asMap(data['swingLibrary']) ?? {};
+    final seconds = _asInt(swing['duration']);
+    final duration = Duration(seconds: seconds);
+    final durationLabel =
+        '${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+
     return SwingReview(
-      id: 'alex_thompson_driver_faceon',
-      studentName: 'Alex Thompson',
-      studentAvatarUrl: 'https://i.pravatar.cc/150?img=12',
-      club: 'Driver',
-      angle: 'Face On',
-      duration: const Duration(seconds: 12),
+      id: '${data['_id'] ?? ''}',
+      studentName: '${user?['name'] ?? ''}',
+      studentAvatarUrl: '${user?['profileUrl'] ?? ''}',
+      club: '${swing['clubType'] ?? ''}',
+      angle: '${swing['cameraAngle'] ?? ''}',
+      duration: duration,
       videoThumbnailUrl:
-          'https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800',
-      currentPositionLabel: '0:02/0:08',
-      studentQuestion: 'My downswing path feels off — can you check my '
-          'transition? The ball keeps going right when I swing harder.',
-      studentSessionNotes: 'Felt like my swing was improving today, more '
-          'compact at the top. Still struggling with the transition though.',
-      sessionTags: const ['takeaway', 'downswing', 'tempo'],
-      aiAnalysisPoints: [
-        const AiAnalysisPoint(
-          icon: Icons.remove_red_eye_outlined,
-          title: 'Head movement',
-          subtitle: 'Head drifts forward during backswing',
-          severity: AiAnalysisSeverity.warning,
-        ),
-        const AiAnalysisPoint(
-          icon: Icons.monitor_heart_outlined,
-          title: 'Lead leg at impact',
-          subtitle: 'Lead leg slightly bent at impact',
-          severity: AiAnalysisSeverity.warning,
-        ),
-        const AiAnalysisPoint(
-          icon: Icons.check_circle_outline_rounded,
-          title: 'Takeaway path',
-          subtitle: 'Neutral path — no issues detected',
-          severity: AiAnalysisSeverity.clean,
-        ),
-      ],
-      lastNoteOnStudent: "Watch your transition — you're firing your "
-          "upper body before your hips have cleared.",
-      practicePlan: [
-        PracticePlanItem(
-          id: 'plan_1',
-          dayRangeLabel: 'Days 1-3',
-          description: 'Hip Lead Drill only — 50% speed, 3 sets of 10',
-        ),
-        PracticePlanItem(
-          id: 'plan_2',
-          dayRangeLabel: 'Days 4-7',
-          description: 'Hip Lead Drill only — 50% speed, 3 sets of 10',
-        ),
-      ],
+          '${swing['thumbnailUrl'] ?? swing['videoUrl'] ?? ''}',
+      currentPositionLabel: seconds > 0 ? '0:00/$durationLabel' : '',
+      studentQuestion: '${data['message'] ?? ''}',
+      studentSessionNotes: '${swing['sessionNotes'] ?? ''}',
+      sessionTags: _stringList(swing['sessionTags'] ?? data['sessionTags']),
+      aiAnalysisPoints: _aiPoints(swing['aiAnalysis'] ?? data['aiAnalysis']),
+      lastNoteOnStudent: _nullableString(
+        data['lastNote'] ?? swing['lastNoteOnStudent'] ?? data['lastNoteOnStudent'],
+      ),
+      practicePlan: _practicePlan(data['practicePlan']),
     );
+  }
+
+  static Map<String, dynamic>? _asMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  static int _asInt(dynamic raw) {
+    if (raw is num) return raw.round();
+    return int.tryParse('${raw ?? ''}') ?? 0;
+  }
+
+  static String? _nullableString(dynamic raw) {
+    if (raw == null) return null;
+    final text = raw.toString();
+    return text.isEmpty ? null : text;
+  }
+
+  static List<String> _stringList(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+  }
+
+  static List<PracticePlanItem> _practicePlan(dynamic raw) {
+    if (raw is! List) return [];
+    return raw
+        .map((e) => _asMap(e))
+        .whereType<Map<String, dynamic>>()
+        .map(PracticePlanItem.fromJson)
+        .toList();
+  }
+
+  static List<AiAnalysisPoint> _aiPoints(dynamic raw) {
+    final map = _asMap(raw);
+    if (map == null || map.isEmpty) return const [];
+    return map.entries.map((entry) {
+      final subtitle = '${entry.value ?? ''}';
+      final lower = subtitle.toLowerCase();
+      final isClean = lower.contains('no issue') ||
+          lower.contains('neutral') ||
+          lower.contains('clean');
+      return AiAnalysisPoint(
+        icon: _iconForAiKey(entry.key),
+        title: _titleForAiKey(entry.key),
+        subtitle: subtitle,
+        severity:
+            isClean ? AiAnalysisSeverity.clean : AiAnalysisSeverity.warning,
+      );
+    }).toList();
+  }
+
+  static IconData _iconForAiKey(String key) {
+    switch (key) {
+      case 'headMovement':
+        return Icons.remove_red_eye_outlined;
+      case 'leadLegAtImpact':
+        return Icons.monitor_heart_outlined;
+      case 'takeawayPath':
+        return Icons.check_circle_outline_rounded;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  static String _titleForAiKey(String key) {
+    final spaced = key.replaceAllMapped(
+      RegExp(r'([A-Z])'),
+      (match) => ' ${match.group(1)}',
+    );
+    if (spaced.isEmpty) return key;
+    return spaced[0].toUpperCase() + spaced.substring(1);
   }
 }

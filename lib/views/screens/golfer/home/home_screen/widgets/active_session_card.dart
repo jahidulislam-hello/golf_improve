@@ -33,7 +33,7 @@ class ActiveSessionCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _Thumbnail(imageAsset: session.thumbnailAsset),
+              _Thumbnail(imageUrl: session.thumbnailUrl),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -63,9 +63,9 @@ class ActiveSessionCard extends StatelessWidget {
 }
 
 class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({required this.imageAsset});
+  const _Thumbnail({required this.imageUrl});
 
-  final String imageAsset;
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -77,13 +77,21 @@ class _Thumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(
-              imageAsset,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: AppColors.primaryNavy,
-              ),
-            ),
+            imageUrl.startsWith('http')
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.primaryNavy,
+                    ),
+                  )
+                : Image.asset(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.primaryNavy,
+                    ),
+                  ),
             Container(color: Colors.black.withOpacity(0.15)),
             const Center(
               child: Icon(

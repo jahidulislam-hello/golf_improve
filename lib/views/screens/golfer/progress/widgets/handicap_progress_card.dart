@@ -12,16 +12,27 @@ class HandicapProgressCard extends StatelessWidget {
   final ProgressController controller;
 
   Future<void> _openUpdateDialog(BuildContext context) async {
+    if (controller.isUpdatingHandicap) return;
     final result = await showDialog<double>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.45),
       builder: (_) => HandicapUpdateDialog(
         initialValue: controller.handicapIndex,
+        max: 54.0,
       ),
     );
-    if (result != null) {
-      controller.updateHandicapIndex(result);
-    }
+    if (result == null || !context.mounted) return;
+    final ok = await controller.updateHandicapIndex(result);
+    if (!context.mounted || ok) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(controller.errorMessage ?? 'Could not update handicap'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.primaryNavy,
+        ),
+      );
   }
 
   @override
@@ -29,6 +40,9 @@ class HandicapProgressCard extends StatelessWidget {
     final improvement = controller.improvement;
     final improvementLabel =
         '${improvement > 0 ? '+' : ''}${improvement.toStringAsFixed(1)}';
+    final lastUpdated = controller.lastUpdatedLabel.isEmpty
+        ? 'Last Updated: —'
+        : 'Last Updated: ${controller.lastUpdatedLabel}';
 
     return SectionCard(
       child: Column(
@@ -43,25 +57,38 @@ class HandicapProgressCard extends StatelessWidget {
                   children: [
                     Text('Handicap Progress', style: AppTextStyles.sectionHeader.copyWith(fontSize: 18)),
                     const SizedBox(height: 4),
-                    Text('Last Updated: Today', style: AppTextStyles.caption),
+                    Text(lastUpdated, style: AppTextStyles.caption),
                   ],
                 ),
               ),
               ElevatedButton(
-                onPressed: () => _openUpdateDialog(context),
+                onPressed: controller.isUpdatingHandicap
+                    ? null
+                    : () => _openUpdateDialog(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.ctaBrightBlue,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      AppColors.ctaBrightBlue.withOpacity(0.6),
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: AppRadii.buttonBorderRadius,
                   ),
                 ),
-                child: const Text(
-                  'Update HCP',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
+                child: controller.isUpdatingHandicap
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Update HCP',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
               ),
             ],
           ),
@@ -80,7 +107,7 @@ class HandicapProgressCard extends StatelessWidget {
                 child: _StatBox(
                   label: 'Improvement',
                   value: improvementLabel,
-                  valueColor: const Color(0xFFEF4444),
+                  valueColor: AppColors.destructiveRed,
                 ),
               ),
             ],
@@ -88,7 +115,7 @@ class HandicapProgressCard extends StatelessWidget {
           const SizedBox(height: 18),
           LineAreaChart(
             values: controller.handicapTrend,
-            labels: const ['MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG'],
+            labels: controller.handicapTrendLabels,
             lineColor: AppColors.ctaBrightBlue,
             fillTopColor: AppColors.chartFillTop,
             dotAtEndOnly: true,

@@ -8,18 +8,12 @@ import 'package:golf_training_app/core/app_radii.dart';
 class GolferPersonalInfoScreen extends StatefulWidget {
   const GolferPersonalInfoScreen({
     super.key,
-    required this.name,
-    required this.handicap,
     this.onSaved,
   });
 
-  /// Current name / handicap, usually passed in from ProfileController.
-  final String name;
-  final double handicap;
-
   /// Called after Save Changes succeeds so the caller (Profile screen)
   /// can update its own state.
-  final void Function(String name, double handicap)? onSaved;
+  final void Function(PersonalInfoPayload payload)? onSaved;
 
   @override
   State<GolferPersonalInfoScreen> createState() => _GolferPersonalInfoScreenState();
@@ -31,10 +25,7 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = GolferPersonalInfoController(
-      name: widget.name,
-      handicapIndex: widget.handicap,
-    );
+    _controller = GolferPersonalInfoController();
     _controller.addListener(_onControllerChanged);
   }
 
@@ -48,10 +39,17 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
   }
 
   Future<void> _handleSave() async {
-    await _controller.saveChanges();
+    final success = await _controller.saveChanges();
+    if (!success) return;
     widget.onSaved?.call(
-      _controller.nameController.text,
-      _controller.handicapIndex,
+      PersonalInfoPayload(
+        name: _controller.nameController.text.trim(),
+        email: _controller.emailController.text.trim(),
+        ageRange: _controller.ageRange,
+        genderLabel: _controller.gender?.label ?? '',
+        practiceSessionsPerWeek: _controller.practiceSessionsPerWeek,
+        handicap: _controller.handicapIndex,
+      ),
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -61,17 +59,19 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
       appBar: _buildAppBar(context),
-      body: ListView(
+      body: _controller.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           const SizedBox(height: 8),
-          Center(child: _AvatarPicker()),
+          Center(child: _AvatarPicker(imageUrl: _controller.avatarUrl)),
           const SizedBox(height: 28),
           _FieldCard(
             label: 'Full Name',
             child: _TextInputBox(
               controller: _controller.nameController,
-              hintText: 'Alex Thompson',
+              hintText: 'Full name',
             ),
           ),
           const SizedBox(height: 16),
@@ -79,7 +79,7 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
             label: 'Email',
             child: _TextInputBox(
               controller: _controller.emailController,
-              hintText: 'example@gmail.com',
+              hintText: 'Email',
               enabled: false,
             ),
           ),
@@ -101,7 +101,10 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
             child: _PracticeSessionsPicker(controller: _controller),
           ),
           const SizedBox(height: 28),
-          _SaveChangesButton(onPressed: _handleSave),
+          _SaveChangesButton(
+            onPressed: _controller.isSaving ? null : _handleSave,
+            isSaving: _controller.isSaving,
+          ),
         ],
       ),
     );
@@ -121,6 +124,24 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
       title: const Text('Personal Info', style: AppTextStyles.appBarTitle),
     );
   }
+}
+
+class PersonalInfoPayload {
+  const PersonalInfoPayload({
+    required this.name,
+    required this.email,
+    required this.ageRange,
+    required this.genderLabel,
+    required this.practiceSessionsPerWeek,
+    required this.handicap,
+  });
+
+  final String name;
+  final String email;
+  final String? ageRange;
+  final String genderLabel;
+  final int practiceSessionsPerWeek;
+  final double handicap;
 }
 
 /// White card that holds a field label + its control together,
@@ -164,6 +185,9 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _AvatarPicker extends StatelessWidget {
+  const _AvatarPicker({this.imageUrl});
+  final String? imageUrl;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -175,11 +199,23 @@ class _AvatarPicker extends StatelessWidget {
           Container(
             width: 96,
             height: 96,
-            decoration: const BoxDecoration(
-              color: AppColors.backButtonBorder, // light pink — matches avatar bg in design
+            decoration: BoxDecoration(
+              color: AppColors.backButtonBorder,
               shape: BoxShape.circle,
+              image: imageUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(imageUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
-            child: const Icon(Icons.camera_alt_outlined, size: 28, color: AppColors.ctaBrightBlue),
+            child: imageUrl == null
+                ? const Icon(
+                    Icons.camera_alt_outlined,
+                    size: 28,
+                    color: AppColors.ctaBrightBlue,
+                  )
+                : null,
           ),
           Positioned(
             right: -2,
@@ -241,22 +277,12 @@ class _AgeRangeDropdown extends StatelessWidget {
   const _AgeRangeDropdown({required this.controller});
   final GolferPersonalInfoController controller;
 
-  static const List<String> _options = [
-    'Under 18',
-    '18–24',
-    '25–34',
-    '35–44',
-    '45–54',
-    '55–64',
-    '65+',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.backgroundOffWhite,
-        borderRadius: BorderRadius.circular(28), // pill shape, matches text inputs
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(color: AppColors.borderLightGray, width: AppRadii.cardBorderWidth),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -267,7 +293,7 @@ class _AgeRangeDropdown extends StatelessWidget {
           icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
           hint: const Text('Select Your Age', style: AppTextStyles.inputValue),
           style: AppTextStyles.inputValue,
-          items: _options
+          items: GolferPersonalInfoController.ageRangeOptions
               .map((age) => DropdownMenuItem(value: age, child: Text(age)))
               .toList(),
           onChanged: controller.setAgeRange,
@@ -458,8 +484,9 @@ class _PracticeSessionsPicker extends StatelessWidget {
 }
 
 class _SaveChangesButton extends StatelessWidget {
-  const _SaveChangesButton({required this.onPressed});
-  final VoidCallback onPressed;
+  const _SaveChangesButton({required this.onPressed, required this.isSaving});
+  final VoidCallback? onPressed;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -475,10 +502,21 @@ class _SaveChangesButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text('Save Changes', style: AppTextStyles.buttonLabel),
-            SizedBox(width: 8),
-            Icon(Icons.arrow_forward, size: 18, color: AppColors.surfaceWhite),
+          children: [
+            if (isSaving) ...[
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.surfaceWhite,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            const Text('Save Changes', style: AppTextStyles.buttonLabel),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_forward, size: 18, color: AppColors.surfaceWhite),
           ],
         ),
       ),

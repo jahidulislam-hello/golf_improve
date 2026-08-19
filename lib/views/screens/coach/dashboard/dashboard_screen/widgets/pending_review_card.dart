@@ -107,18 +107,25 @@ class _Avatar extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: AppRadii.cardBorderRadius,
-          child: Image.network(
-            url,
-            width: 48,
-            height: 48,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              width: 48,
-              height: 48,
-              color: AppColors.pillInactive,
-              child: const Icon(Icons.person, color: AppColors.textSecondary),
-            ),
-          ),
+          child: url.isEmpty
+              ? Container(
+                  width: 48,
+                  height: 48,
+                  color: AppColors.pillInactive,
+                  child: const Icon(Icons.person, color: AppColors.textSecondary),
+                )
+              : Image.network(
+                  url,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 48,
+                    height: 48,
+                    color: AppColors.pillInactive,
+                    child: const Icon(Icons.person, color: AppColors.textSecondary),
+                  ),
+                ),
         ),
         if (unread)
           Positioned(

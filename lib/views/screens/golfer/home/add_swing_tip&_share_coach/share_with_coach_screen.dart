@@ -9,7 +9,9 @@ import 'package:golf_training_app/core/app_radii.dart';
 
 
 class ShareWithCoachScreen extends StatefulWidget {
-  const ShareWithCoachScreen({super.key});
+  const ShareWithCoachScreen({super.key, this.initialData});
+
+  final Map<String, dynamic>? initialData;
 
   @override
   State<ShareWithCoachScreen> createState() => _ShareWithCoachScreenState();

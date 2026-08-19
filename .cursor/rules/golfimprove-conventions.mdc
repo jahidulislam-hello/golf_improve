@@ -1,0 +1,17 @@
+---
+description: Coding conventions for GolfImprove Flutter UI and upcoming API work
+alwaysApply: true
+---
+
+# Conventions
+
+- Use `AppColors`, `AppTextStyles`, `AppRadii`, `AppCaptureColors`. Do not invent new hex/type tokens unless adding them to `lib/core/`.
+- Size with ScreenUtil (`.w` `.h` `.sp` `.r`) against 393×852. Keep Inter.
+- Colocate controllers, models, and widgets with the screen. Do not create a new global `lib/widgets/` unless asked.
+- Duplicate names exist (`ReviewSwingScreen`, `ShareWithCoachScreen`, `StatCard`). Import the path for **this** feature.
+- `app_icons.dart` / `app_images.dart` are empty; asset paths are currently raw strings (`assets/icons/...`, `assets/images/...`).
+- Auth is still local fake. When wiring API: use `ApiService` + `ApiConstants`; add the missing SharedPreferences key constants `ApiService` already reads (`keyAccessToken`, `keyRefreshToken`, `keyUserData`, `keyIsLoggedIn`, expiry keys).
+- Google/Apple buttons and Choose Plan trial are no-ops until implemented.
+- Always skip `lib/views/dummy/`: never read, import, edit, or copy from it.
+- Native CAMERA/MIC/location plist/manifest entries are missing even though Dart requests camera permission.
+- Match existing UI patterns: `PrimaryButton` / `AuthTextField` in auth; navbar shells stay in `lib/views/base/`.

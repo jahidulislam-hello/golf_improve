@@ -13,7 +13,7 @@ class HandicapUpdateDialog extends StatefulWidget {
     super.key,
     required this.initialValue,
     this.min = 0.0,
-    this.max = 36.0,
+    this.max = 54.0,
     this.step = 0.1,
   });
 

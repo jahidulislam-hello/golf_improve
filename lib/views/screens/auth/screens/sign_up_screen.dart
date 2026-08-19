@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
-import 'package:golf_training_app/helpers/routes.dart';
-import 'package:golf_training_app/views/screens/auth/screens/tell_us_about_your.dart';
-import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
+import 'package:golf_training_app/views/screens/auth/screens/sign_up_otp_verification_screen.dart';
 import 'package:provider/provider.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/golf_logo.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
 import 'sign_in_screen.dart';
+
+void _showAuthError(BuildContext context, AuthController auth) {
+  final message = auth.errorMessage;
+  if (message == null || message.isEmpty) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
 
 class SignUpScreen extends StatelessWidget {
   const SignUpScreen({super.key});
@@ -79,18 +85,16 @@ class SignUpScreen extends StatelessWidget {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.signUp();
-                  if (!success || !context.mounted) return;
-
-                  // Coach skips "Tell us about yourself" → CoachNavbar
-                  if (auth.selectedRole == UserRole.coach) {
-                    AppRoutes.goToHomeForRole(UserRole.coach);
+                  if (!context.mounted) return;
+                  if (!success) {
+                    _showAuthError(context, auth);
                     return;
                   }
 
-                  // Golfer → profile setup, then GolferNavbar
+                  // Both roles → OTP verification after register API
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
-                      builder: (_) => const ProfileSetUpScreen(),
+                      builder: (_) => const SignUpOtpVerificationScreen(),
                     ),
                   );
                 },

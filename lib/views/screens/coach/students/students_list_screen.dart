@@ -3,26 +3,38 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'student.dart';
 import 'student_detail_screen.dart';
+import 'students_controller.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
-class StudentsScreen extends StatelessWidget {
-  const StudentsScreen({super.key});
+class StudentsScreen extends StatefulWidget {
+  const StudentsScreen({super.key, this.controller});
 
-  static final List<Student> students = [
-    Student(name: 'Alex Thompson', handicap: 12.4, swingsThisWeek: 12, avgScore: 84,
-        progressColor: AppColors.ctaBrightBlue, totalSwings: 847, sessions: 47,
-        recentUploads: [
-          {'title': 'Driver · Face On', 'time': 'Today, 9:14 AM', 'score': 84},
-          {'title': '7 Iron · Down the Line', 'time': 'Yesterday', 'score': 91},
-          {'title': 'Wedge · Side On', 'time': 'Mon, 11:00 AM', 'score': 76},
-        ]),
-    Student(name: 'Sarah Chen', handicap: 8.1, swingsThisWeek: 8, avgScore: 91,
-        progressColor: AppColors.successGreen, totalSwings: 612, sessions: 35),
-    Student(name: 'Mike Rodriguez', handicap: 18.5, swingsThisWeek: 6, avgScore: 72,
-        progressColor: AppColors.quickActionShareIcon, totalSwings: 401, sessions: 22),
-    Student(name: 'Emma Park', handicap: 15.0, swingsThisWeek: 15, avgScore: 88,
-        progressColor: AppColors.successGreen, totalSwings: 733, sessions: 41),
-  ];
+  final StudentsController? controller;
+
+  @override
+  State<StudentsScreen> createState() => _StudentsScreenState();
+}
+
+class _StudentsScreenState extends State<StudentsScreen> {
+  late final StudentsController _controller;
+  late final bool _ownsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsController = widget.controller == null;
+    _controller = widget.controller ?? StudentsController();
+    _controller.addListener(_onChanged);
+  }
+
+  void _onChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChanged);
+    if (_ownsController) _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,26 +63,58 @@ class StudentsScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Text('${students.length} students', style: AppTextStyles.caption),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: students.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) {
-                    final s = students[i];
-                    return _StudentCard(
-                      student: s,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => StudentDetailScreen(student: s)),
-                      ),
-                    );
-                  },
-                ),
+              Text(
+                '${_controller.totalStudents} students',
+                style: AppTextStyles.caption,
               ),
+              const SizedBox(height: 16),
+              Expanded(child: _buildList()),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildList() {
+    if (_controller.isLoading && !_controller.hasLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_controller.errorMessage != null && !_controller.hasLoaded) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _controller.errorMessage!,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+            ),
+            TextButton(
+              onPressed: () => _controller.loadStudents(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.ctaBrightBlue,
+      onRefresh: _controller.refresh,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _controller.students.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, i) {
+          final s = _controller.students[i];
+          return _StudentCard(
+            student: s,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => StudentDetailScreen(student: s)),
+            ),
+          );
+        },
       ),
     );
   }
@@ -88,7 +132,7 @@ class _StudentCard extends StatelessWidget {
       borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
         borderRadius: AppRadii.cardBorderRadius,
-        onTap: onTap, // <-- THIS is what pushes to the second screen
+        onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -101,17 +145,28 @@ class _StudentCard extends StatelessWidget {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: AppColors.quickActionAiBg,
-                child: Text(student.initials,
-                    style: AppTextStyles.body.copyWith(
-                        color: AppColors.quickActionAiIcon, fontWeight: FontWeight.w700)),
+                backgroundImage: student.profileUrl.isNotEmpty
+                    ? NetworkImage(student.profileUrl)
+                    : null,
+                child: student.profileUrl.isEmpty
+                    ? Text(
+                        student.initials,
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.quickActionAiIcon,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(student.name,
-                        style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      student.name,
+                      style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       'HCP ${student.handicap.toStringAsFixed(1)} · ${student.swingsThisWeek} swings this week',
@@ -121,7 +176,7 @@ class _StudentCard extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: student.avgScore / 100,
+                        value: (student.avgScore / 100).clamp(0, 1),
                         minHeight: 6,
                         backgroundColor: AppColors.pillInactive,
                         valueColor: AlwaysStoppedAnimation(student.progressColor),
@@ -134,9 +189,13 @@ class _StudentCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('${student.avgScore}%',
-                      style: AppTextStyles.type20.copyWith(
-                          fontWeight: FontWeight.w800, color: AppColors.primaryNavy)),
+                  Text(
+                    '${student.avgScore}%',
+                    style: AppTextStyles.type20.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryNavy,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text('Avg score', style: AppTextStyles.caption),
                 ],

@@ -1,0 +1,33 @@
+---
+description: GolfImprove project map — roles, flow, folders, current API status
+alwaysApply: true
+---
+
+# GolfImprove (golf_training_app)
+
+Dual-role Flutter app: **Golfer** records/analyzes swings; **Coach** reviews students. Title in `GetMaterialApp`: GolfImprove. Design size 393×852 (`flutter_screenutil`). Font Inter. Portrait only.
+
+## Flow
+
+Splash → Onboarding (4) → Role select (`UserRole.golfer|coach`) → Sign In.
+
+- After auth: `AppRoutes.goToHomeForRole()` → `GolferNavbar` or `CoachNavbar`.
+- Golfer sign-up also hits `ProfileSetUpScreen` (`tell_us_about_your.dart`). Coach sign-up skips it.
+- Forgot/OTP/reset use `Navigator.push`, not GetX.
+
+## Shells
+
+- Golfer tabs: Home, Library, Record (fullscreen, hides bar), Progress, Profile.
+- Coach tabs: DashBoard, Students, Reviews, Profile.
+
+## State & routing
+
+- Provider `AuthController` for auth/onboarding forms (currently **mock delays**, no HTTP).
+- GetX for navbars + many feature controllers.
+- Registered GetPages: splash, onboarding, role, sign-in, both navbars, home. Everything else is `MaterialPageRoute` / `Get.to`.
+
+## Layout
+
+Feature-local files under `lib/views/screens/{golfer|coach}/...`. Tokens in `lib/core/`. Routes in `lib/helpers/routes.dart`. HTTP in `lib/services/api_services.dart` + `lib/utils/api_constants.dart` (`https://golf.ssh.bd/api/v1`) — **not wired to UI yet**. Always skip `lib/views/dummy/`.
+
+Mocks use persona Alex Thompson, HCP 12.4, 847 swings.

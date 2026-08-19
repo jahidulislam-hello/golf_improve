@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/profile/profile_info_screen/profile_info_screen.dart';
+import '../../../auth/screens/sign_in_screen.dart';
 import 'profile_controller.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
@@ -169,42 +170,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 16),
 
             // ---- Log out ----
-            Material(
-              color: AppColors.surfaceWhite,
+      Material(
+        color: AppColors.surfaceWhite,
+        borderRadius: AppRadii.cardBorderRadius,
+        child: InkWell(
+          borderRadius: AppRadii.cardBorderRadius,
+          onTap: () async {
+            await c.logOut();
+            if (!context.mounted) return;
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const SignInScreen()),
+              (route) => false,
+            );
+          },
+          child: Container(
+            height: 73,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
               borderRadius: AppRadii.cardBorderRadius,
-              child: InkWell(
-                borderRadius: AppRadii.cardBorderRadius,
-                onTap: () {
-                  c.logOut();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: AppRadii.cardBorderRadius,
-                    border: AppRadii.cardBorder,
+              border: AppRadii.cardBorder,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: AppColors.backButtonBorder,
+                    shape: BoxShape.circle,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.aiWarningBg,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.logout, color: AppColors.destructiveRed, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text('Log out',
-                            style: AppTextStyles.body.copyWith(
-                                color: AppColors.destructiveRed, fontWeight: FontWeight.w700)),
-                      ),
-                      Icon(Icons.chevron_right, color: AppColors.destructiveRed),
-                    ],
+                  child: const Icon(
+                    Icons.logout,
+                    size: 18,
+                    color: AppColors.destructiveRed,
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text('Log out', style: AppTextStyles.destructiveLabel),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.destructiveRed,
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
           ],
         ),
       ),
@@ -283,3 +297,4 @@ class _MenuTile extends StatelessWidget {
     );
   }
 }
+

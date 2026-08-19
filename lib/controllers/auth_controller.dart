@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/auth_service.dart';
 import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
 
-/// One controller class for the whole auth + onboarding flow, as requested.
-/// Wire it up with `provider`:
-///
-///   ChangeNotifierProvider(create: (_) => AuthController(), child: MyApp())
-///
-/// and read it in a screen with:
-///
-///   final auth = context.watch<AuthController>();
+enum OtpFlow { signUp, forgotPassword }
+
+/// One controller class for the whole auth + onboarding flow.
 class AuthController extends ChangeNotifier {
+  AuthController({required AuthService authService}) : _authService = authService;
+
+  final AuthService _authService;
+
   // ---------------------------------------------------------------------
   // Selected role (golfer / coach) — set on role selection screen
   // ---------------------------------------------------------------------
@@ -23,15 +24,67 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Restores session from SharedPreferences after splash.
+  /// Returns the saved role when token + user are present, otherwise null.
+  UserRole? restoreSession() {
+    if (!_authService.hasActiveSession) return null;
+
+    final role = _authService.getSavedUserRole();
+    if (role == null) return null;
+
+    selectedRole = role;
+    notifyListeners();
+    return role;
+  }
+
+  /// Clears persisted auth and in-memory auth state (logout).
+  Future<void> logout() async {
+    await _authService.clearSession();
+    selectedRole = null;
+    clearError();
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------------
   // Shared loading / error state
   // ---------------------------------------------------------------------
   bool isLoading = false;
   String? errorMessage;
 
+  /// Which OTP screen flow is active (sign-up vs forgot password).
+  OtpFlow otpFlow = OtpFlow.signUp;
+
+  void clearError() {
+    errorMessage = null;
+    notifyListeners();
+  }
+
   void _setLoading(bool value) {
     isLoading = value;
     notifyListeners();
+  }
+
+  void _setError(String message) {
+    errorMessage = message;
+    notifyListeners();
+  }
+
+  Future<bool> _runAuthCall(Future<void> Function() action) async {
+    clearError();
+    _setLoading(true);
+    try {
+      await action();
+      _setLoading(false);
+      return true;
+    } on ApiError catch (e) {
+      _setLoading(false);
+      _setError(e.message);
+      return false;
+    } catch (_) {
+      _setLoading(false);
+      _setError('An unexpected error occurred.');
+      return false;
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -57,10 +110,24 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> signIn() async {
-    _setLoading(true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    _setLoading(false);
-    return signInEmail.isNotEmpty && signInPassword.isNotEmpty;
+    if (signInEmail.trim().isEmpty || signInPassword.isEmpty) {
+      _setError('Please enter your email and password.');
+      return false;
+    }
+
+    return _runAuthCall(() async {
+      final response = await _authService.login(
+        email: signInEmail.trim(),
+        password: signInPassword,
+      );
+      await _authService.persistAuthResponse(response);
+
+      final apiRole = _authService.roleFromResponse(response);
+      if (apiRole != null) {
+        selectedRole = apiRole;
+      }
+      await _authService.ensureRestorableSession(role: apiRole);
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -92,12 +159,29 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> signUp() async {
-    _setLoading(true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    _setLoading(false);
-    return fullName.isNotEmpty &&
-        signUpEmail.isNotEmpty &&
-        signUpPassword.isNotEmpty;
+    if (selectedRole == null) {
+      _setError('Please choose your role first.');
+      return false;
+    }
+    if (fullName.trim().isEmpty ||
+        signUpEmail.trim().isEmpty ||
+        signUpPassword.isEmpty) {
+      _setError('Please fill in all fields.');
+      return false;
+    }
+
+    return _runAuthCall(() async {
+      otpFlow = OtpFlow.signUp;
+      final response = await _authService.register(
+        name: fullName.trim(),
+        email: signUpEmail.trim(),
+        password: signUpPassword,
+        role: selectedRole!,
+      );
+      // Some backends issue temporary/regular token at register; persist it
+      // so verify-otp and profile update can be authorized.
+      await _authService.persistAuthResponse(response);
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -111,10 +195,19 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> sendResetCode() async {
-    _setLoading(true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    _setLoading(false);
-    return resetEmail.isNotEmpty;
+    if (resetEmail.trim().isEmpty) {
+      _setError('Please enter your email.');
+      return false;
+    }
+
+    return _runAuthCall(() async {
+      otpFlow = OtpFlow.forgotPassword;
+      final response =
+          await _authService.forgotPassword(email: resetEmail.trim());
+      // Backend returns `data.token` from forgot-password. Persist it so
+      // verify-otp / reset-password can work via Authorization header.
+      await _authService.persistAuthResponse(response);
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -127,20 +220,58 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearOtpDigits() {
+    otpDigits = List.filled(6, '');
+    notifyListeners();
+  }
+
   String get otpCode => otpDigits.join();
 
   Future<bool> verifyOtp() async {
-    _setLoading(true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    _setLoading(false);
-    return otpDigits.every((d) => d.isNotEmpty);
+    if (!otpDigits.every((d) => d.isNotEmpty)) {
+      _setError('Please enter the full OTP code.');
+      return false;
+    }
+
+    return _runAuthCall(() async {
+      if (otpFlow == OtpFlow.forgotPassword) {
+        await _authService.verifyForgotPasswordOtp(otp: otpCode);
+        return;
+      }
+
+      final response = await _authService.verifySignUpOtp(
+        otp: otpCode,
+        email: signUpEmail.trim(),
+      );
+      await _authService.persistAuthResponse(response);
+
+      final apiRole = _authService.roleFromResponse(response);
+      if (apiRole != null) {
+        selectedRole = apiRole;
+      }
+      await _authService.ensureRestorableSession(role: apiRole);
+    });
   }
 
-  Future<void> resendOtp() async {
-    _setLoading(true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    otpDigits = List.filled(6, '');
-    _setLoading(false);
+  Future<bool> resendOtp() async {
+    final email = otpFlow == OtpFlow.forgotPassword
+        ? resetEmail.trim()
+        : signUpEmail.trim();
+
+    if (email.isEmpty) {
+      _setError('Email is missing. Please go back and try again.');
+      return false;
+    }
+
+    final success = await _runAuthCall(() async {
+      final response = await _authService.resendOtp(email: email);
+      await _authService.persistAuthResponse(response);
+    });
+
+    if (success) {
+      clearOtpDigits();
+    }
+    return success;
   }
 
   // ---------------------------------------------------------------------
@@ -172,19 +303,30 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> resetPassword() async {
-    _setLoading(true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    _setLoading(false);
-    return newPassword.isNotEmpty && newPassword == confirmPassword;
+    if (newPassword.isEmpty || confirmPassword.isEmpty) {
+      _setError('Please enter and confirm your new password.');
+      return false;
+    }
+    if (newPassword != confirmPassword) {
+      _setError('Passwords do not match.');
+      return false;
+    }
+
+    return _runAuthCall(() async {
+      await _authService.resetPassword(
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+    });
   }
 
   // ---------------------------------------------------------------------
   // Onboarding — "Tell us about yourself"
   // ---------------------------------------------------------------------
-  String? ageRange; // e.g. "24"
-  String gender = 'Man'; // Man / Woman / Non-binary / Prefer not to say
+  String? ageRange;
+  String gender = 'Man';
   double handicapIndex = 12.4;
-  String practiceSessionsPerWeek = '2'; // '1' / '2' / '3+'
+  String practiceSessionsPerWeek = '2';
 
   void setAgeRange(String value) {
     ageRange = value;
@@ -202,19 +344,35 @@ class AuthController extends ChangeNotifier {
   }
 
   void incrementHandicap() {
-    handicapIndex = double.parse((handicapIndex + 0.1).clamp(0, 40).toStringAsFixed(1));
+    handicapIndex =
+        double.parse((handicapIndex + 0.1).clamp(0, 40).toStringAsFixed(1));
     notifyListeners();
   }
 
   void decrementHandicap() {
-    handicapIndex = double.parse((handicapIndex - 0.1).clamp(0, 40).toStringAsFixed(1));
+    handicapIndex =
+        double.parse((handicapIndex - 0.1).clamp(0, 40).toStringAsFixed(1));
+    notifyListeners();
+  }
+
+  void setHandicapIndex(double value) {
+    handicapIndex = double.parse(value.clamp(0, 40).toStringAsFixed(1));
     notifyListeners();
   }
 
   Future<bool> completeOnboarding() async {
-    _setLoading(true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    _setLoading(false);
-    return ageRange != null;
+    if (ageRange == null) {
+      _setError('Please select your age range.');
+      return false;
+    }
+
+    return _runAuthCall(() async {
+      await _authService.updateRegisterProfile(
+        age: ageRange!,
+        gender: gender,
+        handicap: handicapIndex,
+        practiceSessionPerWeek: practiceSessionsPerWeek,
+      );
+    });
   }
 }

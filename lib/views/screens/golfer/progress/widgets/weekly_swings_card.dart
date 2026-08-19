@@ -29,7 +29,7 @@ class WeeklySwingsCard extends StatelessWidget {
           const SizedBox(height: 18),
           LineAreaChart(
             values: controller.weeklySwingSeries,
-            labels: ProgressController.weeklySwingLabels,
+            labels: controller.weeklySwingLabels,
             lineColor: AppColors.ctaBrightBlue,
             fillTopColor: AppColors.chartFillTop,
             showAllDots: true,

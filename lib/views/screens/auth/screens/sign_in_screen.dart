@@ -12,6 +12,14 @@ import '../widgets/secondary_button.dart';
 import 'forgot_password_screen.dart';
 import 'sign_up_screen.dart';
 
+void _showAuthError(BuildContext context, AuthController auth) {
+  final message = auth.errorMessage;
+  if (message == null || message.isEmpty) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
 class SignInScreen extends StatelessWidget {
   const SignInScreen({super.key});
 
@@ -83,10 +91,12 @@ class SignInScreen extends StatelessWidget {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.signIn();
-                  if (success && context.mounted) {
-                    // Coach → CoachNavbar, Golfer → GolferNavbar
-                    AppRoutes.goToHomeForRole(auth.selectedRole);
+                  if (!context.mounted) return;
+                  if (!success) {
+                    _showAuthError(context, auth);
+                    return;
                   }
+                  AppRoutes.goToHomeForRole(auth.selectedRole);
                 },
               ),
               const SizedBox(height: 20),

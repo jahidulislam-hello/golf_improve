@@ -42,8 +42,10 @@ class SubmissionTab extends StatelessWidget {
           notes: review.studentSessionNotes,
           tags: review.sessionTags,
         ),
-        const SizedBox(height: 14),
-        AiAnalysisCard(points: review.aiAnalysisPoints),
+        if (review.aiAnalysisPoints.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          AiAnalysisCard(points: review.aiAnalysisPoints),
+        ],
         if (review.lastNoteOnStudent != null) ...[
           const SizedBox(height: 14),
           TintedInfoCard.note(

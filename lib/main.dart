@@ -3,17 +3,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'controllers/auth_controller.dart';
 import 'helpers/routes.dart';
+import 'services/api_services.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations(
-      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
+    [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],
+  );
+
+  final sharedPreferences = await SharedPreferences.getInstance();
+  final apiService = ApiService(sharedPreferences: sharedPreferences);
+  final authService = AuthService(apiService: apiService);
+
   runApp(
     ChangeNotifierProvider(
-      create: (_) => AuthController(),
+      create: (_) => AuthController(authService: authService),
       child: const MyApp(),
     ),
   );
@@ -27,7 +36,6 @@ class MyApp extends StatelessWidget {
     return ScreenUtilInit(
       designSize: const Size(393, 852),
       minTextAdapt: true,
-
       splitScreenMode: true,
       builder: (_, child) {
         return GetMaterialApp(

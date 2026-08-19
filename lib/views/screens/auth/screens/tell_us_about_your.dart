@@ -12,6 +12,14 @@ import '../widgets/pill_selector.dart';
 import '../widgets/primary_button.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
+void _showAuthError(BuildContext context, AuthController auth) {
+  final message = auth.errorMessage;
+  if (message == null || message.isEmpty) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
 class ProfileSetUpScreen extends StatelessWidget {
   const ProfileSetUpScreen({super.key});
 
@@ -153,15 +161,7 @@ class ProfileSetUpScreen extends StatelessWidget {
                         min: 0,
                         max: 40,
                         value: auth.handicapIndex.clamp(0, 40),
-                        onChanged: (value) {
-                          // snap through the +/- helpers so state stays in sync
-                          final diff = value - auth.handicapIndex;
-                          if (diff > 0) {
-                            auth.incrementHandicap();
-                          } else if (diff < 0) {
-                            auth.decrementHandicap();
-                          }
-                        },
+                        onChanged: auth.setHandicapIndex,
                       ),
                     ),
                     Row(
@@ -199,10 +199,12 @@ class ProfileSetUpScreen extends StatelessWidget {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.completeOnboarding();
-                  if (success && context.mounted) {
-                    // Golfer profile setup complete → GolferNavbar
-                    AppRoutes.goToHomeForRole(auth.selectedRole);
+                  if (!context.mounted) return;
+                  if (!success) {
+                    _showAuthError(context, auth);
+                    return;
                   }
+                  AppRoutes.goToHomeForRole(auth.selectedRole);
                 },
               ),
             ],

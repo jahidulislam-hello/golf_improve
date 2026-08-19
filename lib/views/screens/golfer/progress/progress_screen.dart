@@ -19,10 +19,12 @@ class ProgressScreen extends StatefulWidget {
 
 class _ProgressScreenState extends State<ProgressScreen> {
   late final ProgressController _controller;
+  late final bool _ownsController;
 
   @override
   void initState() {
     super.initState();
+    _ownsController = widget.controller == null;
     _controller = widget.controller ?? ProgressController();
     _controller.addListener(_onChanged);
   }
@@ -32,6 +34,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
   @override
   void dispose() {
     _controller.removeListener(_onChanged);
+    if (_ownsController) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
@@ -51,44 +56,80 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   bottom: BorderSide(color: AppColors.borderLightGray),
                 ),
               ),
-              child: Text('My Progress', style: AppTextStyles.screenTitle),
+              child: const Text('My Progress', style: AppTextStyles.screenTitle),
             ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  ThisWeekCard(controller: _controller),
-                  StreakCard(controller: _controller),
-                  HandicapProgressCard(controller: _controller),
-                  WeeklySwingsCard(controller: _controller),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: MiniStatCard(
-                          icon: Icons.access_time_rounded,
-                          iconColor: AppColors.ctaBrightBlue,
-                          iconBackground: AppColors.accentBlueBg,
-                          value: '${_controller.totalSessions}',
-                          label: 'Total Sessions',
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: MiniStatCard(
-                          icon: Icons.bolt_rounded,
-                          iconColor: AppColors.accentPurple,
-                          iconBackground: AppColors.accentPurpleBg,
-                          value: '${_controller.totalSwings}',
-                          label: 'Total Swings',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            Expanded(child: _buildBody()),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_controller.isLoading && !_controller.hasLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_controller.errorMessage != null && !_controller.hasLoaded) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _controller.errorMessage!,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => _controller.loadProgress(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.ctaBrightBlue,
+      onRefresh: () => _controller.loadProgress(showLoader: false),
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          ThisWeekCard(controller: _controller),
+          StreakCard(controller: _controller),
+          HandicapProgressCard(controller: _controller),
+          WeeklySwingsCard(controller: _controller),
+          Row(
+            children: [
+              Expanded(
+                child: MiniStatCard(
+                  icon: Icons.access_time_rounded,
+                  iconColor: AppColors.ctaBrightBlue,
+                  iconBackground: AppColors.accentBlueBg,
+                  value: '${_controller.totalSessions}',
+                  label: 'Total Sessions',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: MiniStatCard(
+                  icon: Icons.bolt_rounded,
+                  iconColor: AppColors.accentPurple,
+                  iconBackground: AppColors.accentPurpleBg,
+                  value: '${_controller.totalSwings}',
+                  label: 'Total Swings',
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

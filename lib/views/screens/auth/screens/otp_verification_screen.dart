@@ -9,6 +9,14 @@ import '../widgets/primary_button.dart';
 import 'reset_password_screen.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
+void _showAuthError(BuildContext context, AuthController auth) {
+  final message = auth.errorMessage;
+  if (message == null || message.isEmpty) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
 
@@ -35,7 +43,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final email = auth.resetEmail.isNotEmpty ? auth.resetEmail : 'aljamil248@gmail.com';
+    final email = auth.resetEmail.trim().isNotEmpty
+        ? auth.resetEmail.trim()
+        : 'your email';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
@@ -51,12 +61,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 child: Column(
                   children: [
                     Text('OTP Code Verification',
-                        textAlign: TextAlign.center, style: AppTextStyles.cardTitle),
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.cardTitle),
                     const SizedBox(height: 8),
                     Text(
                       'We have sent an OTP code to your email $email.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.body
+                          .copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
                     Row(
@@ -99,12 +111,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text("Didn't get the code?", style: AppTextStyles.type14),
+                        Text("Didn't get the code?",
+                            style: AppTextStyles.type14),
                         GestureDetector(
                           onTap: () async {
-                            await auth.resendOtp();
+                            final success = await auth.resendOtp();
+                            if (!context.mounted) return;
                             for (final c in _controllers) {
                               c.clear();
+                            }
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('OTP resent successfully.'),
+                                ),
+                              );
+                            } else {
+                              _showAuthError(context, auth);
                             }
                           },
                           child: Text('Resend', style: AppTextStyles.linkText),
@@ -120,11 +143,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.verifyOtp();
-                  if (success && context.mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
-                    );
+                  if (!context.mounted) return;
+                  if (!success) {
+                    _showAuthError(context, auth);
+                    return;
                   }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const ResetPasswordScreen()),
+                  );
                 },
               ),
             ],

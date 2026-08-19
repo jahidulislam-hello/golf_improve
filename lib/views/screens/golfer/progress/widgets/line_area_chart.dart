@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// A lightweight, dependency-free smoothed line + gradient-fill area chart.
@@ -88,10 +89,11 @@ class _LineAreaPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (values.length < 2) return;
+    if (values.isEmpty) return;
+    final series = values.length == 1 ? [values.first, values.first] : values;
 
-    final minV = values.reduce((a, b) => a < b ? a : b);
-    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final minV = series.reduce((a, b) => a < b ? a : b);
+    final maxV = series.reduce((a, b) => a > b ? a : b);
     final range = (maxV - minV).abs() < 0.0001 ? 1 : (maxV - minV);
 
     // Leave a little headroom so dots/peaks aren't clipped.
@@ -100,9 +102,9 @@ class _LineAreaPainter extends CustomPainter {
     final usableHeight = size.height - topPad - bottomPad;
 
     List<Offset> points = [];
-    for (int i = 0; i < values.length; i++) {
-      final x = size.width * (i / (values.length - 1));
-      final normalized = (values[i] - minV) / range;
+    for (int i = 0; i < series.length; i++) {
+      final x = size.width * (i / (series.length - 1));
+      final normalized = (series[i] - minV) / range;
       final y = topPad + usableHeight - (normalized * usableHeight);
       points.add(Offset(x, y));
     }
@@ -157,7 +159,7 @@ class _LineAreaPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LineAreaPainter oldDelegate) {
-    return oldDelegate.values != values ||
+    return !listEquals(oldDelegate.values, values) ||
         oldDelegate.lineColor != lineColor ||
         oldDelegate.fillTopColor != fillTopColor;
   }

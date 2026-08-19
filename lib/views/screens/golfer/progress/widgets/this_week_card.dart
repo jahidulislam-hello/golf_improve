@@ -11,10 +11,15 @@ class ThisWeekCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isUp = controller.thisWeekTrend.toLowerCase() != 'down';
+    final trendColor =
+        isUp ? AppColors.accentGreen : AppColors.destructiveRed;
+    final message = _message();
+
     return SectionCard(
       child: Stack(
         children: [
-          Positioned(
+          const Positioned(
             top: 0,
             right: 0,
             child: TrendArrowIcon(size: 46),
@@ -53,15 +58,19 @@ class ThisWeekCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.arrow_upward_rounded,
-                      size: 16, color: AppColors.accentGreen),
+                  Icon(
+                    isUp
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded,
+                    size: 16,
+                    color: trendColor,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      'Up from ${controller.lastWeekSwings} last week — '
-                      '${controller.isBestWeek ? "your best week yet." : "keep it up."}',
+                      message,
                       style: AppTextStyles.caption.copyWith(
-                        color: AppColors.accentGreen,
+                        color: trendColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -73,5 +82,15 @@ class ThisWeekCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _message() {
+    final base = controller.thisWeekMessage.isNotEmpty
+        ? controller.thisWeekMessage
+        : 'Up from ${controller.lastWeekSwings} last week';
+    if (controller.isBestWeek && !base.toLowerCase().contains('best')) {
+      return '$base — your best week yet.';
+    }
+    return base;
   }
 }

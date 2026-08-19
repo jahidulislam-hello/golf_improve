@@ -83,7 +83,9 @@ class _Thumbnail extends StatelessWidget {
         children: [
           // Video thumbnail image.
           Image.network(
-            review.thumbnailUrl,
+            review.thumbnailUrl.isNotEmpty
+                ? review.thumbnailUrl
+                : review.videoUrl,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Container(
               color: AppColors.primaryNavy,

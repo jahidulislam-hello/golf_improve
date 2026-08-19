@@ -1,0 +1,42 @@
+---
+description: Golfer My Progress screen map — files, API wiring, widget composition
+globs: lib/views/screens/golfer/progress/**/*.dart
+alwaysApply: false
+---
+
+# Golfer Progress (`lib/views/screens/golfer/progress/`)
+
+Golfer navbar tab 4 (`GolferNavbar` index 3) hosts `const ProgressScreen()`. No GetX. State is `ChangeNotifier`. Do not use ScreenUtil here — raw `EdgeInsets` / font sizes.
+
+## API
+
+- GET `ApiConstants.progress` → `/api/v1/meta/my-progress` (auth Bearer). Maps `data` onto the cards.
+- PATCH `ApiConstants.updateHandicap` → `/api/v1/meta/update-handicap` body `{ "handicap": 22 }`. On success, **re-fetch GET** so `handicap.history` drives the chart.
+- Calls go through `GolferService.getMyProgress` / `updateHandicap`.
+
+## Files
+
+| File | Role |
+|---|---|
+| `progress_screen.dart` | Header + loading/error/retry + pull-to-refresh `ListView` |
+| `progress_controller.dart` | Fetch/apply API; PATCH HCP then refresh |
+| `widgets/this_week_card.dart` | `thisWeek.swings`, `message`, `trend`, `isBestWeek` |
+| `widgets/streak_card.dart` | `practiceStreak.days` + Personal Best pill |
+| `widgets/handicap_progress_card.dart` | Starting / Improvement + Update HCP + history chart |
+| `widgets/weekly_swings_card.dart` | `weeklySwingsChart` Sun–Sat with dots |
+| `widgets/mini_stat_card.dart` | `totals.totalSessions` / `totalSwings` |
+| `widgets/section_card.dart` | Shared white card + `Pill` |
+| `widgets/line_area_chart.dart` | CustomPaint line+fill (no chart package) |
+| `widgets/handicap_update_dialog.dart` | Stepper 0.0–54.0 step 0.1; pops `double?` |
+| `widgets/trend_arrow_icon.dart` | Decorative arrow on This Week card |
+
+## Chart mapping
+
+- Handicap: `handicap.history[]` sorted by `createdAt`; last 6 points; labels = month (JUL/AUG). `dotAtEndOnly`.
+- Weekly: `weeklySwingsChart[].count` + `.day`. `showAllDots`.
+
+## Conventions
+
+- Tokens: `AppColors`, `AppTextStyles`, `AppRadii`. Reuse `SectionCard` / `Pill` / `LineAreaChart`.
+- Dialog: `showDialog<double>` + `Navigator.pop(value)`. After Update, await PATCH + GET.
+- Do not convert this screen to GetX unless asked.

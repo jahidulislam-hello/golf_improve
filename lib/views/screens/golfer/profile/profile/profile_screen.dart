@@ -8,6 +8,7 @@ import 'package:golf_training_app/views/screens/golfer/profile/profile/profile_c
 import 'package:golf_training_app/views/screens/golfer/profile/profile/settings_list_item.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/settings/community_legal.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/settings/help_support_screen.dart';
+import 'package:golf_training_app/views/screens/auth/screens/sign_in_screen.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
 
@@ -44,10 +45,15 @@ class _GolferProfileScreenState extends State<GolferProfileScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => GolferPersonalInfoScreen(
-          name: _controller.name,
-          handicap: _controller.handicap,
-          onSaved: (name, handicap) {
-            _controller.applyPersonalInfo(name: name, handicap: handicap);
+          onSaved: (payload) {
+            _controller.applyPersonalInfo(
+              name: payload.name,
+              email: payload.email,
+              ageRange: payload.ageRange,
+              gender: payload.genderLabel,
+              practiceSessionsPerWeek: payload.practiceSessionsPerWeek,
+              handicap: payload.handicap,
+            );
           },
         ),
       ),
@@ -59,7 +65,9 @@ class _GolferProfileScreenState extends State<GolferProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
       body: SafeArea(
-        child: ListView(
+        child: _controller.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
             _ProfileHeader(controller: _controller),
@@ -102,8 +110,10 @@ class _ProfileHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(controller.name, style: AppTextStyles.profileName),
-              const SizedBox(height: 2),
-              Text(controller.handicapLabel, style: AppTextStyles.caption),
+              if (controller.handicapLabel.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(controller.handicapLabel, style: AppTextStyles.caption),
+              ],
             ],
           ),
         ),
@@ -303,7 +313,7 @@ class _SettingsListCard extends StatelessWidget {
 
 class _LogOutRow extends StatelessWidget {
   const _LogOutRow({required this.onTap});
-  final VoidCallback onTap;
+  final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +322,14 @@ class _LogOutRow extends StatelessWidget {
       borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
         borderRadius: AppRadii.cardBorderRadius,
-        onTap: onTap,
+        onTap: () async {
+          await onTap();
+          if (!context.mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const SignInScreen()),
+            (route) => false,
+          );
+        },
         child: Container(
           height: 73,
           padding: const EdgeInsets.symmetric(horizontal: 16),
