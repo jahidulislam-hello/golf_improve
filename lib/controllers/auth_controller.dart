@@ -327,6 +327,8 @@ class AuthController extends ChangeNotifier {
   String gender = 'Man';
   double handicapIndex = 12.4;
   String practiceSessionsPerWeek = '2';
+  String certificateName = '';
+  String experienceYear = '';
 
   void setAgeRange(String value) {
     ageRange = value;
@@ -335,6 +337,16 @@ class AuthController extends ChangeNotifier {
 
   void setGender(String value) {
     gender = value;
+    notifyListeners();
+  }
+
+  void setCertificateName(String value) {
+    certificateName = value;
+    notifyListeners();
+  }
+
+  void setExperienceYear(String value) {
+    experienceYear = value;
     notifyListeners();
   }
 
@@ -372,6 +384,30 @@ class AuthController extends ChangeNotifier {
         gender: gender,
         handicap: handicapIndex,
         practiceSessionPerWeek: practiceSessionsPerWeek,
+      );
+    });
+  }
+
+  Future<bool> completeCoachOnboarding() async {
+    if (ageRange == null) {
+      _setError('Please select your age range.');
+      return false;
+    }
+    if (certificateName.trim().isEmpty) {
+      _setError('Please enter your certificate name.');
+      return false;
+    }
+    if (experienceYear.trim().isEmpty) {
+      _setError('Please enter your experience.');
+      return false;
+    }
+
+    return _runAuthCall(() async {
+      await _authService.updateRegisterProfile(
+        age: ageRange!,
+        gender: gender,
+        certificateName: certificateName,
+        experienceYear: experienceYear,
       );
     });
   }

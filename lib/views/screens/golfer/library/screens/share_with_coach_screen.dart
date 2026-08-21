@@ -3,36 +3,63 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 
 import '../controllers/share_coach_controller.dart';
-import '../controllers/review_swing_controller.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/video_preview.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
 /// Screen 3 — Share with Coach.
-/// Reached from Screen 2 by tapping "Send to James Keller".
+/// Reached from Screen 2 by tapping "Send to Coach".
 class ShareWithCoachScreen extends StatefulWidget {
-  const ShareWithCoachScreen({super.key});
+  const ShareWithCoachScreen({
+    super.key,
+    this.videoUrl,
+    this.thumbnailUrl,
+    this.coachName = 'Coach',
+    this.coachProfileUrl,
+    this.includeSwingVideo = true,
+    this.includeAiAnalysis = false,
+    this.includePersonalNotes = false,
+    this.alreadyShared = false,
+  });
+
+  final String? videoUrl;
+  final String? thumbnailUrl;
+  final String coachName;
+  final String? coachProfileUrl;
+  final bool includeSwingVideo;
+  final bool includeAiAnalysis;
+  final bool includePersonalNotes;
+  final bool alreadyShared;
 
   @override
   State<ShareWithCoachScreen> createState() => _ShareWithCoachScreenState();
 }
 
 class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
-  final ShareCoachController controller = ShareCoachController();
-  // Local, static playback state just for the read-only preview here.
-  final ReviewSwingController previewController = ReviewSwingController();
+  late final ShareCoachController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = ShareCoachController(
+      coachName: widget.coachName,
+      coachProfileUrl: widget.coachProfileUrl,
+      includeSwingVideo: widget.includeSwingVideo,
+      includeAiAnalysis: widget.includeAiAnalysis,
+      includePersonalNotes: widget.includePersonalNotes,
+    );
+  }
 
   @override
   void dispose() {
     controller.dispose();
-    previewController.dispose();
     super.dispose();
   }
 
   void _send() {
     controller.send();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sent to your coach.')),
+      SnackBar(content: Text('Sent to ${widget.coachName}.')),
     );
     Navigator.of(context).maybePop();
   }
@@ -57,9 +84,14 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                         size: 36,
                       ),
                       const SizedBox(width: 10),
-                      Text('Share with coach',
+                      Expanded(
+                        child: Text(
+                          'Share with ${widget.coachName}',
                           style: AppTextStyles.sectionHeader
-                              .copyWith(fontWeight: FontWeight.w800)),
+                              .copyWith(fontWeight: FontWeight.w800),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -67,13 +99,45 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                     children: [
+                      if (widget.coachProfileUrl != null &&
+                          widget.coachProfileUrl!.startsWith('http'))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 22,
+                                backgroundImage:
+                                    NetworkImage(widget.coachProfileUrl!),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.coachName,
+                                      style: AppTextStyles.type16.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Text(
+                                      widget.alreadyShared
+                                          ? 'Already shared with this coach'
+                                          : 'Your assigned coach',
+                                      style: AppTextStyles.caption,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ClipRRect(
                         borderRadius: AppRadii.cardBorderRadius,
                         child: VideoPreview(
-                          position: previewController.position,
-                          total: previewController.total,
-                          isPlaying: previewController.isPlaying,
-                          onPlayToggle: previewController.togglePlay,
+                          videoUrl: widget.videoUrl,
+                          thumbnailUrl: widget.thumbnailUrl,
                           showOverlayButtons: false,
                           aspectRatio: 16 / 11,
                           borderRadius: AppRadii.cardBorderRadius,
@@ -97,7 +161,7 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                           decoration: InputDecoration(
                             border: InputBorder.none,
                             hintText:
-                                'What would you like your Coach to focus on?',
+                                'What would you like ${widget.coachName} to focus on?',
                             hintStyle: AppTextStyles.type14
                                 .copyWith(color: AppColors.textSecondary),
                           ),
@@ -115,9 +179,11 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                       ),
                       const SizedBox(height: 12),
                       PrimaryButton(
-                        label: 'Send to Coach',
+                        label: widget.alreadyShared
+                            ? 'Shared with ${widget.coachName}'
+                            : 'Send to ${widget.coachName}',
                         icon: Icons.send,
-                        onTap: _send,
+                        onTap: widget.alreadyShared ? () {} : _send,
                       ),
                     ],
                   ),

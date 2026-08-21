@@ -145,9 +145,9 @@ class _StatColumn extends StatelessWidget {
   }
 }
 
-/// Grid card thumbnail used in the Swing Library. Shows a placeholder
-/// gradient in place of the real video frame, a centered play button,
-/// an optional match-percentage pill, and the club/angle caption below.
+/// Grid card thumbnail used in the Swing Library. Shows a network thumbnail
+/// (or placeholder), a centered play button, an optional match-percentage
+/// pill, and the club/angle caption below.
 class SwingThumbnailCard extends StatelessWidget {
   final SwingVideo swing;
   final VoidCallback onTap;
@@ -156,6 +156,9 @@ class SwingThumbnailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final thumb = swing.thumbnailUrl;
+    final hasNetworkThumb = thumb.startsWith('http');
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -168,19 +171,14 @@ class SwingThumbnailCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF4F7942), Color(0xFF1E3A2B)],
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.golf_course,
-                          color: Colors.white24, size: 40),
-                    ),
-                  ),
+                  if (hasNetworkThumb)
+                    Image.network(
+                      thumb,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const _ThumbPlaceholder(),
+                    )
+                  else
+                    const _ThumbPlaceholder(),
                   Center(
                     child: Container(
                       width: 40,
@@ -223,6 +221,26 @@ class SwingThumbnailCard extends StatelessWidget {
                   fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           Text(swing.angle, style: AppTextStyles.caption),
         ],
+      ),
+    );
+  }
+}
+
+class _ThumbPlaceholder extends StatelessWidget {
+  const _ThumbPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF4F7942), Color(0xFF1E3A2B)],
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.golf_course, color: Colors.white24, size: 40),
       ),
     );
   }

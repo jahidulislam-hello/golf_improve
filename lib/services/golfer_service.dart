@@ -49,4 +49,54 @@ class GolferService {
     );
     return Map<String, dynamic>.from(response as Map);
   }
+
+  Future<Map<String, dynamic>> getFilterCategories() async {
+    final response = await _api.get(ApiConstants.filterLibraryCategories);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> getMyLibrary({
+    String? clubType,
+    String? cameraAngle,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      'limit': '$limit',
+    };
+    if (clubType != null && clubType.isNotEmpty) {
+      query['clubType'] = clubType;
+    }
+    if (cameraAngle != null && cameraAngle.isNotEmpty) {
+      query['cameraAngle'] = cameraAngle;
+    }
+
+    final uri = Uri.parse(ApiConstants.allLibrary).replace(
+      queryParameters: query,
+    );
+    final response = await _api.get(uri.toString());
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> getSwingLibraryById(String id) async {
+    final response = await _api.get(ApiConstants.singleLibraryById(id));
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> getShareFullDetails(String id) async {
+    final response = await _api.get(ApiConstants.fullDetails(id));
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> askSwingQuestion({
+    required String swingId,
+    required String question,
+  }) async {
+    final response = await _api.post(
+      ApiConstants.askSwingQuestion(swingId),
+      body: {'question': question},
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
 }

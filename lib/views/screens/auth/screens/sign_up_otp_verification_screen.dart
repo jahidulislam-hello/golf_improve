@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
-import 'package:golf_training_app/helpers/routes.dart';
+import 'package:golf_training_app/views/screens/auth/screens/coach_tell_us_about_your.dart';
 import 'package:golf_training_app/views/screens/auth/screens/tell_us_about_your.dart';
 import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
 import 'package:provider/provider.dart';
@@ -153,15 +153,11 @@ class _SignUpOtpVerificationScreenState
                     return;
                   }
 
-                  // Coach → home. Golfer → profile setup.
-                  if (auth.selectedRole == UserRole.coach) {
-                    AppRoutes.goToHomeForRole(UserRole.coach);
-                    return;
-                  }
-
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const ProfileSetUpScreen(),
+                      builder: (_) => auth.selectedRole == UserRole.coach
+                          ? const CoachProfileSetUpScreen()
+                          : const ProfileSetUpScreen(),
                     ),
                   );
                 },

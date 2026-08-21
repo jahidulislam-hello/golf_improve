@@ -108,18 +108,32 @@ class AuthService {
   Future<dynamic> updateRegisterProfile({
     required String age,
     required String gender,
-    required double handicap,
-    required String practiceSessionPerWeek,
+    double? handicap,
+    String? practiceSessionPerWeek,
+    String? certificateName,
+    String? experienceYear,
   }) {
+    final fields = <String, String>{
+      'age': age,
+      'gender': mapGenderToApi(gender),
+    };
+    if (handicap != null) {
+      fields['handicap'] = handicap.toStringAsFixed(1);
+    }
+    if (practiceSessionPerWeek != null && practiceSessionPerWeek.isNotEmpty) {
+      fields['practiceSessionPerWeek'] = practiceSessionPerWeek;
+    }
+    if (certificateName != null && certificateName.trim().isNotEmpty) {
+      fields['certificateName'] = certificateName.trim();
+    }
+    if (experienceYear != null && experienceYear.trim().isNotEmpty) {
+      fields['experience'] = experienceYear.trim();
+    }
+
     return _api.multipartRequest(
       ApiConstants.updateRegisterProfile,
       method: 'PATCH',
-      fields: {
-        'age': age,
-        'gender': mapGenderToApi(gender),
-        'handicap': handicap.toStringAsFixed(1),
-        'practiceSessionPerWeek': practiceSessionPerWeek,
-      },
+      fields: fields,
     );
   }
 

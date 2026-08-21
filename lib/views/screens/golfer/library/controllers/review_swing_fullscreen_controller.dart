@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Controller for Screen 6 — Review Swing fullscreen scrub/edit view.
 class ReviewSwingFullscreenController extends ChangeNotifier {
   bool isPlaying = false;
-  double scrubValue = 0.45; // 0..1 position along the tick-mark scrubber
+  double scrubValue = 0.0;
   double playbackSpeed = 1.0;
   bool isEditing = false;
   bool isSaved = false;
@@ -15,9 +15,11 @@ class ReviewSwingFullscreenController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setScrub(double value) {
-    scrubValue = value.clamp(0.0, 1.0);
-    notifyListeners();
+  void setScrub(double value, {bool notify = true}) {
+    final next = value.clamp(0.0, 1.0);
+    if ((scrubValue - next).abs() < 0.0001) return;
+    scrubValue = next;
+    if (notify) notifyListeners();
   }
 
   void cycleSpeed() {
@@ -37,7 +39,6 @@ class ReviewSwingFullscreenController extends ChangeNotifier {
   }
 
   void save() {
-    // Hook up the real save/upload logic here.
     isSaved = true;
     notifyListeners();
   }

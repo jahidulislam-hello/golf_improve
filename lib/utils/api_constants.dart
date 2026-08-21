@@ -43,6 +43,12 @@ class ApiConstants {
   //Library
   static const String allLibrary = '$apiUrl/swing-library/my-library';
   static const String singleLibrary = '$apiUrl/swing-library/find/:id';
+  static String singleLibraryById(String id) =>
+      '$apiUrl/swing-library/find/$id';
+  static String askSwingQuestion(String id) =>
+      '$apiUrl/swing-library/ask/$id';
+  static String fullDetails(String id) => '$apiUrl/share-swing/find/$id';
+  static const String filterLibraryCategories = '$apiUrl/meta/filter-categories';
 
 
 
