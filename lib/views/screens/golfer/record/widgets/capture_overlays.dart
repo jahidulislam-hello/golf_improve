@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_capture_colors.dart';
 
-
 /// Draws a dashed line between two points. Small local helper so we don't
 /// need an extra package just for dashed strokes.
 void _drawDashedLine(
@@ -27,8 +26,13 @@ void _drawDashedLine(
   }
 }
 
-void _drawDashedPath(Canvas canvas, Path path, Paint paint,
-    {double dashWidth = 6, double gapWidth = 5}) {
+void _drawDashedPath(
+  Canvas canvas,
+  Path path,
+  Paint paint, {
+  double dashWidth = 6,
+  double gapWidth = 5,
+}) {
   for (final metric in path.computeMetrics()) {
     var distance = 0.0;
     while (distance < metric.length) {
@@ -69,7 +73,10 @@ class AlignmentGuidePainter extends CustomPainter {
     // Upper "head + shoulders" arch guide.
     final headCenter = Offset(cx, size.height * 0.24);
     canvas.drawCircle(
-        headCenter, size.width * 0.12, dashPaint..style = PaintingStyle.stroke);
+      headCenter,
+      size.width * 0.12,
+      dashPaint..style = PaintingStyle.stroke,
+    );
 
     final archPath = Path()
       ..moveTo(cx, size.height * 0.36)
@@ -134,12 +141,14 @@ class Joint {
 /// positions are supplied so a real pose-estimation model can drive this
 /// painter later — swap [joints] each frame and it updates live.
 class AutoDetectFramePainter extends CustomPainter {
-  final List<Joint> joints; // shoulder-elbow-wrist(L/R), hip-knee-ankle(L/R)
+  final List<Joint> joints;
   final double cornerInset;
+  final bool isMirrored;
 
   const AutoDetectFramePainter({
     required this.joints,
     this.cornerInset = 24,
+    this.isMirrored = false,
   });
 
   @override
@@ -170,7 +179,7 @@ class AutoDetectFramePainter extends CustomPainter {
 
     // Faint full outline so the frame reads even between corner brackets.
     final outlinePaint = Paint()
-      ..color = AppCaptureColors.autoDetectGreen.withOpacity(0.35)
+      ..color = AppCaptureColors.autoDetectGreen.withValues(alpha: 0.35)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
     canvas.drawRect(frameRect, outlinePaint);
@@ -182,51 +191,84 @@ class AutoDetectFramePainter extends CustomPainter {
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;
 
-    // joints: [0 shoulderL,1 elbowL,2 wristL, 3 shoulderR,4 hipL,5 kneeL,
-    //          6 ankleL, 7 hipR, 8 kneeR, 9 ankleR]
-    final pts = joints.map((j) => j.toOffset(size)).toList();
-    if (pts.length >= 10) {
+    Offset pointAt(Joint joint) {
+      final x = isMirrored ? (1 - joint.x) : joint.x;
+      return Offset(x * size.width, joint.y * size.height);
+    }
+
+    // joints: [0 nose,1 shoulderL,2 elbowL,3 wristL,4 shoulderR,5 elbowR,
+    //          6 wristR,7 hipL,8 kneeL,9 ankleL,10 hipR,11 kneeR,12 ankleR,13 club]
+    final pts = joints.map(pointAt).toList();
+    if (pts.length >= 14) {
       final path = Path()
         ..moveTo(pts[0].dx, pts[0].dy)
         ..lineTo(pts[1].dx, pts[1].dy)
-        ..lineTo(pts[2].dx, pts[2].dy)
         ..moveTo(pts[0].dx, pts[0].dy)
-        ..lineTo(pts[3].dx, pts[3].dy)
         ..lineTo(pts[4].dx, pts[4].dy)
+        ..moveTo(pts[1].dx, pts[1].dy)
+        ..lineTo(pts[2].dx, pts[2].dy)
+        ..lineTo(pts[3].dx, pts[3].dy)
+        ..lineTo(pts[13].dx, pts[13].dy)
+        ..moveTo(pts[1].dx, pts[1].dy)
+        ..lineTo(pts[4].dx, pts[4].dy)
+        ..moveTo(pts[4].dx, pts[4].dy)
         ..lineTo(pts[5].dx, pts[5].dy)
         ..lineTo(pts[6].dx, pts[6].dy)
-        ..moveTo(pts[3].dx, pts[3].dy)
+        ..moveTo(pts[1].dx, pts[1].dy)
         ..lineTo(pts[7].dx, pts[7].dy)
         ..lineTo(pts[8].dx, pts[8].dy)
         ..lineTo(pts[9].dx, pts[9].dy)
         ..moveTo(pts[4].dx, pts[4].dy)
-        ..lineTo(pts[7].dx, pts[7].dy);
+        ..lineTo(pts[10].dx, pts[10].dy)
+        ..lineTo(pts[11].dx, pts[11].dy)
+        ..lineTo(pts[12].dx, pts[12].dy)
+        ..moveTo(pts[7].dx, pts[7].dy)
+        ..lineTo(pts[10].dx, pts[10].dy);
       _drawDashedPath(canvas, path, skeletonPaint, dashWidth: 5, gapWidth: 4);
+
+      final headRadius = ((pts[1].dx - pts[4].dx).abs() * 0.28).clamp(
+        10.0,
+        22.0,
+      );
+      final headPaint = Paint()
+        ..color = AppCaptureColors.skeletonJoint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5;
+      canvas.drawCircle(pts[0], headRadius, headPaint);
 
       final jointPaint = Paint()..color = AppCaptureColors.skeletonJoint;
       for (final p in pts) {
         canvas.drawCircle(p, 5, jointPaint);
       }
+
+      final handPaint = Paint()..color = Colors.white;
+      canvas.drawCircle(pts[3], 7, handPaint);
+      canvas.drawCircle(pts[6], 7, handPaint);
+      canvas.drawCircle(pts[13], 6, handPaint);
     }
   }
 
   @override
   bool shouldRepaint(covariant AutoDetectFramePainter oldDelegate) =>
-      oldDelegate.joints != joints;
+      oldDelegate.joints != joints || oldDelegate.isMirrored != isMirrored;
 }
 
 /// Default joint layout approximating the top-of-backswing pose seen in the
 /// mocks (weight loaded on the trail leg, arms raised). Values are fractions
 /// of the preview size — replace with live model output when available.
 const defaultSwingJoints = [
+  Joint(0.43, 0.10), // nose
   Joint(0.34, 0.16), // shoulder L
   Joint(0.22, 0.10), // elbow L
-  Joint(0.14, 0.05), // wrist L (club end)
+  Joint(0.14, 0.05), // wrist L
   Joint(0.52, 0.18), // shoulder R
+  Joint(0.60, 0.12), // elbow R
+  Joint(0.70, 0.07), // wrist R
   Joint(0.36, 0.46), // hip L
   Joint(0.30, 0.66), // knee L
   Joint(0.26, 0.86), // ankle L
   Joint(0.54, 0.46), // hip R
   Joint(0.60, 0.66), // knee R
   Joint(0.62, 0.86), // ankle R
+  Joint(0.10, 0.03), // club head
 ];

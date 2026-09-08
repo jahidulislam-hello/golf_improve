@@ -225,6 +225,15 @@ class SwingAnalysisController extends ChangeNotifier {
     if (proQuote == null || proQuote!.isEmpty) {
       proQuote = _readString(data, 'proQuote') ?? _readString(data, 'coachQuote');
     }
+
+    final coachComparison =
+        _asMap(library['coachComparison']) ?? _asMap(data['coachComparison']);
+    if (coachComparison != null) {
+      proQuote ??= _readString(coachComparison, 'proQuote');
+      proImprovement ??=
+          _readString(coachComparison, 'improvedStatusText');
+      proInitials ??= _initialsFrom(coachName);
+    }
   }
 
   SwingInsight _insightFromMetric(Map<String, dynamic> json) {

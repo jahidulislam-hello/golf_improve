@@ -60,9 +60,7 @@ class FilterChipRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isSelected ? selectedColor : AppColors.surfaceWhite,
                 borderRadius: AppRadii.cardBorderRadius,
-                border: isSelected
-                    ? null
-                    : AppRadii.cardBorder,
+                border: isSelected ? null : AppRadii.cardBorder,
               ),
               child: Text(
                 option,
@@ -107,13 +105,17 @@ class StatSplitCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 22),
       child: Row(
         children: [
-          Expanded(child: _StatColumn(value: leftValue, label: leftLabel)),
+          Expanded(
+            child: _StatColumn(value: leftValue, label: leftLabel),
+          ),
           Container(
             width: 1,
             height: 48,
             color: Colors.white.withOpacity(0.15),
           ),
-          Expanded(child: _StatColumn(value: rightValue, label: rightLabel)),
+          Expanded(
+            child: _StatColumn(value: rightValue, label: rightLabel),
+          ),
         ],
       ),
     );
@@ -152,7 +154,11 @@ class SwingThumbnailCard extends StatelessWidget {
   final SwingVideo swing;
   final VoidCallback onTap;
 
-  const SwingThumbnailCard({super.key, required this.swing, required this.onTap});
+  const SwingThumbnailCard({
+    super.key,
+    required this.swing,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -187,8 +193,11 @@ class SwingThumbnailCard extends StatelessWidget {
                         color: Colors.white.withOpacity(0.35),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.play_arrow,
-                          color: Colors.white, size: 22),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                     ),
                   ),
                   if (swing.matchPercent != null)
@@ -197,7 +206,9 @@ class SwingThumbnailCard extends StatelessWidget {
                       bottom: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.6),
                           borderRadius: BorderRadius.circular(10),
@@ -216,10 +227,21 @@ class SwingThumbnailCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(swing.club,
-              style: AppTextStyles.type14.copyWith(
-                  fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-          Text(swing.angle, style: AppTextStyles.caption),
+          Text(
+            swing.club,
+            style: AppTextStyles.type14.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            swing.angle,
+            style: AppTextStyles.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -341,12 +363,19 @@ class WarningBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.warningBg,
         borderRadius: AppRadii.cardBorderRadius,
-        border: Border.all(color: AppColors.warningBorder, width: AppRadii.cardBorderWidth),
+        border: Border.all(
+          color: AppColors.warningBorder,
+          width: AppRadii.cardBorderWidth,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, size: 18, color: AppColors.warningText),
+          const Icon(
+            Icons.info_outline,
+            size: 18,
+            color: AppColors.warningText,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -394,9 +423,12 @@ class InsightCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(insight.title,
-                    style: AppTextStyles.type16
-                        .copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  insight.title,
+                  style: AppTextStyles.type16.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   insight.description,
@@ -448,7 +480,9 @@ class ProFeedbackCard extends StatelessWidget {
                 child: Text(
                   initials,
                   style: AppTextStyles.type10.copyWith(
-                      color: Colors.white, fontWeight: FontWeight.w700),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -480,8 +514,11 @@ class ProFeedbackCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle,
-                    size: 16, color: AppColors.insightPositiveIcon),
+                const Icon(
+                  Icons.check_circle,
+                  size: 16,
+                  color: AppColors.insightPositiveIcon,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -525,7 +562,9 @@ class NumberedStepTile extends StatelessWidget {
             child: Text(
               '$number',
               style: AppTextStyles.type11.copyWith(
-                  color: Colors.white, fontWeight: FontWeight.w700),
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -547,7 +586,11 @@ class ShareIncludeTile extends StatelessWidget {
   final ShareIncludeItem item;
   final VoidCallback onToggle;
 
-  const ShareIncludeTile({super.key, required this.item, required this.onToggle});
+  const ShareIncludeTile({
+    super.key,
+    required this.item,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -564,7 +607,10 @@ class ShareIncludeTile extends StatelessWidget {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: item.iconBg, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: item.iconBg,
+              shape: BoxShape.circle,
+            ),
             child: Icon(item.icon, size: 18, color: item.iconColor),
           ),
           const SizedBox(width: 12),
@@ -574,14 +620,19 @@ class ShareIncludeTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(item.title,
-                        style: AppTextStyles.type16
-                            .copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      item.title,
+                      style: AppTextStyles.type16.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     if (item.badge != null) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFCE7B5),
                           borderRadius: BorderRadius.circular(6),
@@ -598,8 +649,11 @@ class ShareIncludeTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(item.subtitle,
-                    style: AppTextStyles.caption, overflow: TextOverflow.ellipsis),
+                Text(
+                  item.subtitle,
+                  style: AppTextStyles.caption,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -640,7 +694,11 @@ class ChatBubbleWidget extends StatelessWidget {
                 color: AppColors.ctaBrightBlue,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.psychology, color: Colors.white, size: 14),
+              child: const Icon(
+                Icons.psychology,
+                color: Colors.white,
+                size: 14,
+              ),
             ),
           ],
           ConstrainedBox(
@@ -650,7 +708,9 @@ class ChatBubbleWidget extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isUser ? AppColors.ctaBrightBlue : AppColors.chatBubbleAiBg,
+                color: isUser
+                    ? AppColors.ctaBrightBlue
+                    : AppColors.chatBubbleAiBg,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
@@ -674,8 +734,12 @@ class QuickReplyChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const QuickReplyChip(
-      {super.key, required this.label, required this.selected, required this.onTap});
+  const QuickReplyChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -14,7 +14,6 @@ import 'package:golf_training_app/views/screens/golfer/home/session_timeline/ses
 import 'package:golf_training_app/views/screens/golfer/library/screens/swing_analysis_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 /// Central controller for the Home / Dashboard screen.
 ///
 /// Uses [ChangeNotifier] (no extra state-management package required) so the
@@ -28,6 +27,8 @@ class HomeController extends ChangeNotifier {
     _bootstrap();
   }
 
+  bool _isDisposed = false;
+
   // ---------------------------------------------------------------------
   // Hero carousel
   // ---------------------------------------------------------------------
@@ -35,7 +36,9 @@ class HomeController extends ChangeNotifier {
   final PageController heroPageController = PageController();
   Timer? _autoSwipeTimer;
   static const Duration autoSwipeInterval = Duration(seconds: 4);
-  static const Duration autoSwipeAnimationDuration = Duration(milliseconds: 450);
+  static const Duration autoSwipeAnimationDuration = Duration(
+    milliseconds: 450,
+  );
 
   int _currentHeroIndex = 0;
   int get currentHeroIndex => _currentHeroIndex;
@@ -77,7 +80,7 @@ class HomeController extends ChangeNotifier {
   /// Call from PageView.onPageChanged.
   void onHeroPageChanged(int index) {
     _currentHeroIndex = index;
-    notifyListeners();
+    _notifySafely();
   }
 
   /// Pause auto-swipe while the user is actively dragging the carousel,
@@ -112,14 +115,16 @@ class HomeController extends ChangeNotifier {
 
   Future<void> _bootstrap() async {
     isLoading = true;
-    notifyListeners();
+    _notifySafely();
 
     try {
       final sharedPreferences = await SharedPreferences.getInstance();
+      if (_isDisposed) return;
       final apiService = ApiService(sharedPreferences: sharedPreferences);
       final golferService = GolferService(apiService: apiService);
 
       final profileResponse = await golferService.getMyProfile();
+      if (_isDisposed) return;
       final profileData = _asMap(profileResponse['data']);
       if (profileData != null) {
         final name = _readString(profileData, 'name');
@@ -130,16 +135,25 @@ class HomeController extends ChangeNotifier {
       }
 
       final homeResponse = await golferService.getHomeSummary();
+      if (_isDisposed) return;
       final homeData = _asMap(homeResponse['data']);
       if (homeData != null) {
         _applyHomeData(homeData);
       }
     } catch (e) {
+      if (_isDisposed) return;
       errorMessage = e.toString();
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (!_isDisposed) {
+        isLoading = false;
+        _notifySafely();
+      }
     }
+  }
+
+  void _notifySafely() {
+    if (_isDisposed) return;
+    notifyListeners();
   }
 
   void _applyHomeData(Map<String, dynamic> data) {
@@ -222,14 +236,15 @@ class HomeController extends ChangeNotifier {
           .whereType<Map<String, dynamic>>()
           .map(
             (activity) => RecentActivityModel(
-              thumbnailUrl: _readString(activity, 'thumbnailUrl') ??
+              thumbnailUrl:
+                  _readString(activity, 'thumbnailUrl') ??
                   _readString(activity, 'videoUrl') ??
                   '',
               title:
                   '${_readString(activity, 'clubType') ?? 'All Clubs'} · ${_readString(activity, 'cameraAngle') ?? 'All Angles'}',
               subtitle: _friendlyDate(_readString(activity, 'createdAt')),
-              scorePercent:
-                  (_asNum(activity['overallScore'])?.round() ?? 0).clamp(0, 100),
+              scorePercent: (_asNum(activity['overallScore'])?.round() ?? 0)
+                  .clamp(0, 100),
               payload: activity,
             ),
           )
@@ -243,7 +258,8 @@ class HomeController extends ChangeNotifier {
       hasCoachFeedback = true;
       _coachFeedback = CoachFeedbackModel(
         title: 'New Coach Feedback',
-        subtitle: _readString(feedback, 'message') ??
+        subtitle:
+            _readString(feedback, 'message') ??
             _readString(feedback, 'note') ??
             _readString(feedback, 'title') ??
             'Coach sent feedback on your session',
@@ -359,10 +375,10 @@ class HomeController extends ChangeNotifier {
       subtitle: _coachFeedback.subtitle,
       isUnread: false,
     );
-    notifyListeners();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CoachFeedbackScreen()),
-    );
+    _notifySafely();
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CoachFeedbackScreen()));
   }
 
   void _openSessionTimeline(BuildContext context) {
@@ -370,7 +386,8 @@ class HomeController extends ChangeNotifier {
     Navigator.of(context)
         .push(
           MaterialPageRoute(
-            builder: (_) => SessionTimelineScreen(controller: timelineController),
+            builder: (_) =>
+                SessionTimelineScreen(controller: timelineController),
           ),
         )
         .then((_) => timelineController.dispose());
@@ -381,23 +398,19 @@ class HomeController extends ChangeNotifier {
       case QuickActionType.aiAnalysis:
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => SwingAnalysisScreen(
-              initialData: action.payload,
-            ),
+            builder: (_) => SwingAnalysisScreen(initialData: action.payload),
           ),
         );
         break;
       case QuickActionType.logbook:
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const GolfLogbookScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const GolfLogbookScreen()));
         break;
       case QuickActionType.shareWithCoach:
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ShareWithCoachScreen(
-              initialData: action.payload,
-            ),
+            builder: (_) => ShareWithCoachScreen(initialData: action.payload),
           ),
         );
         break;
@@ -420,9 +433,7 @@ class HomeController extends ChangeNotifier {
   void onActivityItemTap(BuildContext context, RecentActivityModel item) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SwingAnalysisScreen(
-          initialData: item.payload,
-        ),
+        builder: (_) => SwingAnalysisScreen(initialData: item.payload),
       ),
     );
   }
@@ -442,6 +453,7 @@ class HomeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _autoSwipeTimer?.cancel();
     heroPageController.dispose();
     super.dispose();

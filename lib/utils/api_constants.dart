@@ -50,6 +50,12 @@ class ApiConstants {
   static String fullDetails(String id) => '$apiUrl/share-swing/find/$id';
   static const String filterLibraryCategories = '$apiUrl/meta/filter-categories';
 
+  // AI Camera / Swing analyzer
+  static const String cameraCategories = '$apiUrl/swing-category/camera';
+  static const String swingAnalyzer = '$apiUrl/swing/analyzer';
+  static String analyzeSwingVideo(String id) =>
+      '$apiUrl/swing/analyze/video/$id';
+
 
 
 

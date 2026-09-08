@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime_type/mime_type.dart';
@@ -10,13 +14,25 @@ class ApiService {
 
   ApiService({required this.sharedPreferences});
 
+  static const Duration _defaultTimeout = Duration(seconds: 45);
+  static const Duration _uploadTimeout = Duration(minutes: 3);
+  static const Duration _analyzeTimeout = Duration(minutes: 3);
+
+  Duration get analyzeTimeout => _analyzeTimeout;
+
   // GET request
-  Future<dynamic> get(String url, {Map<String, String>? headers}) async {
+  Future<dynamic> get(
+    String url, {
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers ?? await _getHeaders(),
-      );
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers ?? await _getHeaders(),
+          )
+          .timeout(timeout ?? _defaultTimeout);
       return _handleResponse(response);
     } catch (e) {
       throw _toApiError(e);
@@ -24,14 +40,20 @@ class ApiService {
   }
 
   // POST request
-  Future<dynamic> post(String url,
-      {dynamic body, Map<String, String>? headers}) async {
+  Future<dynamic> post(
+    String url, {
+    dynamic body,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
     try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: headers ?? await _getHeaders(),
-        body: jsonEncode(body),
-      );
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: headers ?? await _getHeaders(),
+            body: jsonEncode(body ?? <String, dynamic>{}),
+          )
+          .timeout(timeout ?? _defaultTimeout);
       return _handleResponse(response);
     } catch (e) {
       throw _toApiError(e);
@@ -40,103 +62,151 @@ class ApiService {
 
   // Multipart request (supports POST, PATCH, etc.)
   Future<dynamic> multipartRequest(
-      String url, {
-        String method = 'POST',
-        Map<String, String>? fields,
-        Map<String, String>? files,
-        Map<String, String>? headers,
-      }) async {
+    String url, {
+    String method = 'POST',
+    Map<String, String>? fields,
+    Map<String, String>? files,
+    Map<String, String>? headers,
+    Map<String, MediaType>? fileContentTypes,
+    Map<String, String>? fileNames,
+    Duration? timeout,
+  }) async {
     try {
-      var request = http.MultipartRequest(method, Uri.parse(url));
+      final request = http.MultipartRequest(method, Uri.parse(url));
 
-      // Add headers
-      var defaultHeaders = await _getHeaders();
-      defaultHeaders.remove('Content-Type'); // MultipartRequest sets its own Content-Type
+      final defaultHeaders = await _getHeaders();
+      defaultHeaders.remove('Content-Type');
       if (headers != null) {
         defaultHeaders.addAll(headers);
       }
       request.headers.addAll(defaultHeaders);
 
-      // Add fields
       if (fields != null) {
         request.fields.addAll(fields);
       }
 
-      // Add files
       if (files != null) {
-        for (var entry in files.entries) {
-          if (entry.value.isNotEmpty) {
-            String? mimeType = mime(entry.value);
-            request.files.add(await http.MultipartFile.fromPath(
+        for (final entry in files.entries) {
+          if (entry.value.isEmpty) continue;
+          final file = File(entry.value);
+          if (!await file.exists()) {
+            throw ApiError(
+              message: 'Video file not found. Please record again.',
+              statusCode: 0,
+            );
+          }
+          final size = await file.length();
+          if (size <= 0) {
+            throw ApiError(
+              message: 'Recorded video is empty. Please record again.',
+              statusCode: 0,
+            );
+          }
+
+          final explicitType = fileContentTypes?[entry.key];
+          final guessed = mime(entry.value);
+          final contentType = explicitType ??
+              (guessed != null ? MediaType.parse(guessed) : null) ??
+              MediaType('application', 'octet-stream');
+
+          final filename = fileNames?[entry.key] ??
+              _safeFilename(entry.value, fallback: '${entry.key}.bin');
+
+          request.files.add(
+            await http.MultipartFile.fromPath(
               entry.key,
               entry.value,
-              contentType: mimeType != null ? MediaType.parse(mimeType) : null,
-            ));
-          }
+              filename: filename,
+              contentType: contentType,
+            ),
+          );
         }
       }
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final streamedResponse =
+          await request.send().timeout(timeout ?? _uploadTimeout);
+      final response = await http.Response.fromStream(streamedResponse)
+          .timeout(timeout ?? _uploadTimeout);
       return _handleResponse(response);
     } catch (e) {
       throw _toApiError(e);
     }
   }
 
-  // Multipart POST request (deprecated in favor of multipartRequest)
-  Future<dynamic> multipartPost(String url,
-      {Map<String, String>? fields,
-        Map<String, String>? files,
-        Map<String, String>? headers}) async {
-    return multipartRequest(url,
-        method: 'POST', fields: fields, files: files, headers: headers);
+  String _safeFilename(String path, {required String fallback}) {
+    final name = path.replaceAll('\\', '/').split('/').last.trim();
+    if (name.isEmpty) return fallback;
+    if (!name.contains('.')) return '$name.mp4';
+    return name;
   }
 
-  // PUT request
-  Future<dynamic> put(String url,
-      {dynamic body, Map<String, String>? headers}) async {
+  Future<dynamic> multipartPost(
+    String url, {
+    Map<String, String>? fields,
+    Map<String, String>? files,
+    Map<String, String>? headers,
+  }) async {
+    return multipartRequest(
+      url,
+      method: 'POST',
+      fields: fields,
+      files: files,
+      headers: headers,
+    );
+  }
+
+  Future<dynamic> put(
+    String url, {
+    dynamic body,
+    Map<String, String>? headers,
+  }) async {
     try {
-      final response = await http.put(
-        Uri.parse(url),
-        headers: headers ?? await _getHeaders(),
-        body: jsonEncode(body),
-      );
+      final response = await http
+          .put(
+            Uri.parse(url),
+            headers: headers ?? await _getHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(_defaultTimeout);
       return _handleResponse(response);
     } catch (e) {
       throw _toApiError(e);
     }
   }
 
-  // DELETE request
   Future<dynamic> delete(String url, {Map<String, String>? headers}) async {
     try {
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: headers ?? await _getHeaders(),
-      );
+      final response = await http
+          .delete(
+            Uri.parse(url),
+            headers: headers ?? await _getHeaders(),
+          )
+          .timeout(_defaultTimeout);
       return _handleResponse(response);
     } catch (e) {
       throw _toApiError(e);
     }
   }
 
-  // PATCH request
-  Future<dynamic> patch(String url,
-      {dynamic body, Map<String, String>? headers}) async {
+  Future<dynamic> patch(
+    String url, {
+    dynamic body,
+    Map<String, String>? headers,
+  }) async {
     try {
-      final response = await http.patch(
-        Uri.parse(url),
-        headers: headers ?? await _getHeaders(),
-        body: jsonEncode(body),
-      );
+      final response = await http
+          .patch(
+            Uri.parse(url),
+            headers: headers ?? await _getHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(_defaultTimeout);
       return _handleResponse(response);
     } catch (e) {
       throw _toApiError(e);
     }
   }
 
-  // Handle response
   dynamic _handleResponse(http.Response response) {
     final statusCode = response.statusCode;
     final rawBody = response.body.trim();
@@ -146,53 +216,94 @@ class ApiService {
         return <String, dynamic>{};
       }
       throw ApiError(
-        message: 'Something went wrong',
+        message: 'Something went wrong ($statusCode)',
         statusCode: statusCode,
       );
     }
 
-    final body = jsonDecode(rawBody);
+    dynamic body;
+    try {
+      body = jsonDecode(rawBody);
+    } catch (_) {
+      debugPrint('ApiService non-JSON response ($statusCode): $rawBody');
+      throw ApiError(
+        message: statusCode >= 500
+            ? 'Server error ($statusCode). Please try again.'
+            : 'Invalid server response ($statusCode).',
+        statusCode: statusCode,
+      );
+    }
 
     if (statusCode >= 200 && statusCode < 300) {
       return body;
-    } else {
-      String errorMessage = 'Something went wrong';
+    }
 
-      // Handle different error response formats
-      if (body['message'] != null) {
-        if (body['message'] is List) {
-          // Handle validation errors array format
-          List messages = body['message'];
-          if (messages.isNotEmpty) {
-            var firstError = messages[0];
-            if (firstError['constraints'] != null) {
-              // Extract first constraint message
-              var constraints = firstError['constraints'];
-              errorMessage = constraints.values.first;
-            } else if (firstError['message'] != null) {
-              errorMessage = firstError['message'];
-            } else {
-              errorMessage = firstError.toString();
-            }
-          }
-        } else {
-          // Simple string message
-          errorMessage = body['message'];
+    debugPrint('ApiService error $statusCode: $rawBody');
+
+    String errorMessage = 'Something went wrong';
+    if (body is Map) {
+      final details = <String>[];
+
+      void collectConstraint(dynamic item) {
+        if (item is! Map) {
+          if (item != null) details.add(item.toString());
+          return;
         }
-      } else if (body['error'] != null) {
-        errorMessage = body['error'];
+        final property = item['property']?.toString();
+        final constraints = item['constraints'];
+        if (constraints is Map && constraints.isNotEmpty) {
+          final text = constraints.values.map((e) => e.toString()).join(', ');
+          details.add(property == null || property.isEmpty
+              ? text
+              : '$property: $text');
+        } else if (item['message'] != null) {
+          details.add(item['message'].toString());
+        }
       }
 
-      throw ApiError(
-        message: errorMessage,
-        statusCode: statusCode,
-      );
+      final message = body['message'];
+      if (message is List) {
+        for (final item in message) {
+          collectConstraint(item);
+        }
+      } else if (message != null) {
+        details.add(message.toString());
+      }
+
+      final errors = body['errors'] ?? body['error'];
+      if (errors is List) {
+        for (final item in errors) {
+          collectConstraint(item);
+        }
+      } else if (errors != null && message is! String) {
+        details.add(errors.toString());
+      }
+
+      if (details.isNotEmpty) {
+        // Prefer concrete field messages over generic "Validation Error".
+        final concrete = details
+            .where((e) => e.trim().isNotEmpty && e != 'Validation Error')
+            .toList();
+        errorMessage =
+            (concrete.isNotEmpty ? concrete : details).join('\n');
+      }
     }
+
+    throw ApiError(
+      message: errorMessage,
+      statusCode: statusCode,
+    );
   }
 
   ApiError _toApiError(dynamic error) {
     if (error is ApiError) return error;
-    if (error is http.ClientException) {
+    if (error is TimeoutException) {
+      return ApiError(
+        message: 'Request timed out. Check your connection and try again.',
+        statusCode: 0,
+      );
+    }
+    if (error is SocketException || error is http.ClientException) {
       return ApiError(
         message: 'Network error. Please check your connection.',
         statusCode: 0,
@@ -205,15 +316,16 @@ class ApiService {
       );
     }
     return ApiError(
-      message: 'An unexpected error occurred.',
+      message: error.toString().isNotEmpty
+          ? error.toString()
+          : 'An unexpected error occurred.',
       statusCode: 0,
     );
   }
 
-  // Get headers
   Future<Map<String, String>> _getHeaders() async {
-    String? accessToken =
-    sharedPreferences.getString(ApiConstants.keyAccessToken);
+    final accessToken =
+        sharedPreferences.getString(ApiConstants.keyAccessToken);
 
     return {
       'Content-Type': 'application/json',
@@ -222,7 +334,6 @@ class ApiService {
     };
   }
 
-  // Save tokens
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
@@ -238,14 +349,12 @@ class ApiService {
         ApiConstants.keyRefreshTokenExpiresAt, refreshTokenExpiresAt);
   }
 
-  // Save user data
   Future<void> saveUserData(Map<String, dynamic> userData) async {
     await sharedPreferences.setString(
         ApiConstants.keyUserData, jsonEncode(userData));
     await sharedPreferences.setBool(ApiConstants.keyIsLoggedIn, true);
   }
 
-  // Get access token
   String? getAccessToken() {
     return sharedPreferences.getString(ApiConstants.keyAccessToken);
   }
@@ -264,7 +373,6 @@ class ApiService {
     return null;
   }
 
-  // Clear user data (logout)
   Future<void> clearUserData() async {
     await sharedPreferences.remove(ApiConstants.keyAccessToken);
     await sharedPreferences.remove(ApiConstants.keyRefreshToken);

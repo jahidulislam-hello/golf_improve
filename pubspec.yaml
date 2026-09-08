@@ -59,6 +59,7 @@ dependencies:
   video_player: ^2.9.2
   # Runtime CAMERA / MICROPHONE permission prompts.
   permission_handler: ^11.3.1
+  google_mlkit_pose_detection: ^0.15.0
 
 dev_dependencies:
   flutter_test:

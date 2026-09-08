@@ -26,9 +26,7 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
 
   void _openAnalysis(String swingId) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SwingAnalysisScreen(swingId: swingId),
-      ),
+      MaterialPageRoute(builder: (_) => SwingAnalysisScreen(swingId: swingId)),
     );
   }
 
@@ -88,10 +86,9 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Swing Library', style: AppTextStyles.screenTitle),
-                  CircleIconButton(
+                  const CircleIconButton(
                     icon: Icons.search,
                     background: AppColors.surfaceWhite,
-                    onTap: () {},
                   ),
                 ],
               ),
@@ -156,10 +153,7 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
             const SliverFillRemaining(
               hasScrollBody: false,
               child: Center(
-                child: Text(
-                  'No swings found',
-                  style: AppTextStyles.body,
-                ),
+                child: Text('No swings found', style: AppTextStyles.body),
               ),
             )
           else
@@ -170,18 +164,15 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
                   crossAxisCount: 2,
                   mainAxisSpacing: 18,
                   crossAxisSpacing: 14,
-                  childAspectRatio: 0.8,
+                  childAspectRatio: 0.76,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final swing = controller.filteredSwings[index];
-                    return SwingThumbnailCard(
-                      swing: swing,
-                      onTap: () => _openAnalysis(swing.id),
-                    );
-                  },
-                  childCount: controller.filteredSwings.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final swing = controller.filteredSwings[index];
+                  return SwingThumbnailCard(
+                    swing: swing,
+                    onTap: () => _openAnalysis(swing.id),
+                  );
+                }, childCount: controller.filteredSwings.length),
               ),
             ),
         ],
