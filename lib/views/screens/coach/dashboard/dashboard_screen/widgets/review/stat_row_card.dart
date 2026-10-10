@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// The "Driver / Face On / 0:12" three-column row directly under the
 /// video card. Renders as one card with two hairline dividers, matching
@@ -22,8 +23,8 @@ class SwingStatRow extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: IntrinsicHeight(
         child: Row(

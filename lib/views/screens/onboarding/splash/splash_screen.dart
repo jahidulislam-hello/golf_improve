@@ -120,7 +120,7 @@ class _SplashScreenState extends State<SplashScreen>
                     height: 40,
                     child: CircularProgressIndicator(
                       value: _controller.value,
-                      strokeWidth: 3,
+                      strokeWidth: 14,
                       backgroundColor: Colors.white.withOpacity(0.35),
                       valueColor: const AlwaysStoppedAnimation<Color>(
                         AppColors.ctaBrightBlue,

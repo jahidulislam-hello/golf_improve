@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/coach_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/swing_review.dart';
 
 /// Which tab of the Review Swing screen is showing.
@@ -7,26 +10,26 @@ enum ReviewSwingTab { submission, yourFeedback }
 /// Drives the entire "Review Swing" screen: the tab selection, the video
 /// play/scrub state, and every editable field on the "Your Feedback" tab
 /// (coach notes, recommended drill, practice-plan builder, AI agreement).
-///
-/// Wire it up with Provider/ChangeNotifierProvider, or instantiate it
-/// directly inside a StatefulWidget as shown in [ReviewSwingScreen].
-class ReviewSwingController extends ChangeNotifier {
-  ReviewSwingController({required this.review}) {
-    _coachFeedbackController = TextEditingController(text: review.coachFeedback)
-      ..addListener(() => review.coachFeedback = _coachFeedbackController.text);
-    _recommendedDrillController =
-        TextEditingController(text: review.recommendedDrill)
-          ..addListener(
-            () => review.recommendedDrill = _recommendedDrillController.text,
-          );
-    _aiExtraContextController =
-        TextEditingController(text: review.aiExtraContext)
-          ..addListener(
-            () => review.aiExtraContext = _aiExtraContextController.text,
-          );
+class CoachReviewSwingController extends ChangeNotifier {
+  CoachReviewSwingController({
+    required this.review,
+    this.shareId,
+    this.canSendFeedback = true,
+  }) {
+    _bindControllers();
+    final id = (shareId != null && shareId!.isNotEmpty) ? shareId! : review.id;
+    if (id.isNotEmpty) {
+      loadShare(id);
+    }
   }
 
-  final SwingReview review;
+  SwingReview review;
+  final String? shareId;
+  final bool canSendFeedback;
+
+  bool isLoading = false;
+  bool hasLoaded = false;
+  String? errorMessage;
 
   ReviewSwingTab _tab = ReviewSwingTab.submission;
   ReviewSwingTab get tab => _tab;
@@ -37,8 +40,6 @@ class ReviewSwingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ----- Video playback (mock state; wire up to your real player) -----
-
   bool _isPlaying = false;
   bool get isPlaying => _isPlaying;
 
@@ -46,8 +47,6 @@ class ReviewSwingController extends ChangeNotifier {
     _isPlaying = !_isPlaying;
     notifyListeners();
   }
-
-  // ----- "Your Feedback" text fields -----
 
   late final TextEditingController _coachFeedbackController;
   late final TextEditingController _recommendedDrillController;
@@ -58,8 +57,6 @@ class ReviewSwingController extends ChangeNotifier {
       _recommendedDrillController;
   TextEditingController get aiExtraContextController =>
       _aiExtraContextController;
-
-  // ----- Practice Plan Builder -----
 
   List<PracticePlanItem> get practicePlan => review.practicePlan;
 
@@ -84,11 +81,7 @@ class ReviewSwingController extends ChangeNotifier {
   void updatePracticePlanDescription(String id, String description) {
     final item = review.practicePlan.firstWhere((item) => item.id == id);
     item.description = description;
-    // No notifyListeners() needed here — the TextField already owns its
-    // own text; we're just keeping the model in sync as the coach types.
   }
-
-  // ----- AI agreement -----
 
   AiAgreement get aiAgreement => review.aiAgreement;
 
@@ -97,21 +90,132 @@ class ReviewSwingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ----- Submit -----
-
   bool isSending = false;
 
-  Future<void> sendFeedback() async {
-    isSending = true;
+  Future<void> loadShare(String id) async {
+    isLoading = true;
+    errorMessage = null;
     notifyListeners();
+
     try {
-      // Hook your real API call here, e.g.:
-      // await reviewRepository.submitFeedback(review);
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      final service = await _service();
+      if (canSendFeedback) {
+        try {
+          await service.markShareViewed(id);
+        } catch (_) {}
+      }
+      final response = await service.getShare(id);
+      final data = _asMap(response['data']);
+      if (data != null) {
+        final previousAvatar = review.studentAvatarUrl;
+        review = SwingReview.fromShareApi(data);
+        if (review.studentAvatarUrl.isEmpty && previousAvatar.isNotEmpty) {
+          review = SwingReview(
+            id: review.id,
+            studentName: review.studentName,
+            studentAvatarUrl: previousAvatar,
+            club: review.club,
+            angle: review.angle,
+            duration: review.duration,
+            videoThumbnailUrl: review.videoThumbnailUrl,
+            currentPositionLabel: review.currentPositionLabel,
+            studentQuestion: review.studentQuestion,
+            studentSessionNotes: review.studentSessionNotes,
+            sessionTags: review.sessionTags,
+            aiAnalysisPoints: review.aiAnalysisPoints,
+            lastNoteOnStudent: review.lastNoteOnStudent,
+            coachFeedback: review.coachFeedback,
+            recommendedDrill: review.recommendedDrill,
+            practicePlan: review.practicePlan,
+            aiAgreement: review.aiAgreement,
+            aiExtraContext: review.aiExtraContext,
+          );
+        }
+        _syncControllers();
+      }
+      hasLoaded = true;
+    } catch (e) {
+      errorMessage = e.toString();
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> sendFeedback() async {
+    if (!canSendFeedback) return false;
+    final feedback = _coachFeedbackController.text.trim();
+    if (feedback.isEmpty) {
+      errorMessage = 'Please write your coaching feedback.';
+      notifyListeners();
+      return false;
+    }
+
+    isSending = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final service = await _service();
+      String? verdict;
+      if (review.aiAgreement == AiAgreement.agreed) {
+        verdict = 'agreed';
+      } else if (review.aiAgreement == AiAgreement.needsCorrection) {
+        verdict = 'corrected';
+      }
+
+      await service.respondToShare(
+        shareId: review.id,
+        feedbackText: feedback,
+        recommendedDrill: _recommendedDrillController.text.trim(),
+        practicePlan: review.practicePlan
+            .where((e) => e.dayRangeLabel.isNotEmpty || e.description.isNotEmpty)
+            .map((e) => e.toJson())
+            .toList(),
+        aiAnalysisVerdict: verdict,
+        aiAnalysisNote: _aiExtraContextController.text.trim(),
+      );
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      return false;
     } finally {
       isSending = false;
       notifyListeners();
     }
+  }
+
+  void _bindControllers() {
+    _coachFeedbackController =
+        TextEditingController(text: review.coachFeedback)
+          ..addListener(() => review.coachFeedback = _coachFeedbackController.text);
+    _recommendedDrillController =
+        TextEditingController(text: review.recommendedDrill)
+          ..addListener(
+            () => review.recommendedDrill = _recommendedDrillController.text,
+          );
+    _aiExtraContextController =
+        TextEditingController(text: review.aiExtraContext)
+          ..addListener(
+            () => review.aiExtraContext = _aiExtraContextController.text,
+          );
+  }
+
+  void _syncControllers() {
+    _coachFeedbackController.text = review.coachFeedback;
+    _recommendedDrillController.text = review.recommendedDrill;
+    _aiExtraContextController.text = review.aiExtraContext;
+  }
+
+  Future<CoachService> _service() async {
+    final prefs = await SharedPreferences.getInstance();
+    return CoachService(apiService: ApiService(sharedPreferences: prefs));
+  }
+
+  Map<String, dynamic>? _asMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
   }
 
   @override

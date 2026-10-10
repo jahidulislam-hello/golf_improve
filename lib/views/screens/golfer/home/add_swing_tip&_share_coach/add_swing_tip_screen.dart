@@ -6,6 +6,7 @@ import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/dashed_border_box.dart';
 
 import 'add_swing_tip_controller.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 class AddSwingTipScreen extends StatefulWidget {
@@ -87,8 +88,8 @@ class _AddSwingTipScreenState extends State<AddSwingTipScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceWhite,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.borderCard),
+                        borderRadius: AppRadii.cardBorderRadius,
+                        border: AppRadii.cardBorder,
                       ),
                       child: Row(
                         children: [
@@ -160,7 +161,7 @@ class _AddSwingTipScreenState extends State<AddSwingTipScreen> {
                     AddSwingSectionCard(
                       label: 'LINK TO SWING VIDEO',
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: AppRadii.cardBorderRadius,
                         onTap: () {
                           // TODO: hook up to your media picker, then:
                           // _controller.attachVideo(pickedFileName);
@@ -215,7 +216,7 @@ class _AddSwingTipScreenState extends State<AddSwingTipScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: AppColors.proFeedbackBg,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: AppRadii.cardBorderRadius,
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,

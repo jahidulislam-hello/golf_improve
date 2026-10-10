@@ -25,14 +25,16 @@ class StatModel {
 
 /// ===== Active session card =====
 class ActiveSessionModel {
-  final String thumbnailAsset;
+  final String thumbnailUrl;
   final String title; // "Driver · Face On"
   final String statusLabel; // "Coach Reviewing"
+  final Map<String, dynamic>? payload;
 
   const ActiveSessionModel({
-    required this.thumbnailAsset,
+    required this.thumbnailUrl,
     required this.title,
     required this.statusLabel,
+    this.payload,
   });
 }
 
@@ -59,6 +61,7 @@ class QuickActionModel {
   final String subtitle;
   final Color backgroundColor;
   final Color iconColor;
+  final Map<String, dynamic>? payload;
 
   const QuickActionModel({
     required this.type,
@@ -67,20 +70,23 @@ class QuickActionModel {
     required this.subtitle,
     required this.backgroundColor,
     required this.iconColor,
+    this.payload,
   });
 }
 
 /// ===== Recent activity list item =====
 class RecentActivityModel {
-  final String thumbnailAsset;
+  final String thumbnailUrl;
   final String title; // "Driver · Face On"
   final String subtitle; // "Today, 9:14 AM"
   final int scorePercent; // 84
+  final Map<String, dynamic>? payload;
 
   const RecentActivityModel({
-    required this.thumbnailAsset,
+    required this.thumbnailUrl,
     required this.title,
     required this.subtitle,
     required this.scorePercent,
+    this.payload,
   });
 }

@@ -1,57 +1,58 @@
 import 'package:flutter/foundation.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/coach_service.dart';
 import 'package:golf_training_app/views/screens/coach/reviewers/review_models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-
-/// Controls the state behind the Reviews screen: the pending queue,
-/// the completed history, loading/error state, and the actions that
-/// mutate them (e.g. marking a review complete after the coach submits
-/// feedback on the Review Swing screen).
-///
-/// Plain [ChangeNotifier] so it works with `ListenableBuilder`,
-/// `provider`, `get_it`, or any state-management approach the app uses —
-/// no extra package dependency required.
 class ReviewsController extends ChangeNotifier {
-  ReviewsController({List<PendingReview>? pending, List<CompletedReview>? completed}) {
-    _pendingReviews = pending ?? _seedPending();
-    _completedReviews = completed ?? _seedCompleted();
+  ReviewsController() {
+    fetchReviews();
   }
 
-  late List<PendingReview> _pendingReviews;
-  late List<CompletedReview> _completedReviews;
+  List<PendingReview> _pendingReviews = [];
+  List<CompletedReview> _completedReviews = [];
 
-  bool _isLoading = false;
+  bool _isLoading = true;
+  bool hasLoaded = false;
   String? _errorMessage;
 
   List<PendingReview> get pendingReviews => List.unmodifiable(_pendingReviews);
-  List<CompletedReview> get completedReviews => List.unmodifiable(_completedReviews);
+  List<CompletedReview> get completedReviews =>
+      List.unmodifiable(_completedReviews);
 
   int get pendingCount => _pendingReviews.length;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  /// Call from a RefreshIndicator or on screen init to (re)load reviews
-  /// from your backend. Replace the TODO with a real API/repository call.
-  Future<void> fetchReviews() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> fetchReviews({bool showLoader = true}) async {
+    if (showLoader) {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
 
     try {
-      // TODO: replace with a real repository/API call, e.g.:
-      // final result = await reviewsRepository.fetchReviews();
-      // _pendingReviews = result.pending;
-      // _completedReviews = result.completed;
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final prefs = await SharedPreferences.getInstance();
+      final service = CoachService(
+        apiService: ApiService(sharedPreferences: prefs),
+      );
+      final results = await Future.wait([
+        service.getReceivedShares(status: 'pending'),
+        service.getReceivedShares(status: 'responded'),
+      ]);
+      _pendingReviews = _parsePending(results[0]['data']);
+      _completedReviews = _parseCompleted(results[1]['data']);
+      hasLoaded = true;
+      _errorMessage = null;
     } catch (e) {
-      _errorMessage = 'Could not load reviews. Pull to refresh to try again.';
+      _errorMessage = e.toString();
+      if (!showLoader) rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Moves a review from Pending to Completed — call this after the coach
-  /// submits feedback on the Review Swing screen.
   void markReviewComplete(String reviewId) {
     final index = _pendingReviews.indexWhere((r) => r.id == reviewId);
     if (index == -1) return;
@@ -78,55 +79,79 @@ class ReviewsController extends ChangeNotifier {
     return null;
   }
 
-  List<PendingReview> _seedPending() => const [
-        PendingReview(
-          id: 'r1',
-          golferName: 'Alex Thompson',
-          club: 'Driver',
-          angle: 'Face On',
-          thumbnailUrl: 'https://example.com/thumbnails/alex_driver.jpg',
-          videoUrl: 'https://example.com/videos/alex_driver.mp4',
-          duration: Duration(seconds: 12),
-          quote: 'My downswing path feels off — can you check my transition?',
-          aiIncluded: true,
-        ),
-        PendingReview(
-          id: 'r2',
-          golferName: 'Sarah Chen',
-          club: '7 Iron',
-          angle: 'Down the Line',
-          thumbnailUrl: 'https://example.com/thumbnails/sarah_iron.jpg',
-          videoUrl: 'https://example.com/videos/sarah_iron.mp4',
-          duration: Duration(seconds: 9),
-          quote: 'Does my hip rotation look better than last week?',
-        ),
-        PendingReview(
-          id: 'r3',
-          golferName: 'Mike Rodriguez',
-          club: 'Wedge',
-          angle: 'Side On',
-          thumbnailUrl: 'https://example.com/thumbnails/mike_wedge.jpg',
-          videoUrl: 'https://example.com/videos/mike_wedge.mp4',
-          duration: Duration(seconds: 15),
-          quote: 'What am I doing wrong with the follow-through?',
-          aiIncluded: true,
-        ),
-      ];
+  CompletedReview? findCompletedById(String id) {
+    for (final r in _completedReviews) {
+      if (r.id == id) return r;
+    }
+    return null;
+  }
 
-  List<CompletedReview> _seedCompleted() => [
-        CompletedReview(
-          id: 'c1',
-          golferName: 'Emma Park',
-          club: 'Driver',
-          angle: 'Face On',
-          completedAt: DateTime.now().subtract(const Duration(days: 2)),
-        ),
-        CompletedReview(
-          id: 'c2',
-          golferName: 'Alex Thompson',
-          club: 'Iron',
-          angle: 'Down the Line',
-          completedAt: DateTime.now().subtract(const Duration(days: 3)),
-        ),
-      ];
+  List<PendingReview> _parsePending(dynamic raw) {
+    if (raw is! List) return [];
+    return raw
+        .map(_asMap)
+        .whereType<Map<String, dynamic>>()
+        .map(_pendingFromApi)
+        .toList();
+  }
+
+  List<CompletedReview> _parseCompleted(dynamic raw) {
+    if (raw is! List) return [];
+    return raw
+        .map(_asMap)
+        .whereType<Map<String, dynamic>>()
+        .map(_completedFromApi)
+        .toList();
+  }
+
+  PendingReview _pendingFromApi(Map<String, dynamic> json) {
+    final user = _asMap(json['user']);
+    final swing = _asMap(json['swingLibrary']);
+    final seconds = _asInt(swing?['duration']);
+    return PendingReview(
+      id: '${json['_id'] ?? ''}',
+      golferName: '${user?['name'] ?? ''}',
+      avatarUrl: '${user?['profileUrl'] ?? ''}',
+      club: '${swing?['clubType'] ?? ''}',
+      angle: '${swing?['cameraAngle'] ?? ''}',
+      thumbnailUrl: '${swing?['thumbnailUrl'] ?? swing?['videoUrl'] ?? ''}',
+      videoUrl: '${swing?['videoUrl'] ?? ''}',
+      duration: Duration(seconds: seconds),
+      quote: '${json['message'] ?? ''}',
+      aiIncluded: json['isAiAnalysis'] == true,
+    );
+  }
+
+  CompletedReview _completedFromApi(Map<String, dynamic> json) {
+    final user = _asMap(json['user']);
+    final swing = _asMap(json['swingLibrary']);
+    final seconds = _asInt(swing?['duration']);
+    final completedAt = DateTime.tryParse(
+          '${json['updatedAt'] ?? json['createdAt'] ?? ''}',
+        ) ??
+        DateTime.now();
+    return CompletedReview(
+      id: '${json['_id'] ?? ''}',
+      golferName: '${user?['name'] ?? ''}',
+      avatarUrl: '${user?['profileUrl'] ?? ''}',
+      club: '${swing?['clubType'] ?? ''}',
+      angle: '${swing?['cameraAngle'] ?? ''}',
+      thumbnailUrl: '${swing?['thumbnailUrl'] ?? swing?['videoUrl'] ?? ''}',
+      videoUrl: '${swing?['videoUrl'] ?? ''}',
+      duration: Duration(seconds: seconds),
+      quote: '${json['message'] ?? ''}',
+      completedAt: completedAt,
+    );
+  }
+
+  Map<String, dynamic>? _asMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  int _asInt(dynamic raw) {
+    if (raw is num) return raw.round();
+    return int.tryParse('${raw ?? ''}') ?? 0;
+  }
 }

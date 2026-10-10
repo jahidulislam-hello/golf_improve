@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/views/screens/golfer/home/swing_analysis/swing_insight.dart';
 
-import 'app_colors.dart';
-import 'models/swing_insight.dart';
 
 /// Controls everything on the Swing Analysis screen:
 ///  - video playback position / play-pause state

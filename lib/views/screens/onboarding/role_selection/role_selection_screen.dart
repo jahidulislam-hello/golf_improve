@@ -3,6 +3,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 
 import 'role_selection_controller.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Screen 6 — "Choose your role"
 class RoleSelectionScreen extends StatefulWidget {
@@ -83,7 +84,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     backgroundColor: AppColors.ctaBrightBlue,
                     disabledBackgroundColor: AppColors.borderLightGray,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: AppRadii.buttonBorderRadius,
                     ),
                     elevation: 0,
                   ),
@@ -126,7 +127,7 @@ class RoleCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.borderLightGray.withOpacity(selected ? 0.9 : 0.5),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: AppRadii.cardBorderRadius,
           border: Border.all(
             color: selected ? AppColors.ctaBrightBlue : Colors.transparent,
             width: 1.5,
@@ -140,7 +141,7 @@ class RoleCard extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: AppColors.ctaBrightBlue.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: AppRadii.cardBorderRadius,
               ),
               child: Icon(icon, color: AppColors.ctaBrightBlue),
             ),

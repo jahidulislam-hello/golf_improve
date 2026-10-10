@@ -9,6 +9,8 @@ class PendingReview {
     required this.timeAgo,
     required this.scorePercent,
     required this.avatarUrl,
+    this.thumbnailUrl = '',
+    this.videoUrl = '',
     this.isUnread = true,
   });
 
@@ -28,6 +30,8 @@ class PendingReview {
   final int scorePercent;
 
   final String avatarUrl;
+  final String thumbnailUrl;
+  final String videoUrl;
 
   /// Controls the small blue unread dot next to the student's name.
   final bool isUnread;
@@ -43,6 +47,8 @@ class PendingReview {
       timeAgo: timeAgo,
       scorePercent: scorePercent,
       avatarUrl: avatarUrl,
+      thumbnailUrl: thumbnailUrl,
+      videoUrl: videoUrl,
       isUnread: isUnread ?? this.isUnread,
     );
   }

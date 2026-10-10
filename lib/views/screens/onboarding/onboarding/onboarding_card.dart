@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'onboarding_page_data.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Reusable full-screen onboarding slide widget — used for screens 2, 3, 4 & 5.
-/// Full-bleed background image, top bar (logo + Skip), and a bottom
-/// glass/dark card holding eyebrow, title, description, dots and CTA button.
+/// Full-bleed background image and a bottom glass/dark card holding eyebrow,
+/// title, description, dots and CTA button.
+/// Top logo + Skip live on [OnboardingScreen]'s AppBar, not in this card.
 class OnboardingCard extends StatelessWidget {
   final OnboardingPageData data;
   final int currentIndex;
   final int pageCount;
-  final VoidCallback onSkip;
   final VoidCallback onContinue;
 
   const OnboardingCard({
@@ -18,7 +19,6 @@ class OnboardingCard extends StatelessWidget {
     required this.data,
     required this.currentIndex,
     required this.pageCount,
-    required this.onSkip,
     required this.onContinue,
   });
 
@@ -29,51 +29,6 @@ class OnboardingCard extends StatelessWidget {
       children: [
         // ---- Background image (unique per slide) ----
         Image.asset(data.backgroundAsset, fit: BoxFit.cover),
-
-        // ---- Top bar: logo (left) + Skip (right) ----
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Image.asset(
-                      'assets/images/logo_mark.png',
-                      width: 24,
-                      height: 24,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'GOLFIMPROVE',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                GestureDetector(
-                  onTap: onSkip,
-                  child: const Text(
-                    'Skip',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.ctaBrightBlue,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
 
         // ---- Bottom glass card ----
         Align(
@@ -120,7 +75,7 @@ class OnboardingCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
 
-                  // ---- CTA button ----
+                  // ---- CTA button: label + arrow ----
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -128,17 +83,27 @@ class OnboardingCard extends StatelessWidget {
                       onPressed: onContinue,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.ctaBrightBlue,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: AppRadii.buttonBorderRadius,
                         ),
                         elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(data.buttonLabel, style: AppTextStyles.buttonLabel),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.arrow_forward, size: 18, color: Colors.white),
+                          Text(
+                            data.buttonLabel,
+                            style: AppTextStyles.buttonLabel,
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.arrow_forward,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                         ],
                       ),
                     ),

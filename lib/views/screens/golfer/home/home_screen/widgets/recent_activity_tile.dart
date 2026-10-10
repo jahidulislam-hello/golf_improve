@@ -35,12 +35,19 @@ class RecentActivityTile extends StatelessWidget {
                     child: SizedBox(
                       width: 44,
                       height: 44,
-                      child: Image.asset(
-                        activity.thumbnailAsset,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Container(color: AppColors.borderLightGray),
-                      ),
+                      child: activity.thumbnailUrl.startsWith('http')
+                          ? Image.network(
+                              activity.thumbnailUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(color: AppColors.borderLightGray),
+                            )
+                          : Image.asset(
+                              activity.thumbnailUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(color: AppColors.borderLightGray),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 12),

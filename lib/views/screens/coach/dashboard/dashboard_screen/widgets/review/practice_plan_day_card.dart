@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// One card in the "Practice Plan Builder": a blue "Days X-Y" pill, a
 /// delete button, and an editable description field on a gray backdrop.
@@ -39,8 +40,8 @@ class _PracticePlanDayCardState extends State<PracticePlanDayCard> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

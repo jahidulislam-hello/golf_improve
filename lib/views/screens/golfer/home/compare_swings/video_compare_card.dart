@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// Thumbnail card for one swing clip: 16:9-ish image, a centered translucent
@@ -29,7 +30,7 @@ class VideoCompareCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadii.cardBorderRadius,
       child: SizedBox(
         height: height,
         width: double.infinity,

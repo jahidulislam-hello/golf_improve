@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// The social-sign-in style button: a full-width pill with a leading
@@ -22,7 +23,7 @@ class SecondaryButton extends StatelessWidget {
     required this.onPressed,
     this.backgroundColor = AppColors.surfaceWhite,
     this.textColor = AppColors.textPrimary,
-    this.withBorder = false,
+    this.withBorder = true,
   });
 
   /// Convenience constructor matching "Continue with Google".
@@ -40,7 +41,7 @@ class SecondaryButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.label = 'Continue with Apple',
-  })  : icon = const Icon(Icons.apple, color: AppColors.surfaceWhite, size: 22),
+  })  : icon = const Icon(Icons.apple, color: AppColors.surfaceWhite, size: 24),
         backgroundColor = AppColors.primaryNavy,
         textColor = AppColors.surfaceWhite,
         withBorder = false;
@@ -56,9 +57,12 @@ class SecondaryButton extends StatelessWidget {
           backgroundColor: backgroundColor,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.buttonBorderRadius,
             side: withBorder
-                ? const BorderSide(color: AppColors.borderLightGray)
+                ? const BorderSide(
+                    color: AppColors.borderCard,
+                    width: AppRadii.cardBorderWidth,
+                  )
                 : BorderSide.none,
           ),
         ),
@@ -81,17 +85,15 @@ class SecondaryButton extends StatelessWidget {
 /// Small stand-in for the multicolor Google "G" mark (swap for the real
 /// asset — e.g. `Image.asset('assets/google_g.png')` — when you have it).
 class _GoogleG extends StatelessWidget {
-  const _GoogleG();
+  const _GoogleG({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'G',
-      style: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w900,
-        color: Color(0xFF4285F4),
-      ),
+    return Image.asset(
+      'assets/icons/google.png', // Update with your actual path
+      width: 22,
+      height: 22,
+      fit: BoxFit.contain,
     );
   }
 }

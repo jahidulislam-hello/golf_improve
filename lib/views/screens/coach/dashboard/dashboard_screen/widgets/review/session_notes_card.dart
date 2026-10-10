@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// "Student's Session Notes" white card: icon + title, paragraph, and a
 /// wrap of small gray tag pills (e.g. "takeaway", "downswing", "tempo").
@@ -20,8 +21,8 @@ class SessionNotesCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +76,7 @@ class TagChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.pillInactive,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Text(
         label,

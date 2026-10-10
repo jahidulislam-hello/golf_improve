@@ -2,6 +2,7 @@
 class PendingReview {
   final String id;
   final String golferName;
+  final String avatarUrl;
   final String club; // e.g. "Driver"
   final String angle; // e.g. "Face On"
   final String thumbnailUrl;
@@ -19,6 +20,7 @@ class PendingReview {
     required this.videoUrl,
     required this.duration,
     required this.quote,
+    this.avatarUrl = '',
     this.aiIncluded = false,
   });
 
@@ -35,6 +37,7 @@ class PendingReview {
   PendingReview copyWith({
     String? id,
     String? golferName,
+    String? avatarUrl,
     String? club,
     String? angle,
     String? thumbnailUrl,
@@ -46,6 +49,7 @@ class PendingReview {
     return PendingReview(
       id: id ?? this.id,
       golferName: golferName ?? this.golferName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       club: club ?? this.club,
       angle: angle ?? this.angle,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
@@ -61,8 +65,13 @@ class PendingReview {
 class CompletedReview {
   final String id;
   final String golferName;
+  final String avatarUrl;
   final String club;
   final String angle;
+  final String thumbnailUrl;
+  final String videoUrl;
+  final Duration duration;
+  final String quote;
   final DateTime completedAt;
 
   const CompletedReview({
@@ -71,6 +80,11 @@ class CompletedReview {
     required this.club,
     required this.angle,
     required this.completedAt,
+    this.avatarUrl = '',
+    this.thumbnailUrl = '',
+    this.videoUrl = '',
+    this.duration = Duration.zero,
+    this.quote = '',
   });
 
   String get subtitle {

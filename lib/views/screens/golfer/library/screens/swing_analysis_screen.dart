@@ -7,36 +7,79 @@ import '../widgets/video_preview.dart';
 import 'ai_golf_coach_screen.dart';
 import 'share_with_coach_screen.dart';
 import 'review_swing_screen.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Screen 2 — Swing Analysis (AI Golf Coach summary for one recorded swing).
-/// - Tapping the video opens Screen 5 (Review Swing).
-/// - Tapping "AI Golf Coach" opens Screen 4 (AI chat).
-/// - Tapping "Send to James Keller" opens Screen 3 (Share with Coach).
+/// Loads detail via GET `/swing-library/find/:id`.
 class SwingAnalysisScreen extends StatefulWidget {
-  const SwingAnalysisScreen({super.key});
+  const SwingAnalysisScreen({
+    super.key,
+    this.swingId,
+    this.initialData,
+  });
+
+  final String? swingId;
+  final Map<String, dynamic>? initialData;
 
   @override
   State<SwingAnalysisScreen> createState() => _SwingAnalysisScreenState();
 }
 
 class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
-  final SwingAnalysisController controller = SwingAnalysisController();
+  late final SwingAnalysisController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = SwingAnalysisController(
+      swingId: widget.swingId,
+      initialData: widget.initialData,
+    );
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 
   void _openReviewSwing() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ReviewSwingScreen()),
+      MaterialPageRoute(
+        builder: (_) => ReviewSwingScreen(
+          videoUrl: controller.videoUrl,
+          thumbnailUrl: controller.thumbnailUrl,
+        ),
+      ),
     );
   }
 
   void _openAiChat() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AiGolfCoachScreen()),
+      MaterialPageRoute(
+        builder: (_) => AiGolfCoachScreen(
+          swingId: controller.id,
+          conversation: controller.aiConversation,
+          suggestedQuestions: controller.suggestedQuestions,
+        ),
+      ),
     );
   }
 
   void _openShareWithCoach() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ShareWithCoachScreen()),
+      MaterialPageRoute(
+        builder: (_) => ShareWithCoachScreen(
+          videoUrl: controller.videoUrl,
+          thumbnailUrl: controller.thumbnailUrl,
+          coachName: controller.coachName,
+          coachProfileUrl: controller.coachProfileUrl,
+          includeSwingVideo: controller.includeSwingVideo,
+          includeAiAnalysis: controller.includeAiAnalysis,
+          includePersonalNotes: controller.includePersonalNotes,
+          alreadyShared: controller.isSharedWithCoach,
+        ),
+      ),
     );
   }
 
@@ -88,114 +131,176 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                     ],
                   ),
                 ),
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      GestureDetector(
-                        onTap: _openReviewSwing,
-                        child: VideoPreview(
-                          position: controller.position,
-                          total: controller.total,
-                          isPlaying: controller.isPlaying,
-                          onPlayToggle: controller.togglePlay,
-                          showAnnotationLines: true,
-                          onExpand: _openReviewSwing,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            PrimaryButton(
-                              label: 'AI Golf Coach',
-                              icon: Icons.psychology,
-                              onTap: _openAiChat,
-                            ),
-                            const SizedBox(height: 16),
-                            const WarningBanner(
-                              text:
-                                  'AI suggestions are experimental. Always review results with your golf coach before making technique changes.',
-                            ),
-                            const SizedBox(height: 16),
-                            ...controller.insights.map(
-                              (i) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: InsightCard(insight: i),
-                              ),
-                            ),
-                            ProFeedbackCard(
-                              initials: controller.proInitials,
-                              quote: controller.proQuote,
-                              improvementNote: controller.proImprovement,
-                            ),
-                            const SizedBox(height: 20),
-                            Text('3 Things to Try',
-                                style: AppTextStyles.sectionHeader
-                                    .copyWith(fontSize: 18)),
-                            ...List.generate(
-                              controller.thingsToTry.length,
-                              (i) => NumberedStepTile(
-                                number: i + 1,
-                                text: controller.thingsToTry[i],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                        child: GestureDetector(
-                          onTap: _openShareWithCoach,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryNavy,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.share,
-                                        color: Colors.white, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Share AI Result with Coach',
-                                      style: AppTextStyles.type16.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Let ${controller.coachName} review the AI observations and add their professional feedback.',
-                                  style: AppTextStyles.type13.copyWith(
-                                      color: Colors.white60, height: 1.4),
-                                ),
-                                const SizedBox(height: 16),
-                                PrimaryButton(
-                                  label: 'Send to ${controller.coachName}',
-                                  onTap: _openShareWithCoach,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                Expanded(child: _buildBody()),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBody() {
+    if (controller.isLoading && !controller.hasLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (controller.errorMessage != null && !controller.hasLoaded) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                controller.errorMessage!,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  final id = controller.id.isNotEmpty
+                      ? controller.id
+                      : (widget.swingId ??
+                          widget.initialData?['_id']?.toString() ??
+                          '');
+                  if (id.isNotEmpty) controller.load(id);
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        VideoPreview(
+          videoUrl: controller.videoUrl,
+          thumbnailUrl: controller.thumbnailUrl,
+          showAnnotationLines: true,
+          onExpand: _openReviewSwing,
+        ),
+        if (controller.clubType.isNotEmpty ||
+            controller.cameraAngle.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: Text(
+              [
+                if (controller.clubType.isNotEmpty) controller.clubType,
+                if (controller.cameraAngle.isNotEmpty) controller.cameraAngle,
+              ].join(' · '),
+              style: AppTextStyles.type14.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PrimaryButton(
+                label: 'AI Golf Coach',
+                icon: Icons.psychology,
+                onTap: _openAiChat,
+              ),
+              const SizedBox(height: 16),
+              const WarningBanner(
+                text:
+                    'AI suggestions are experimental. Always review results with your golf coach before making technique changes.',
+              ),
+              const SizedBox(height: 16),
+              ...controller.insights.map(
+                (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InsightCard(insight: i),
+                ),
+              ),
+              if (controller.hasProFeedback)
+                ProFeedbackCard(
+                  initials: controller.proInitials ?? 'CO',
+                  quote: controller.proQuote!,
+                  improvementNote: controller.proImprovement?.isNotEmpty == true
+                      ? controller.proImprovement!
+                      : (controller.feedbackReceivedLabel != null
+                          ? 'Received ${controller.feedbackReceivedLabel}'
+                          : 'Coach feedback'),
+                ),
+              if (controller.thingsToTry.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text(
+                  '${controller.thingsToTry.length} Things to Try',
+                  style: AppTextStyles.sectionHeader.copyWith(fontSize: 18),
+                ),
+                ...List.generate(
+                  controller.thingsToTry.length,
+                  (i) => NumberedStepTile(
+                    number: i + 1,
+                    text: controller.thingsToTry[i],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: GestureDetector(
+            onTap: _openShareWithCoach,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primaryNavy,
+                borderRadius: AppRadii.cardBorderRadius,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.share, color: Colors.white, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        controller.isSharedWithCoach
+                            ? 'Shared with ${controller.coachName}'
+                            : 'Share AI Result with Coach',
+                        style: AppTextStyles.type16.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    controller.isSharedWithCoach
+                        ? (controller.shareStatus.isNotEmpty
+                            ? 'Status: ${controller.shareStatus}'
+                            : 'Your coach can review this swing and send feedback.')
+                        : 'Let ${controller.coachName} review the AI observations and add their professional feedback.',
+                    style: AppTextStyles.type13.copyWith(
+                        color: Colors.white60, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryButton(
+                    label: controller.isSharedWithCoach
+                        ? 'View share details'
+                        : 'Send to ${controller.coachName}',
+                    onTap: _openShareWithCoach,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

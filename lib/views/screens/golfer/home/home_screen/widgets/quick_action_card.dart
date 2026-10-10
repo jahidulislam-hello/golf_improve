@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// One tile in the 2x2 "Quick Actions" grid (AI Analysis, Logbook, Share
@@ -20,16 +21,16 @@ class QuickActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceWhite,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
         onTap: onTap,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderLightGray),
+            borderRadius: AppRadii.cardBorderRadius,
+            border: AppRadii.cardBorder,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

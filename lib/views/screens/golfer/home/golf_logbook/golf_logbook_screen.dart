@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
+import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/add_swing_tip_screen.dart';
 
 
 /// Golf Logbook screen — active reminder banner, Newest/Oldest toggle,
@@ -75,7 +77,15 @@ class _GolfLogbookScreenState extends State<GolfLogbookScreen> {
             Positioned(
               right: 16,
               bottom: 16,
-              child: _AddTipButton(onPressed: () {}),
+              child: _AddTipButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AddSwingTipScreen(),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -144,7 +154,8 @@ class _ActiveReminderCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.primaryNavy,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,7 +219,7 @@ class _SortToggle extends StatelessWidget {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppColors.pillInactive,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -229,7 +240,7 @@ class _SortToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: selected ? AppColors.ctaBrightBlue : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: AppRadii.cardBorderRadius,
         ),
         child: Text(
           label,
@@ -255,8 +266,8 @@ class _TipCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,7 +332,7 @@ class _BadgePill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.pillInactive,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Text(
         label,
@@ -354,7 +365,7 @@ class _TipMenuButton extends StatelessWidget {
       offset: const Offset(0, 36),
       color: Colors.transparent,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: AppRadii.buttonShape,
       constraints: const BoxConstraints(minWidth: 160, maxWidth: 180),
       itemBuilder: (context) => [
         _menuItem(value: 'edit', label: 'Edit', background: AppColors.statusInfoBg, textColor: AppColors.textPrimary),
@@ -423,10 +434,10 @@ class _AddTipButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.ctaBrightBlue,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: const CircleBorder(),
       elevation: 3,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        customBorder: const CircleBorder(),
         onTap: onPressed,
         child: const SizedBox(
           width: 56,

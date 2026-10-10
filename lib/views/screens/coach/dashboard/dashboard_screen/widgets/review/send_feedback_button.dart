@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// The full-width "Send Feedback" button pinned at the bottom of both tabs.
 class SendFeedbackButton extends StatelessWidget {
@@ -19,15 +20,15 @@ class SendFeedbackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadii.buttonBorderRadius,
       child: InkWell(
         onTap: isLoading ? null : onPressed,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.buttonBorderRadius,
         child: Container(
           height: 54,
           decoration: BoxDecoration(
             gradient: AppColors.ctaBlueGradient,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.buttonBorderRadius,
             boxShadow: [
               BoxShadow(
                 color: AppColors.ctaBrightBlue.withOpacity(0.3),

@@ -8,7 +8,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.11.4
 
 dependencies:
   flutter:
@@ -59,6 +59,7 @@ dependencies:
   video_player: ^2.9.2
   # Runtime CAMERA / MICROPHONE permission prompts.
   permission_handler: ^11.3.1
+  google_mlkit_pose_detection: ^0.15.0
 
 dev_dependencies:
   flutter_test:
@@ -77,3 +78,26 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/fonts/
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-MediumItalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Inter-Black.ttf
+          weight: 900

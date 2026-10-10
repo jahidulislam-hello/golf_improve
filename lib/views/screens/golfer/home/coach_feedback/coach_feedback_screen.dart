@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// Coach Feedback screen.
@@ -21,6 +22,7 @@ class _CoachFeedbackScreenState extends State<CoachFeedbackScreen> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
       body: SafeArea(
@@ -140,7 +142,7 @@ class _VideoThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadii.cardBorderRadius,
       child: AspectRatio(
         aspectRatio: 16 / 10.5,
         child: Stack(
@@ -241,7 +243,7 @@ class _RecommendedDrillCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppColors.quickActionAiBg,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadii.cardBorderRadius,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,7 +395,7 @@ class _AiAnalysisCard extends StatelessWidget {
       child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.cardBorderRadius,
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -574,7 +576,7 @@ class _MarkPracticeDoneButton extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.ctaBrightBlue,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadii.buttonBorderRadius,
             ),
             elevation: 0,
           ),
@@ -607,8 +609,8 @@ class _CardShell extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: child,
     );
@@ -628,7 +630,7 @@ class _Pill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Text(
         label,

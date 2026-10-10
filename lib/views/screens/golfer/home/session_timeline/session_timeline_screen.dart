@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import '../controllers/session_timeline_controller.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
-import '../widgets/session_video_preview.dart';
-import '../widgets/journey_timeline_card.dart';
-import '../widgets/coach_feedback_card.dart';
+import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/journey_timeline_card.dart';
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_controller.dart';
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_video_preview.dart';
+
+import 'coach_feedback_card.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// "Session Timeline" screen — pixel match of the provided design:
 /// back-nav app bar, full-bleed swing video preview with scrub bar,
@@ -62,7 +64,7 @@ class _SessionTimelineScreenState extends State<SessionTimelineScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: AppRadii.cardBorderRadius,
                       child: SessionVideoPreview(
                         video: controller.video,
                         onTogglePlay: controller.togglePlayback,
@@ -76,7 +78,8 @@ class _SessionTimelineScreenState extends State<SessionTimelineScreen> {
                     const SizedBox(height: 20),
                     CoachFeedbackCard(
                       feedback: controller.feedback,
-                      onReadFullFeedback: controller.onReadFullFeedback,
+                      onReadFullFeedback: () =>
+                          controller.onReadFullFeedback(context),
                     ),
                   ],
                 ),

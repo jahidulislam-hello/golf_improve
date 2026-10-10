@@ -1,0 +1,12 @@
+---
+description: Always skip lib/views/dummy/ — never read, import, edit, or revive it
+alwaysApply: true
+---
+
+# Skip `lib/views/dummy/`
+
+Always ignore this folder.
+
+- Do not read, search, cite, import, edit, or delete files under `lib/views/dummy/`.
+- Do not copy code from it into production screens.
+- Production code lives in `lib/views/screens/` and `lib/views/base/`.

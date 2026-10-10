@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// "Driver · Face On · Coach Reviewing" row with video thumbnail + play
@@ -20,19 +21,19 @@ class ActiveSessionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surfaceWhite,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.ctaBrightBlue.withOpacity(0.25)),
+            borderRadius: AppRadii.cardBorderRadius,
+            border: AppRadii.cardBorder,
           ),
           child: Row(
             children: [
-              _Thumbnail(imageAsset: session.thumbnailAsset),
+              _Thumbnail(imageUrl: session.thumbnailUrl),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -62,9 +63,9 @@ class ActiveSessionCard extends StatelessWidget {
 }
 
 class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({required this.imageAsset});
+  const _Thumbnail({required this.imageUrl});
 
-  final String imageAsset;
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -76,13 +77,21 @@ class _Thumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(
-              imageAsset,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: AppColors.primaryNavy,
-              ),
-            ),
+            imageUrl.startsWith('http')
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.primaryNavy,
+                    ),
+                  )
+                : Image.asset(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.primaryNavy,
+                    ),
+                  ),
             Container(color: Colors.black.withOpacity(0.15)),
             const Center(
               child: Icon(
@@ -109,7 +118,7 @@ class _StatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: AppColors.statusInfoBg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

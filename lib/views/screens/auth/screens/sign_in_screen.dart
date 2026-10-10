@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/helpers/routes.dart';
 import 'package:provider/provider.dart';
 
 import '../widgets/auth_text_field.dart';
@@ -11,8 +12,15 @@ import '../widgets/secondary_button.dart';
 import 'forgot_password_screen.dart';
 import 'sign_up_screen.dart';
 
+void _showAuthError(BuildContext context, AuthController auth) {
+  final message = auth.errorMessage;
+  if (message == null || message.isEmpty) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
 class SignInScreen extends StatelessWidget {
-  
   const SignInScreen({super.key});
 
   @override
@@ -83,11 +91,12 @@ class SignInScreen extends StatelessWidget {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.signIn();
-                  if (success && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Signed in successfully!')),
-                    );
+                  if (!context.mounted) return;
+                  if (!success) {
+                    _showAuthError(context, auth);
+                    return;
                   }
+                  AppRoutes.goToHomeForRole(auth.selectedRole);
                 },
               ),
               const SizedBox(height: 20),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// The full-width bright-blue button used for every primary call to
@@ -34,7 +35,7 @@ class PrimaryButton extends StatelessWidget {
           disabledBackgroundColor: AppColors.ctaBrightBlue.withOpacity(0.6),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.buttonBorderRadius,
           ),
         ),
         child: isLoading

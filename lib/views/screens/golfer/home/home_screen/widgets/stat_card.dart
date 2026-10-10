@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// One of the three stat chips ("12.4 Handicap", "847 Swings", "23 This
 /// Week") shown in a row below the hero carousel.
+///
+/// Content-only — the outer [StatCardRow] owns the single card border.
 class StatCard extends StatelessWidget {
   const StatCard({super.key, required this.stat});
 
@@ -13,12 +16,8 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         children: [
           Text(
@@ -39,8 +38,8 @@ class StatCard extends StatelessWidget {
   }
 }
 
-/// Lays out the three [StatCard]s in an evenly-spaced row with hairline
-/// separators, matching the design.
+/// Lays out the three [StatCard]s in one card with straight hairline
+/// dividers between columns (no per-cell borders).
 class StatCardRow extends StatelessWidget {
   const StatCardRow({super.key, required this.stats});
 
@@ -51,7 +50,8 @@ class StatCardRow extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryNavy.withOpacity(0.04),
@@ -60,21 +60,20 @@ class StatCardRow extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        children: List.generate(stats.length * 2 - 1, (i) {
-          if (i.isOdd) {
-            return SizedBox(
-              height: 44,
-              child: VerticalDivider(
-                width: 1,
-                thickness: 1,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: List.generate(stats.length * 2 - 1, (i) {
+            if (i.isOdd) {
+              return Container(
+                width: AppRadii.cardBorderWidth,
                 color: AppColors.borderLightGray,
-              ),
-            );
-          }
-          final stat = stats[i ~/ 2];
-          return Expanded(child: StatCard(stat: stat));
-        }),
+              );
+            }
+            final stat = stats[i ~/ 2];
+            return Expanded(child: StatCard(stat: stat));
+          }),
+        ),
       ),
     );
   }

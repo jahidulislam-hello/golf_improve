@@ -11,7 +11,7 @@ import '../../widgets/review/video_analysis_card.dart';
 class SubmissionTab extends StatelessWidget {
   const SubmissionTab({super.key, required this.controller});
 
-  final ReviewSwingController controller;
+  final CoachReviewSwingController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +42,10 @@ class SubmissionTab extends StatelessWidget {
           notes: review.studentSessionNotes,
           tags: review.sessionTags,
         ),
-        const SizedBox(height: 14),
-        AiAnalysisCard(points: review.aiAnalysisPoints),
+        if (review.aiAnalysisPoints.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          AiAnalysisCard(points: review.aiAnalysisPoints),
+        ],
         if (review.lastNoteOnStudent != null) ...[
           const SizedBox(height: 14),
           TintedInfoCard.note(

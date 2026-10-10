@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_models.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// Dark navy card at the bottom of the screen showing the coach's
@@ -23,7 +24,7 @@ class CoachFeedbackCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.primaryNavy,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -31,11 +32,11 @@ class CoachFeedbackCard extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                radius: 18,
+                radius: 20,
                 backgroundColor: AppColors.ctaBrightBlue,
                 child: Text(
                   feedback.initials,
-                  style: AppTextStyles.buttonLabel.copyWith(fontSize: 13),
+                  style: AppTextStyles.buttonLabel.copyWith(fontSize: 20),
                 ),
               ),
               const SizedBox(width: 10),
@@ -43,16 +44,25 @@ class CoachFeedbackCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(feedback.coachName, style: AppTextStyles.coachName),
+                    Text(
+                      feedback.coachName,
+                      style: AppTextStyles.type18.copyWith(color: AppColors.surfaceWhite),
+                    ),
                     const SizedBox(height: 2),
-                    Text(feedback.receivedAtLabel, style: AppTextStyles.coachMeta),
+                    Text(
+                      feedback.receivedAtLabel,
+                      style: AppTextStyles.type16.copyWith(color: AppColors.surfaceWhite.withOpacity(0.5)),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          Text('"${feedback.quote}"', style: AppTextStyles.coachQuote),
+          Text(
+            '"${feedback.quote}"',
+            style: AppTextStyles.type14.copyWith(color: AppColors.surfaceWhite.withOpacity(0.8)),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -63,11 +73,11 @@ class CoachFeedbackCard extends StatelessWidget {
                 foregroundColor: AppColors.primaryNavy,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: AppRadii.buttonBorderRadius,
                 ),
                 elevation: 0,
               ),
-              child: Text('Read Full Feedback', style: AppTextStyles.readFullFeedback),
+              child: Text('Read Full Feedback', style: AppTextStyles.type14),
             ),
           ),
         ],

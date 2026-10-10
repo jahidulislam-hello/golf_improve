@@ -18,7 +18,13 @@ class GolfLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Icon(Icons.flag, size: 44, color: AppColors.primaryNavy),
+        Image.asset(
+          'assets/images/logo.png',
+          width: 140,
+          height: 80,
+          fit: BoxFit.contain,
+          color: AppColors.primaryNavy,
+        ),
         if (showWordmark) ...[
           const SizedBox(height: 8),
           const Text(

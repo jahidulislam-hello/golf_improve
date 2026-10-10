@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/session_timeline_models.dart';
+import 'package:golf_training_app/views/screens/golfer/home/coach_feedback/coach_feedback_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_models.dart';
+
 
 /// Controller for the "Session Timeline" screen.
 ///
@@ -132,8 +134,10 @@ class SessionTimelineController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void onReadFullFeedback() {
-    // Hook up navigation to the full feedback / thread screen here.
+  void onReadFullFeedback(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CoachFeedbackScreen()),
+    );
   }
 
   static String formatDuration(Duration d) {

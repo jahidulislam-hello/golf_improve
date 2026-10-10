@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/views/screens/coach/dashboard/dashboard_screen/models/swing_review.dart';
+import 'package:golf_training_app/views/screens/coach/dashboard/review_swing/review_swing_screen.dart';
 import '../controllers/pro_dashboard_controller.dart';
 import '../models/pending_review.dart';
 import '../widgets/activity_tile.dart';
 import '../widgets/pending_review_card.dart';
 import '../widgets/stat_card.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Pixel-matched recreation of the "Pro Dashboard" screen:
 /// header (name + notification bell + avatar), 3 stat tiles,
@@ -20,12 +23,14 @@ class ProDashboardScreen extends StatefulWidget {
 }
 
 class _ProDashboardScreenState extends State<ProDashboardScreen> {
-  late final ProDashboardController _controller =
-      widget.controller ?? ProDashboardController();
+  late final ProDashboardController _controller;
+  late final bool _ownsController;
 
   @override
   void initState() {
     super.initState();
+    _ownsController = widget.controller == null;
+    _controller = widget.controller ?? ProDashboardController();
     _controller.addListener(_onControllerChanged);
   }
 
@@ -34,20 +39,40 @@ class _ProDashboardScreenState extends State<ProDashboardScreen> {
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    if (_ownsController) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
   void _onReviewTap(PendingReview review) {
     _controller.openReview(review.id);
 
-    // Hook your navigation to a review-detail screen here, e.g.:
-    // Navigator.of(context).push(MaterialPageRoute(
-    //   builder: (_) => ReviewDetailScreen(reviewId: review.id),
-    // ));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening review for ${review.studentName}'),
-        duration: const Duration(milliseconds: 900),
+    final thumbnail = review.thumbnailUrl.isNotEmpty
+        ? review.thumbnailUrl
+        : review.videoUrl;
+
+    final swingReview = SwingReview(
+      id: review.id,
+      studentName: review.studentName,
+      studentAvatarUrl: review.avatarUrl,
+      club: review.club,
+      angle: review.angle,
+      duration: Duration.zero,
+      videoThumbnailUrl: thumbnail,
+      currentPositionLabel: '',
+      studentQuestion: '',
+      studentSessionNotes: '',
+      sessionTags: const [],
+      aiAnalysisPoints: const [],
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CoachReviewSwingScreen(
+          shareId: review.id,
+          review: swingReview,
+        ),
       ),
     );
   }
@@ -56,50 +81,98 @@ class _ProDashboardScreenState extends State<ProDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _controller.refresh,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      body: SafeArea(child: _buildBody()),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_controller.isLoading && !_controller.hasLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_controller.errorMessage != null && !_controller.hasLoaded) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _Header(controller: _controller),
-              const SizedBox(height: 24),
-              _StatsRow(controller: _controller),
-              const SizedBox(height: 28),
-              _SectionHeader(
-                title: 'Pending Reviews',
-                trailing: '${_controller.pendingReviewsCount} New',
-              ),
-              const SizedBox(height: 12),
-              ..._controller.pendingReviews.map(
-                (review) => PendingReviewCard(
-                  review: review,
-                  onTap: () => _onReviewTap(review),
+              Text(
+                _controller.errorMessage!,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Activity', style: AppTextStyles.sectionHeader.copyWith(fontSize: 18)),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceWhite,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.borderCard),
-                ),
-                child: Column(
-                  children: [
-                    for (int i = 0; i < _controller.activities.length; i++)
-                      ActivityTile(
-                        activity: _controller.activities[i],
-                        showDivider: i != _controller.activities.length - 1,
-                      ),
-                  ],
-                ),
+              TextButton(
+                onPressed: () => _controller.loadDashboard(),
+                child: const Text('Retry'),
               ),
             ],
           ),
         ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.ctaBrightBlue,
+      onRefresh: _controller.refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        children: [
+          _Header(controller: _controller),
+          const SizedBox(height: 24),
+          _StatsRow(controller: _controller),
+          const SizedBox(height: 28),
+          _SectionHeader(
+            title: 'Pending Reviews',
+            trailing: '${_controller.pendingReviewsCount} New',
+          ),
+          const SizedBox(height: 12),
+          if (_controller.pendingReviews.isEmpty)
+            Text(
+              'No pending reviews',
+              style: AppTextStyles.caption,
+            )
+          else
+            ..._controller.pendingReviews.map(
+              (review) => PendingReviewCard(
+                review: review,
+                onTap: () => _onReviewTap(review),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Text(
+            'Activity',
+            style: AppTextStyles.sectionHeader.copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: 12),
+          if (_controller.activities.isEmpty)
+            Text(
+              'No recent activity',
+              style: AppTextStyles.caption,
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceWhite,
+                borderRadius: AppRadii.cardBorderRadius,
+                border: AppRadii.cardBorder,
+              ),
+              child: Column(
+                children: [
+                  for (int i = 0; i < _controller.activities.length; i++)
+                    ActivityTile(
+                      activity: _controller.activities[i],
+                      showDivider: i != _controller.activities.length - 1,
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -141,10 +214,17 @@ class _Header extends StatelessWidget {
         CircleAvatar(
           radius: 22,
           backgroundColor: AppColors.primaryNavy,
-          child: Text(
-            initials,
-            style: AppTextStyles.buttonLabel.copyWith(fontSize: 14),
-          ),
+          backgroundImage: controller.avatarUrl != null
+              ? NetworkImage(controller.avatarUrl!)
+              : null,
+          child: controller.avatarUrl == null
+              ? (initials.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white, size: 20)
+                  : Text(
+                      initials,
+                      style: AppTextStyles.buttonLabel.copyWith(fontSize: 14),
+                    ))
+              : null,
         ),
       ],
     );
@@ -167,7 +247,7 @@ class _NotificationBell extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surfaceWhite,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.borderLightGray),
+            border: AppRadii.cardBorder,
           ),
           child: const Icon(
             Icons.notifications_none_rounded,

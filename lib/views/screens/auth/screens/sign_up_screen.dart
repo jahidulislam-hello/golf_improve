@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/views/screens/auth/screens/sign_up_otp_verification_screen.dart';
 import 'package:provider/provider.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/golf_logo.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
-import 'onboarding_screen.dart';
 import 'sign_in_screen.dart';
+
+void _showAuthError(BuildContext context, AuthController auth) {
+  final message = auth.errorMessage;
+  if (message == null || message.isEmpty) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
 
 class SignUpScreen extends StatelessWidget {
   const SignUpScreen({super.key});
@@ -77,13 +85,18 @@ class SignUpScreen extends StatelessWidget {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.signUp();
-                  if (success && context.mounted) {
-                    // Sign up -> straight into the "Tell us about yourself"
-                    // onboarding screen (screen 6), as requested.
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ProfileSetUpScreen()),
-                    );
+                  if (!context.mounted) return;
+                  if (!success) {
+                    _showAuthError(context, auth);
+                    return;
                   }
+
+                  // Both roles → OTP verification after register API
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const SignUpOtpVerificationScreen(),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 20),

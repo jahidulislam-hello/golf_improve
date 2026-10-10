@@ -1,8 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/golfer_service.dart';
+import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
+import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/share_with_coach_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/home/coach_feedback/coach_feedback_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_logbook_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
-
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_controller.dart';
+import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/library/screens/swing_analysis_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Central controller for the Home / Dashboard screen.
 ///
@@ -14,7 +24,10 @@ import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.da
 class HomeController extends ChangeNotifier {
   HomeController() {
     _startAutoSwipe();
+    _bootstrap();
   }
+
+  bool _isDisposed = false;
 
   // ---------------------------------------------------------------------
   // Hero carousel
@@ -23,26 +36,28 @@ class HomeController extends ChangeNotifier {
   final PageController heroPageController = PageController();
   Timer? _autoSwipeTimer;
   static const Duration autoSwipeInterval = Duration(seconds: 4);
-  static const Duration autoSwipeAnimationDuration = Duration(milliseconds: 450);
+  static const Duration autoSwipeAnimationDuration = Duration(
+    milliseconds: 450,
+  );
 
   int _currentHeroIndex = 0;
   int get currentHeroIndex => _currentHeroIndex;
 
   final List<HeroBannerModel> heroBanners = const [
     HeroBannerModel(
-      imageAsset: 'assets/images/hero_train_smarter.jpg',
+      imageAsset: 'assets/images/golf_01.png',
       eyebrow: 'READY TO IMPROVE',
       title: 'Train smarter.\nPlay better.',
       ctaLabel: 'Start Recording',
     ),
     HeroBannerModel(
-      imageAsset: 'assets/images/hero_analyze_swing.jpg',
+      imageAsset: 'assets/images/golf_02.png',
       eyebrow: 'AI POWERED',
       title: 'Analyze every\nswing instantly.',
       ctaLabel: 'Start Recording',
     ),
     HeroBannerModel(
-      imageAsset: 'assets/images/hero_coach_review.jpg',
+      imageAsset: 'assets/images/golf_03.png',
       eyebrow: 'STAY ON TRACK',
       title: 'Get feedback\nfrom your coach.',
       ctaLabel: 'Start Recording',
@@ -65,7 +80,7 @@ class HomeController extends ChangeNotifier {
   /// Call from PageView.onPageChanged.
   void onHeroPageChanged(int index) {
     _currentHeroIndex = index;
-    notifyListeners();
+    _notifySafely();
   }
 
   /// Pause auto-swipe while the user is actively dragging the carousel,
@@ -77,29 +92,237 @@ class HomeController extends ChangeNotifier {
   // Stat chips
   // ---------------------------------------------------------------------
 
-  final List<StatModel> stats = const [
-    StatModel(value: '12.4', label: 'Handicap'),
-    StatModel(value: '847', label: 'Swings'),
-    StatModel(value: '23', label: 'This Week'),
-  ];
+  List<StatModel> stats = const [];
 
   // ---------------------------------------------------------------------
   // Active session
   // ---------------------------------------------------------------------
 
-  final ActiveSessionModel activeSession = const ActiveSessionModel(
-    thumbnailAsset: 'assets/images/session_driver_face_on.jpg',
-    title: 'Driver · Face On',
-    statusLabel: 'Coach Reviewing',
-  );
+  ActiveSessionModel? activeSession;
+
+  // ---------------------------------------------------------------------
+  // Profile header data (filled from GET /user/get-my-profile)
+  // ---------------------------------------------------------------------
+  String userName = '';
+  String avatarInitials = '';
+  bool hasUnreadNotifications = false;
+
+  // ---------------------------------------------------------------------
+  // API state
+  // ---------------------------------------------------------------------
+  bool isLoading = false;
+  String? errorMessage;
+
+  Future<void> _bootstrap() async {
+    isLoading = true;
+    _notifySafely();
+
+    try {
+      final sharedPreferences = await SharedPreferences.getInstance();
+      if (_isDisposed) return;
+      final apiService = ApiService(sharedPreferences: sharedPreferences);
+      final golferService = GolferService(apiService: apiService);
+
+      final profileResponse = await golferService.getMyProfile();
+      if (_isDisposed) return;
+      final profileData = _asMap(profileResponse['data']);
+      if (profileData != null) {
+        final name = _readString(profileData, 'name');
+        if (name != null && name.isNotEmpty) {
+          userName = name;
+          avatarInitials = _buildInitials(name);
+        }
+      }
+
+      final homeResponse = await golferService.getHomeSummary();
+      if (_isDisposed) return;
+      final homeData = _asMap(homeResponse['data']);
+      if (homeData != null) {
+        _applyHomeData(homeData);
+      }
+    } catch (e) {
+      if (_isDisposed) return;
+      errorMessage = e.toString();
+    } finally {
+      if (!_isDisposed) {
+        isLoading = false;
+        _notifySafely();
+      }
+    }
+  }
+
+  void _notifySafely() {
+    if (_isDisposed) return;
+    notifyListeners();
+  }
+
+  void _applyHomeData(Map<String, dynamic> data) {
+    final summary = _asMap(data['summary']);
+    if (summary != null) {
+      stats = [
+        StatModel(
+          value: '${summary['totalSessions'] ?? 0}',
+          label: 'Total Sessions',
+        ),
+        StatModel(
+          value: '${summary['swingsThisWeek'] ?? 0}',
+          label: 'Swings This Week',
+        ),
+        StatModel(
+          value: '${summary['totalAiAnalyses'] ?? 0}',
+          label: 'AI Analyses',
+        ),
+      ];
+    }
+
+    final active = _asMap(data['activeSession']);
+    if (active != null) {
+      activeSession = ActiveSessionModel(
+        thumbnailUrl: _readString(active, 'videoUrl') ?? '',
+        title:
+            '${_readString(active, 'clubType') ?? 'All Clubs'} · ${_readString(active, 'cameraAngle') ?? 'All Angles'}',
+        statusLabel: _readString(active, 'status') ?? 'In Progress',
+        payload: active,
+      );
+    } else {
+      activeSession = null;
+    }
+
+    final quickActionData = _asMap(data['quickAction']);
+    if (quickActionData != null) {
+      quickActions = [
+        QuickActionModel(
+          type: QuickActionType.aiAnalysis,
+          icon: Icons.psychology_alt_outlined,
+          title: 'AI Analysis',
+          subtitle: 'Review your swing',
+          backgroundColor: AppColors.quickActionAiBg,
+          iconColor: AppColors.quickActionAiIcon,
+          payload: _asMap(quickActionData['aiAnalysis']),
+        ),
+        QuickActionModel(
+          type: QuickActionType.logbook,
+          icon: Icons.menu_book_outlined,
+          title: 'Logbook',
+          subtitle: 'Tips & reminders',
+          backgroundColor: AppColors.quickActionLogbookBg,
+          iconColor: AppColors.quickActionLogbookIcon,
+          payload: _asMap(quickActionData['logbook']),
+        ),
+        QuickActionModel(
+          type: QuickActionType.shareWithCoach,
+          icon: Icons.share_outlined,
+          title: 'Share with Coach',
+          subtitle: 'Send for review',
+          backgroundColor: AppColors.quickActionShareBg,
+          iconColor: AppColors.quickActionShareIcon,
+          payload: _asMap(quickActionData['shareSwing']),
+        ),
+        const QuickActionModel(
+          type: QuickActionType.library,
+          icon: Icons.video_library_outlined,
+          title: 'Library',
+          subtitle: 'All your swings',
+          backgroundColor: AppColors.quickActionLibraryBg,
+          iconColor: AppColors.quickActionLibraryIcon,
+        ),
+      ];
+    }
+
+    final recent = data['recentActivities'];
+    if (recent is List) {
+      recentActivities = recent
+          .map((e) => _asMap(e))
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (activity) => RecentActivityModel(
+              thumbnailUrl:
+                  _readString(activity, 'thumbnailUrl') ??
+                  _readString(activity, 'videoUrl') ??
+                  '',
+              title:
+                  '${_readString(activity, 'clubType') ?? 'All Clubs'} · ${_readString(activity, 'cameraAngle') ?? 'All Angles'}',
+              subtitle: _friendlyDate(_readString(activity, 'createdAt')),
+              scorePercent: (_asNum(activity['overallScore'])?.round() ?? 0)
+                  .clamp(0, 100),
+              payload: activity,
+            ),
+          )
+          .toList();
+    } else {
+      recentActivities = const [];
+    }
+
+    final feedback = _asMap(data['coachFeedback']);
+    if (feedback != null) {
+      hasCoachFeedback = true;
+      _coachFeedback = CoachFeedbackModel(
+        title: 'New Coach Feedback',
+        subtitle:
+            _readString(feedback, 'message') ??
+            _readString(feedback, 'note') ??
+            _readString(feedback, 'title') ??
+            'Coach sent feedback on your session',
+        isUnread: true,
+      );
+      hasUnreadNotifications = true;
+    } else {
+      hasCoachFeedback = false;
+      hasUnreadNotifications = false;
+    }
+  }
+
+  Map<String, dynamic>? _asMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  String? _readString(Map<String, dynamic> map, String key) {
+    final value = map[key];
+    if (value == null) return null;
+    final text = value.toString();
+    return text.isEmpty ? null : text;
+  }
+
+  num? _asNum(dynamic raw) {
+    if (raw is num) return raw;
+    return num.tryParse('${raw ?? ''}');
+  }
+
+  String _friendlyDate(String? iso) {
+    if (iso == null || iso.isEmpty) return '';
+    final parsed = DateTime.tryParse(iso);
+    if (parsed == null) return '';
+    final now = DateTime.now();
+    final local = parsed.toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(local.year, local.month, local.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return '${local.day}/${local.month}/${local.year}';
+  }
+
+  String _buildInitials(String fullName) {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
 
   // ---------------------------------------------------------------------
   // Coach feedback banner
   // ---------------------------------------------------------------------
 
+  bool hasCoachFeedback = false;
   CoachFeedbackModel _coachFeedback = const CoachFeedbackModel(
     title: 'New Coach Feedback',
-    subtitle: 'James Keller reviewed your 7 Iron session',
+    subtitle: '',
     isUnread: true,
   );
   CoachFeedbackModel get coachFeedback => _coachFeedback;
@@ -108,65 +331,13 @@ class HomeController extends ChangeNotifier {
   // Quick actions
   // ---------------------------------------------------------------------
 
-  final List<QuickActionModel> quickActions = const [
-    QuickActionModel(
-      type: QuickActionType.aiAnalysis,
-      icon: Icons.psychology_alt_outlined,
-      title: 'AI Analysis',
-      subtitle: 'Review your swing',
-      backgroundColor: AppColors.quickActionAiBg,
-      iconColor: AppColors.quickActionAiIcon,
-    ),
-    QuickActionModel(
-      type: QuickActionType.logbook,
-      icon: Icons.menu_book_outlined,
-      title: 'Logbook',
-      subtitle: 'Tips & reminders',
-      backgroundColor: AppColors.quickActionLogbookBg,
-      iconColor: AppColors.quickActionLogbookIcon,
-    ),
-    QuickActionModel(
-      type: QuickActionType.shareWithCoach,
-      icon: Icons.share_outlined,
-      title: 'Share with Coach',
-      subtitle: 'Send for review',
-      backgroundColor: AppColors.quickActionShareBg,
-      iconColor: AppColors.quickActionShareIcon,
-    ),
-    QuickActionModel(
-      type: QuickActionType.library,
-      icon: Icons.video_library_outlined,
-      title: 'Library',
-      subtitle: 'All your swings',
-      backgroundColor: AppColors.quickActionLibraryBg,
-      iconColor: AppColors.quickActionLibraryIcon,
-    ),
-  ];
+  List<QuickActionModel> quickActions = const [];
 
   // ---------------------------------------------------------------------
   // Recent activity
   // ---------------------------------------------------------------------
 
-  final List<RecentActivityModel> recentActivities = const [
-    RecentActivityModel(
-      thumbnailAsset: 'assets/images/activity_driver.jpg',
-      title: 'Driver · Face On',
-      subtitle: 'Today, 9:14 AM',
-      scorePercent: 84,
-    ),
-    RecentActivityModel(
-      thumbnailAsset: 'assets/images/activity_7iron.jpg',
-      title: '7 Iron · Down the Line',
-      subtitle: 'Yesterday, 4:30 PM',
-      scorePercent: 91,
-    ),
-    RecentActivityModel(
-      thumbnailAsset: 'assets/images/activity_sandwedge.jpg',
-      title: 'Sand Wedge · Side On',
-      subtitle: 'Mon, 11:00 AM',
-      scorePercent: 76,
-    ),
-  ];
+  List<RecentActivityModel> recentActivities = const [];
 
   // ---------------------------------------------------------------------
   // Tap handlers — every interactive element in the UI routes through here
@@ -178,7 +349,9 @@ class HomeController extends ChangeNotifier {
   }
 
   void onProfileTap(BuildContext context) {
-    _toast(context, 'Opening profile');
+    if (Get.isRegistered<GolferNavbarController>()) {
+      Get.find<GolferNavbarController>().changeIndex(4);
+    }
   }
 
   void onStartRecordingTap(BuildContext context) {
@@ -186,11 +359,13 @@ class HomeController extends ChangeNotifier {
   }
 
   void onActiveSessionTap(BuildContext context) {
-    _toast(context, 'Opening "${activeSession.title}" session');
+    if (activeSession == null) return;
+    _openSessionTimeline(context);
   }
 
   void onViewTimelineTap(BuildContext context) {
-    _toast(context, 'Opening timeline');
+    if (activeSession == null) return;
+    _openSessionTimeline(context);
   }
 
   void onCoachFeedbackTap(BuildContext context) {
@@ -200,12 +375,55 @@ class HomeController extends ChangeNotifier {
       subtitle: _coachFeedback.subtitle,
       isUnread: false,
     );
-    notifyListeners();
-    _toast(context, 'Opening coach feedback');
+    _notifySafely();
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CoachFeedbackScreen()));
+  }
+
+  void _openSessionTimeline(BuildContext context) {
+    final timelineController = SessionTimelineController();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) =>
+                SessionTimelineScreen(controller: timelineController),
+          ),
+        )
+        .then((_) => timelineController.dispose());
   }
 
   void onQuickActionTap(BuildContext context, QuickActionModel action) {
-    _toast(context, '${action.title} tapped');
+    switch (action.type) {
+      case QuickActionType.aiAnalysis:
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SwingAnalysisScreen(initialData: action.payload),
+          ),
+        );
+        break;
+      case QuickActionType.logbook:
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const GolfLogbookScreen()));
+        break;
+      case QuickActionType.shareWithCoach:
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ShareWithCoachScreen(initialData: action.payload),
+          ),
+        );
+        break;
+      case QuickActionType.library:
+        _openLibraryTab();
+        break;
+    }
+  }
+
+  void _openLibraryTab() {
+    if (Get.isRegistered<GolferNavbarController>()) {
+      Get.find<GolferNavbarController>().changeIndex(1);
+    }
   }
 
   void onSeeAllActivityTap(BuildContext context) {
@@ -213,7 +431,11 @@ class HomeController extends ChangeNotifier {
   }
 
   void onActivityItemTap(BuildContext context, RecentActivityModel item) {
-    _toast(context, 'Opening "${item.title}"');
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SwingAnalysisScreen(initialData: item.payload),
+      ),
+    );
   }
 
   void _toast(BuildContext context, String message) {
@@ -231,6 +453,7 @@ class HomeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _autoSwipeTimer?.cancel();
     heroPageController.dispose();
     super.dispose();

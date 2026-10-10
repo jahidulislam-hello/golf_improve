@@ -32,8 +32,8 @@ class AppColors {
   /// border/light-gray — Dividers, card borders
   static const Color borderLightGray = Color(0xFFE2E8F0);
 
-  /// border/card — Subtle card outline (e.g. Recent Activity card)
-  static const Color borderCard = Color(0xFFF1F5F9);
+  /// border/card — Card outline (#E2E8F0, typically 1.11px via [AppRadii])
+  static const Color borderCard = Color(0xFFE2E8F0);
 
   /// text/primary — Body text, labels
   static const Color textPrimary = Color(0xFF1E293B);
@@ -113,15 +113,17 @@ class AppColors {
   static const Color quickActionLibraryBg = Color(0xFFEDE9FE);
   static const Color quickActionLibraryIcon = Color(0xFF7C3AED);
 
+
+
   static const LinearGradient heroImageScrimGradient = LinearGradient(
-    begin: Alignment.bottomCenter,
-    end: Alignment.topCenter,
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    stops: [0.0, 0.5, 1.0],
     colors: [
-      Color(0xE60A1628),
-      Color(0x330A1628),
-      Color(0x000A1628),
+      Color(0xF20A1628), // #0A1628 @ 95%
+      Color(0x800A1628), // #0A1628 @ 50%
+      Color(0x00000000), // #000000 @ 0% (transparent)
     ],
-    stops: [0.0, 0.55, 1.0],
   );
 
   /// Notification badge red — used on the bell icon's unread-count dot.
@@ -159,4 +161,19 @@ class AppColors {
 
   static const Color proFeedbackBg = Color(0xFFEAF1FE);
   static const Color chatBubbleAiBg = Color(0xFFE3E8F5);
+
+
+  // ===== Supplementary accent colors =====
+  // NOTE: These are not present in the original design-token file you shared.
+  // The "My Progress" mock uses an orange/peach streak badge and a purple
+  // stat icon that don't map to any token above, so they are added here
+  // as clearly-separated extras. Swap these for real tokens whenever your
+  // design system defines them.
+  static const Color accentOrange = Color(0xFFF97316);
+  static const Color accentOrangeBg = Color(0xFFFDECD8);
+  static const Color accentGreen = Color(0xFF16A34A);
+  static const Color accentPurple = Color(0xFF7C3AED);
+  static const Color accentPurpleBg = Color(0xFFF1E9FE);
+  static const Color accentBlueBg = Color(0xFFE3ECFD);
+  static const Color chartFillTop = Color(0xFFC9DBFB);
 }

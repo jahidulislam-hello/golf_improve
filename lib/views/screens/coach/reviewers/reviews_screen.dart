@@ -4,8 +4,9 @@ import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/reviewers/pending_review_card.dart';
 import 'package:golf_training_app/views/screens/coach/reviewers/reviews_controller.dart';
 
+import 'package:golf_training_app/views/screens/coach/dashboard/dashboard_screen/models/swing_review.dart';
+import 'package:golf_training_app/views/screens/coach/dashboard/review_swing/review_swing_screen.dart';
 import 'completed_review_tile.dart';
-import 'review_swing_screen.dart';
 
 class ReviewsScreen extends StatefulWidget {
   const ReviewsScreen({super.key, this.controller});
@@ -35,16 +36,53 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     super.dispose();
   }
 
-  Future<void> _openReviewSwing(BuildContext context, String reviewId) async {
-    final review = _controller.findPendingById(reviewId);
-    if (review == null) return;
+  Future<void> _openReviewSwing(
+    BuildContext context, {
+    required String reviewId,
+    required bool canSendFeedback,
+  }) async {
+    final pending = _controller.findPendingById(reviewId);
+    final completed = _controller.findCompletedById(reviewId);
+    final id = pending?.id ?? completed?.id;
+    if (id == null) return;
 
-    final completed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => ReviewSwingScreen(review: review)),
+    final name = pending?.golferName ?? completed?.golferName ?? '';
+    final avatar = pending?.avatarUrl ?? completed?.avatarUrl ?? '';
+    final club = pending?.club ?? completed?.club ?? '';
+    final angle = pending?.angle ?? completed?.angle ?? '';
+    final duration = pending?.duration ?? completed?.duration ?? Duration.zero;
+    final thumbnail = pending != null
+        ? (pending.thumbnailUrl.isNotEmpty ? pending.thumbnailUrl : pending.videoUrl)
+        : (completed!.thumbnailUrl.isNotEmpty
+            ? completed.thumbnailUrl
+            : completed.videoUrl);
+    final quote = pending?.quote ?? completed?.quote ?? '';
+
+    final sent = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CoachReviewSwingScreen(
+          shareId: id,
+          canSendFeedback: canSendFeedback,
+          review: SwingReview(
+            id: id,
+            studentName: name,
+            studentAvatarUrl: avatar,
+            club: club,
+            angle: angle,
+            duration: duration,
+            videoThumbnailUrl: thumbnail,
+            currentPositionLabel: '',
+            studentQuestion: quote,
+            studentSessionNotes: '',
+            sessionTags: const [],
+            aiAnalysisPoints: const [],
+          ),
+        ),
+      ),
     );
 
-    if (completed == true) {
-      _controller.markReviewComplete(reviewId);
+    if (sent == true) {
+      await _controller.fetchReviews(showLoader: false);
     }
   }
 
@@ -57,8 +95,11 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
           listenable: _controller,
           builder: (context, _) {
             return RefreshIndicator(
-              onRefresh: _controller.fetchReviews,
-              child: CustomScrollView(
+              onRefresh: () => _controller.fetchReviews(showLoader: false),
+              child: _controller.isLoading && !_controller.hasLoaded
+                  ? const Center(child: CircularProgressIndicator())
+                  : CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(child: _Header(count: _controller.pendingCount)),
                   SliverPadding(
@@ -76,7 +117,11 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                         final review = _controller.pendingReviews[index];
                         return PendingReviewCard(
                           review: review,
-                          onTap: () => _openReviewSwing(context, review.id),
+                          onTap: () => _openReviewSwing(
+                            context,
+                            reviewId: review.id,
+                            canSendFeedback: true,
+                          ),
                         );
                       },
                     ),
@@ -93,7 +138,14 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                       itemCount: _controller.completedReviews.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        return CompletedReviewTile(review: _controller.completedReviews[index]);
+                        return CompletedReviewTile(
+                          review: _controller.completedReviews[index],
+                          onTap: () => _openReviewSwing(
+                            context,
+                            reviewId: _controller.completedReviews[index].id,
+                            canSendFeedback: false,
+                          ),
+                        );
                       },
                     ),
                   ),

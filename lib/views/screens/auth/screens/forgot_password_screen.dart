@@ -9,6 +9,14 @@ import '../widgets/auth_text_field.dart';
 import '../widgets/primary_button.dart';
 import 'otp_verification_screen.dart';
 
+void _showAuthError(BuildContext context, AuthController auth) {
+  final message = auth.errorMessage;
+  if (message == null || message.isEmpty) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
 class ForgotPasswordScreen extends StatelessWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -54,11 +62,15 @@ class ForgotPasswordScreen extends StatelessWidget {
                 isLoading: auth.isLoading,
                 onPressed: () async {
                   final success = await auth.sendResetCode();
-                  if (success && context.mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const OtpVerificationScreen()),
-                    );
+                  if (!context.mounted) return;
+                  if (!success) {
+                    _showAuthError(context, auth);
+                    return;
                   }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const OtpVerificationScreen()),
+                  );
                 },
               ),
             ],

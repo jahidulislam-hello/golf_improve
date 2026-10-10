@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
-import 'app_text_styles.dart';
+import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_radii.dart';
+import 'package:golf_training_app/core/app_styles.dart';
+
 
 /// "Choose your plan" screen.
 ///
@@ -255,7 +257,7 @@ class _BestValueBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.ctaBrightBlue,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
       ),
       child: Text(
         label,
@@ -281,7 +283,7 @@ class _EverythingIncludedCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: AppRadii.cardBorderRadius,
         border: Border.all(color: AppColors.surfaceWhite.withOpacity(0.10)),
       ),
       child: Column(

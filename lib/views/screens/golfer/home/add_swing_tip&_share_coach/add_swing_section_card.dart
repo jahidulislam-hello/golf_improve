@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// White rounded card with an uppercase eyebrow label, matching the
@@ -34,8 +35,8 @@ class AddSwingSectionCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderCard),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

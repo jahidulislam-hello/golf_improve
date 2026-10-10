@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-
-import 'app_colors.dart';
-import 'app_text_styles.dart';
-import 'models/swing_insight.dart';
+import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_radii.dart';
+import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/views/screens/golfer/home/swing_analysis/swing_insight.dart';
 import 'swing_analysis_controller.dart';
 
 /// "Swing Analysis" screen: video player with a scrub bar and a
@@ -196,7 +196,7 @@ class _VideoSection extends StatelessWidget {
                 Text(
                   'Scrub to the moment you want to analyse. Then draw.',
                   textAlign: TextAlign.center,
-                  style: AppTextStyles.videoOverlayHint,
+                  style: AppTextStyles.type14,
                 ),
                 const SizedBox(height: 10),
                 _ScrubBar(controller: controller),
@@ -271,7 +271,7 @@ class _ScrubBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.45),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: AppRadii.cardBorderRadius,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -287,7 +287,7 @@ class _ScrubBar extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '${controller.positionLabel}/${controller.totalDurationLabel}',
-                style: AppTextStyles.videoTimestamp,
+                style: AppTextStyles.type14,
               ),
             ],
           ),
@@ -410,7 +410,7 @@ class _AiCoachButton extends StatelessWidget {
                           color: AppColors.surfaceWhite,
                         ),
                         const SizedBox(width: 10),
-                        Text('AI Golf Coach', style: AppTextStyles.aiCoachButtonLabel),
+                        Text('AI Golf Coach', style: AppTextStyles.type16),
                       ],
                     ),
             ),
@@ -434,7 +434,8 @@ class _InsightCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryNavy.withOpacity(0.04),
@@ -460,9 +461,10 @@ class _InsightCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(insight.title, style: AppTextStyles.insightCardTitle),
+                Text(insight.title, style: AppTextStyles.type16),
                 const SizedBox(height: 4),
-                Text(insight.description, style: AppTextStyles.insightCardBody),
+                Text(insight.description, style: AppTextStyles.type14
+                ),
               ],
             ),
           ),

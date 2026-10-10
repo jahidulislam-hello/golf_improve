@@ -127,13 +127,15 @@ class _AvatarButton extends StatelessWidget {
             color: AppColors.primaryNavy,
             shape: BoxShape.circle,
           ),
-          child: Text(
-            initials,
-            style: AppTextStyles.type13.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          child: initials.isEmpty
+              ? const Icon(Icons.person, color: Colors.white, size: 20)
+              : Text(
+                  initials,
+                  style: AppTextStyles.type13.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
         ),
       ),
     );

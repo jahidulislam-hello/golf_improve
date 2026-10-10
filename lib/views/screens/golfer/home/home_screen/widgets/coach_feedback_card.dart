@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 /// Dark navy "New Coach Feedback" banner with chat icon and unread dot.
 class CoachFeedbackCard extends StatelessWidget {
@@ -18,15 +19,15 @@ class CoachFeedbackCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.primaryNavy,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadii.cardBorderRadius,
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             gradient: AppColors.heroNavyGradient,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadii.cardBorderRadius,
           ),
           child: Row(
             children: [

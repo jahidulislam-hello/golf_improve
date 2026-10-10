@@ -7,10 +7,16 @@ import '../widgets/video_preview.dart';
 import 'review_swing_fullscreen_screen.dart';
 
 /// Screen 5 — Review Swing (dark background, annotated preview).
-/// Reached from Screen 2 by tapping the video.
-/// Tapping the fullscreen/expand icon opens Screen 6.
+/// Reached from Screen 2 by tapping expand on the video.
 class ReviewSwingScreen extends StatefulWidget {
-  const ReviewSwingScreen({super.key});
+  const ReviewSwingScreen({
+    super.key,
+    this.videoUrl,
+    this.thumbnailUrl,
+  });
+
+  final String? videoUrl;
+  final String? thumbnailUrl;
 
   @override
   State<ReviewSwingScreen> createState() => _ReviewSwingScreenState();
@@ -19,9 +25,20 @@ class ReviewSwingScreen extends StatefulWidget {
 class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
   final ReviewSwingController controller = ReviewSwingController();
 
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   void _openFullscreen() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ReviewSwingFullscreenScreen()),
+      MaterialPageRoute(
+        builder: (_) => ReviewSwingFullscreenScreen(
+          videoUrl: widget.videoUrl,
+          thumbnailUrl: widget.thumbnailUrl,
+        ),
+      ),
     );
   }
 
@@ -58,17 +75,13 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                   ),
                 ),
                 const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 0),
-                  child: VideoPreview(
-                    position: controller.position,
-                    total: controller.total,
-                    isPlaying: controller.isPlaying,
-                    onPlayToggle: controller.togglePlay,
-                    showAnnotationLines: controller.showDrawing,
-                    onExpand: _openFullscreen,
-                    aspectRatio: 16 / 10,
-                  ),
+                VideoPreview(
+                  videoUrl: widget.videoUrl,
+                  thumbnailUrl: widget.thumbnailUrl,
+                  showAnnotationLines: controller.showDrawing,
+                  onExpand: _openFullscreen,
+                  aspectRatio: 16 / 10,
+                  autoPlay: true,
                 ),
                 const Spacer(),
               ],

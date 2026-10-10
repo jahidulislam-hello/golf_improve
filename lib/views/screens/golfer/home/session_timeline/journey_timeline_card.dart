@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_models.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 
 
 /// White rounded card titled "Journey" containing a vertical stepper
@@ -17,7 +18,8 @@ class JourneyTimelineCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -85,8 +87,8 @@ class _JourneyRow extends StatelessWidget {
                       Text(
                         step.title,
                         style: isMuted
-                            ? AppTextStyles.journeyItemTitleMuted
-                            : AppTextStyles.journeyItemTitle,
+                            ? AppTextStyles.type16.copyWith(color: AppColors.textSecondary)
+                            : AppTextStyles.type16,
                       ),
                       if (step.badgeText != null) ...[
                         const SizedBox(width: 6),
@@ -95,14 +97,14 @@ class _JourneyRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text(step.subtitle, style: AppTextStyles.journeyItemSubtitle),
+                  Text(step.subtitle, style: AppTextStyles.type13),
                   if (step.timestamp != null) ...[
                     const SizedBox(height: 4),
-                    Text(step.timestamp!, style: AppTextStyles.journeyItemTimestamp),
+                    Text(step.timestamp!, style: AppTextStyles.type16),
                   ],
                   if (step.status == JourneyStepStatus.inProgress) ...[
                     const SizedBox(height: 4),
-                    Text('In progress…', style: AppTextStyles.journeyInProgress),
+                    Text('In progress…', style: AppTextStyles.type14),
                   ],
                 ],
               ),
@@ -182,7 +184,7 @@ class _BetaBadge extends StatelessWidget {
         color: AppColors.betaBadgeBg,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(text, style: AppTextStyles.betaBadge),
+      child: Text(text, style: AppTextStyles.type14),
     );
   }
 }
