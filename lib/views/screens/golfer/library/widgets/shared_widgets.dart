@@ -153,11 +153,15 @@ class _StatColumn extends StatelessWidget {
 class SwingThumbnailCard extends StatelessWidget {
   final SwingVideo swing;
   final VoidCallback onTap;
+  final bool selected;
+  final bool dimmed;
 
   const SwingThumbnailCard({
     super.key,
     required this.swing,
     required this.onTap,
+    this.selected = false,
+    this.dimmed = false,
   });
 
   @override
@@ -167,82 +171,86 @@ class SwingThumbnailCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 1,
-            child: ClipRRect(
-              borderRadius: AppRadii.cardBorderRadius,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (hasNetworkThumb)
-                    Image.network(
-                      thumb,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const _ThumbPlaceholder(),
-                    )
-                  else
-                    const _ThumbPlaceholder(),
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.35),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
+      child: Opacity(
+        opacity: dimmed ? 0.4 : 1,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 1,
+              child: ClipRRect(
+                borderRadius: AppRadii.cardBorderRadius,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: AppRadii.cardBorderRadius,
+                    border: selected
+                        ? Border.all(color: AppColors.ctaBrightBlue, width: 2)
+                        : null,
                   ),
-                  if (swing.matchPercent != null)
-                    Positioned(
-                      right: 8,
-                      bottom: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${swing.matchPercent}%',
-                          style: AppTextStyles.type11.copyWith(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (hasNetworkThumb)
+                        Image.network(
+                          thumb,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const _ThumbPlaceholder(),
+                        )
+                      else
+                        const _ThumbPlaceholder(),
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.35),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow,
                             color: Colors.white,
-                            fontWeight: FontWeight.w700,
+                            size: 22,
                           ),
                         ),
                       ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            swing.club,
-            style: AppTextStyles.type14.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+            const SizedBox(height: 6),
+            Text(
+              swing.club,
+              style: AppTextStyles.type14.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            swing.angle,
-            style: AppTextStyles.caption,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+            Text(
+              swing.angleLabel,
+              style: AppTextStyles.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (swing.recordedDateLabel.isNotEmpty)
+              Text(
+                swing.recordedDateLabel,
+                style: AppTextStyles.caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            if (swing.recordedTimeLabel.isNotEmpty)
+              Text(
+                swing.recordedTimeLabel,
+                style: AppTextStyles.caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
       ),
     );
   }

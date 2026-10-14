@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
@@ -80,15 +81,6 @@ class PoseDetectorService {
       put('left_ankle', PoseLandmarkType.leftAnkle);
       put('right_ankle', PoseLandmarkType.rightAnkle);
 
-      final leadWrist = landmarks['left_wrist'] ?? landmarks['right_wrist'];
-      if (leadWrist != null) {
-        landmarks['club_head'] = PoseLandmarkPoint(
-          x: leadWrist.x,
-          y: leadWrist.y + 40,
-          confidence: leadWrist.confidence * 0.9,
-        );
-      }
-
       final avgConfidence = landmarks.isEmpty
           ? 0.0
           : landmarks.values.map((e) => e.confidence).reduce((a, b) => a + b) /
@@ -100,7 +92,11 @@ class PoseDetectorService {
         confidence: avgConfidence,
       );
 
-      final joints = _toOverlayJoints(landmarks, image.width, image.height);
+      final joints = _toOverlayJoints(
+        landmarks,
+        imageSize: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: input.metadata!.rotation,
+      );
       return PoseFrameResult(
         sample: sample,
         joints: joints,
@@ -140,42 +136,91 @@ class PoseDetectorService {
         text.contains('vision#startPoseDetector');
   }
 
-  List<Joint> _toOverlayJoints(
-    Map<String, PoseLandmarkPoint> landmarks,
-    int width,
-    int height,
-  ) {
-    if (width <= 0 || height <= 0) return const [];
-
-    Joint j(String key, int fallbackIndex) {
-      final p = landmarks[key];
-      if (p != null) {
-        return Joint(
-          (p.x / width).clamp(0.0, 1.0),
-          (p.y / height).clamp(0.0, 1.0),
-        );
-      }
-      return defaultSwingJoints[fallbackIndex];
-    }
-
+  /// Maps ML Kit points onto the upright preview.
+  ///
+  /// On Android the camera buffer is landscape. With a 90° or 270° rotation,
+  /// landmark X spans the buffer height and Y spans the buffer width. Dividing
+  /// by the raw width/height drops the skeleton below the head and shoulders.
+  List<Joint?> _toOverlayJoints(
+    Map<String, PoseLandmarkPoint> landmarks, {
+    required Size imageSize,
+    required InputImageRotation rotation,
+  }) {
+    if (imageSize.width <= 0 || imageSize.height <= 0) return const [];
     if (landmarks.isEmpty) return const [];
 
+    final swapped = !Platform.isIOS &&
+        (rotation == InputImageRotation.rotation90deg ||
+            rotation == InputImageRotation.rotation270deg);
+    final axisX = swapped ? imageSize.height : imageSize.width;
+    final axisY = swapped ? imageSize.width : imageSize.height;
+
+    Joint? j(String key) {
+      final point = landmarks[key];
+      if (point == null || point.confidence < 0.3) return null;
+      var x = (point.x / axisX).clamp(0.0, 1.0);
+      final y = (point.y / axisY).clamp(0.0, 1.0);
+      if (rotation == InputImageRotation.rotation270deg) {
+        x = 1 - x;
+      }
+      return Joint(x, y);
+    }
+
+    final leftElbow = j('left_elbow');
+    final leftWrist = j('left_wrist');
+    final rightElbow = j('right_elbow');
+    final rightWrist = j('right_wrist');
+
     return [
-      j('nose', 0),
-      j('left_shoulder', 1),
-      j('left_elbow', 2),
-      j('left_wrist', 3),
-      j('right_shoulder', 4),
-      j('right_elbow', 5),
-      j('right_wrist', 6),
-      j('left_hip', 7),
-      j('left_knee', 8),
-      j('left_ankle', 9),
-      j('right_hip', 10),
-      j('right_knee', 11),
-      j('right_ankle', 12),
-      j('club_head', 13),
+      j('nose'),
+      j('left_shoulder'),
+      leftElbow,
+      leftWrist,
+      j('right_shoulder'),
+      rightElbow,
+      rightWrist,
+      j('left_hip'),
+      j('left_knee'),
+      j('left_ankle'),
+      j('right_hip'),
+      j('right_knee'),
+      j('right_ankle'),
+      _clubHead(
+        leftElbow: leftElbow,
+        leftWrist: leftWrist,
+        rightElbow: rightElbow,
+        rightWrist: rightWrist,
+      ),
     ];
+  }
+
+  /// Continues the more extended arm past the hand, toward the club.
+  Joint? _clubHead({
+    required Joint? leftElbow,
+    required Joint? leftWrist,
+    required Joint? rightElbow,
+    required Joint? rightWrist,
+  }) {
+    Joint? extend(Joint? elbow, Joint? wrist) {
+      if (elbow == null || wrist == null) return null;
+      final dx = wrist.x - elbow.x;
+      final dy = wrist.y - elbow.y;
+      final length = math.sqrt(dx * dx + dy * dy);
+      if (length < 0.02) return null;
+      return Joint(
+        (wrist.x + dx * 0.9).clamp(0.0, 1.0),
+        (wrist.y + dy * 0.9).clamp(0.0, 1.0),
+      );
+    }
+
+    final left = extend(leftElbow, leftWrist);
+    final right = extend(rightElbow, rightWrist);
+    if (left == null) return right;
+    if (right == null) return left;
+    final leftReach = (left.x - leftElbow!.x).abs() + (left.y - leftElbow.y).abs();
+    final rightReach =
+        (right.x - rightElbow!.x).abs() + (right.y - rightElbow.y).abs();
+    return leftReach >= rightReach ? left : right;
   }
 
   InputImage? _toInputImage(
@@ -183,20 +228,28 @@ class PoseDetectorService {
     required CameraDescription camera,
     required int deviceOrientationDegrees,
   }) {
-    final allBytes = WriteBuffer();
-    for (final Plane plane in image.planes) {
-      allBytes.putUint8List(plane.bytes);
-    }
-    final bytes = allBytes.done().buffer.asUint8List();
-
     final rotation = _rotation(
       camera: camera,
       deviceOrientationDegrees: deviceOrientationDegrees,
     );
     if (rotation == null) return null;
 
-    final format = InputImageFormatValue.fromRawValue(image.format.raw);
-    if (format == null) return null;
+    final Uint8List bytes;
+    final InputImageFormat format;
+    if (Platform.isAndroid) {
+      if (image.planes.isEmpty) return null;
+      bytes = image.planes.first.bytes;
+      format = InputImageFormat.nv21;
+    } else {
+      final allBytes = WriteBuffer();
+      for (final Plane plane in image.planes) {
+        allBytes.putUint8List(plane.bytes);
+      }
+      bytes = allBytes.done().buffer.asUint8List();
+      final parsed = InputImageFormatValue.fromRawValue(image.format.raw);
+      if (parsed == null) return null;
+      format = parsed;
+    }
 
     return InputImage.fromBytes(
       bytes: bytes,
@@ -249,7 +302,7 @@ class PoseFrameResult {
   });
 
   final PoseSample sample;
-  final List<Joint> joints;
+  final List<Joint?> joints;
   final int imageWidth;
   final int imageHeight;
 }

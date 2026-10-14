@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import '../../controllers/review_swing_controller.dart';
 
-import '../../widgets/review/ai_agreement_card.dart';
 import '../../widgets/review/labeled_text_area_card.dart';
 import '../../widgets/review/practice_plan_day_card.dart';
 import '../../widgets/review/stat_row_card.dart';
 import '../../widgets/review/video_analysis_card.dart';
 
-/// "Your Feedback" tab: the coach's written observations, recommended
-/// drill, the Practice Plan Builder, and the AI-agreement responder.
+/// "Your Feedback" tab: the coach's written note, the suggested drill,
+/// and the practice plan the coach can edit and approve.
 class YourFeedbackTab extends StatelessWidget {
   const YourFeedbackTab({super.key, required this.controller});
 
@@ -44,11 +44,16 @@ class YourFeedbackTab extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         LabeledTextAreaCard(
-          label: 'Recommended Drill',
+          label: 'AI Recommended Drill',
           controller: controller.recommendedDrillController,
-          hintText: 'Describe a specific drill for the student...',
+          hintText: 'Edit the drill suggested from your note, their goals, and practice history...',
           icon: Icons.change_history_rounded,
           minLines: 2,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Suggested from your written feedback, their goals, and practice history.',
+          style: AppTextStyles.caption,
         ),
         const SizedBox(height: 20),
         Row(
@@ -72,12 +77,45 @@ class YourFeedbackTab extends StatelessWidget {
             onDelete: () => controller.removePracticePlanDay(item.id),
           ),
         const SizedBox(height: 6),
-        AiAgreementCard(
-          agreement: controller.aiAgreement,
-          onChanged: controller.setAiAgreement,
-          extraContextController: controller.aiExtraContextController,
+        _ApprovePlanRow(
+          approved: controller.planApproved,
+          onChanged: controller.setPlanApproved,
         ),
       ],
+    );
+  }
+}
+
+class _ApprovePlanRow extends StatelessWidget {
+  const _ApprovePlanRow({required this.approved, required this.onChanged});
+
+  final bool approved;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceWhite,
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
+      ),
+      child: SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: approved,
+        activeThumbColor: AppColors.surfaceWhite,
+        activeTrackColor: AppColors.ctaBrightBlue,
+        title: Text(
+          'Approve this drill and plan',
+          style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          'Your edits are what the golfer will follow.',
+          style: AppTextStyles.caption,
+        ),
+        onChanged: onChanged,
+      ),
     );
   }
 }

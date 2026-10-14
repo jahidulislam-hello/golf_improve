@@ -7,6 +7,7 @@ import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/share_with_coach_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/coach_feedback/coach_feedback_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/home/compare_swings/compare_swings_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_logbook_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
 import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_controller.dart';
@@ -123,6 +124,11 @@ class HomeController extends ChangeNotifier {
       final apiService = ApiService(sharedPreferences: sharedPreferences);
       final golferService = GolferService(apiService: apiService);
 
+      try {
+        await golferService.syncPendingSwings();
+        await golferService.flushQueuedShares();
+      } catch (_) {}
+
       final profileResponse = await golferService.getMyProfile();
       if (_isDisposed) return;
       final profileData = _asMap(profileResponse['data']);
@@ -156,6 +162,16 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? _consistencyLabel(dynamic raw) {
+    final consistency = _asMap(raw);
+    if (consistency == null) return null;
+    final percentage = consistency['percentage'];
+    if (percentage is num) return '${percentage.round()}%';
+    final ratio = consistency['ratio'];
+    if (ratio is num) return '${(ratio * 100).round()}%';
+    return null;
+  }
+
   void _applyHomeData(Map<String, dynamic> data) {
     final summary = _asMap(data['summary']);
     if (summary != null) {
@@ -169,8 +185,9 @@ class HomeController extends ChangeNotifier {
           label: 'Swings This Week',
         ),
         StatModel(
-          value: '${summary['totalAiAnalyses'] ?? 0}',
-          label: 'AI Analyses',
+          value: _consistencyLabel(summary['consistency']) ??
+              '${summary['totalAiAnalyses'] ?? 0}',
+          label: summary['consistency'] is Map ? 'Consistency' : 'AI Analyses',
         ),
       ];
     }
@@ -191,14 +208,23 @@ class HomeController extends ChangeNotifier {
     final quickActionData = _asMap(data['quickAction']);
     if (quickActionData != null) {
       quickActions = [
+        // QuickActionModel(
+        //   type: QuickActionType.aiAnalysis,
+        //   icon: Icons.psychology_alt_outlined,
+        //   title: 'AI Analysis',
+        //   subtitle: 'Review your swing',
+        //   backgroundColor: AppColors.quickActionAiBg,
+        //   iconColor: AppColors.quickActionAiIcon,
+        //   payload: _asMap(quickActionData['aiAnalysis']),
+        // ),
         QuickActionModel(
-          type: QuickActionType.aiAnalysis,
+          type: QuickActionType.compareSwing,
           icon: Icons.psychology_alt_outlined,
-          title: 'AI Analysis',
-          subtitle: 'Review your swing',
+          title: 'Compare',
+          subtitle: 'Side by Side View',
           backgroundColor: AppColors.quickActionAiBg,
           iconColor: AppColors.quickActionAiIcon,
-          payload: _asMap(quickActionData['aiAnalysis']),
+          payload: _asMap(quickActionData['compareSwing']),
         ),
         QuickActionModel(
           type: QuickActionType.logbook,
@@ -275,6 +301,20 @@ class HomeController extends ChangeNotifier {
   Map<String, dynamic>? _asMap(dynamic raw) {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  String? _readId(Map<String, dynamic>? map, List<String> keys) {
+    if (map == null) return null;
+    for (final key in keys) {
+      final value = map[key];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+      if (value is Map) {
+        final nested = value['_id'] ?? value['id'];
+        final text = nested?.toString().trim() ?? '';
+        if (text.isNotEmpty) return text;
+      }
+    }
     return null;
   }
 
@@ -382,7 +422,24 @@ class HomeController extends ChangeNotifier {
   }
 
   void _openSessionTimeline(BuildContext context) {
-    final timelineController = SessionTimelineController();
+    final payload = activeSession?.payload;
+    final timelineController = SessionTimelineController(
+      shareId: _readId(payload, const [
+        'shareId',
+        'share_id',
+        'shareSwingId',
+      ]),
+      analysisId: _readId(payload, const [
+        'analysisId',
+        'swingLibraryId',
+        'swingLibrary',
+        'libraryId',
+        '_id',
+        'id',
+      ]),
+      thumbnailUrl: activeSession?.thumbnailUrl ?? '',
+      sessionLabel: activeSession?.title ?? '',
+    );
     Navigator.of(context)
         .push(
           MaterialPageRoute(
@@ -401,6 +458,11 @@ class HomeController extends ChangeNotifier {
             builder: (_) => SwingAnalysisScreen(initialData: action.payload),
           ),
         );
+        break;
+      case QuickActionType.compareSwing:
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const CompareSwingsScreen()));
         break;
       case QuickActionType.logbook:
         Navigator.of(

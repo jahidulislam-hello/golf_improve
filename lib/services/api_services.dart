@@ -174,6 +174,47 @@ class ApiService {
     }
   }
 
+  /// Streams a file to a pre-signed URL. No auth header — the URL is the credential.
+  Future<void> putFile(
+    String url,
+    String filePath, {
+    String contentType = 'video/mp4',
+    Duration? timeout,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw ApiError(
+        message: 'Video file not found. Please record again.',
+        statusCode: 0,
+      );
+    }
+    final length = await file.length();
+    if (length <= 0) {
+      throw ApiError(
+        message: 'Recorded video is empty. Please record again.',
+        statusCode: 0,
+      );
+    }
+
+    try {
+      final request = http.StreamedRequest('PUT', Uri.parse(url));
+      request.headers['Content-Type'] = contentType;
+      request.contentLength = length;
+      final sinkDone = file.openRead().pipe(request.sink);
+      final streamed = await request.send().timeout(timeout ?? _uploadTimeout);
+      await sinkDone;
+      if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+        throw ApiError(
+          message: 'Video upload failed (${streamed.statusCode}).',
+          statusCode: streamed.statusCode,
+        );
+      }
+      await streamed.stream.drain<void>();
+    } catch (e) {
+      throw _toApiError(e);
+    }
+  }
+
   Future<dynamic> delete(String url, {Map<String, String>? headers}) async {
     try {
       final response = await http
@@ -279,6 +320,13 @@ class ApiService {
         details.add(errors.toString());
       }
 
+      final errorMessages = body['errorMessages'];
+      if (errorMessages is List) {
+        for (final item in errorMessages) {
+          collectConstraint(item);
+        }
+      }
+
       if (details.isNotEmpty) {
         // Prefer concrete field messages over generic "Validation Error".
         final concrete = details
@@ -297,6 +345,7 @@ class ApiService {
 
   ApiError _toApiError(dynamic error) {
     if (error is ApiError) return error;
+    debugPrint('ApiService request failed: $error');
     if (error is TimeoutException) {
       return ApiError(
         message: 'Request timed out. Check your connection and try again.',
@@ -373,12 +422,27 @@ class ApiService {
     return null;
   }
 
+  Future<void> saveGuestId(String guestId) async {
+    await sharedPreferences.setString(ApiConstants.keyGuestId, guestId);
+  }
+
+  String? getGuestId() {
+    final id = sharedPreferences.getString(ApiConstants.keyGuestId);
+    if (id == null || id.isEmpty) return null;
+    return id;
+  }
+
+  Future<void> clearGuestId() async {
+    await sharedPreferences.remove(ApiConstants.keyGuestId);
+  }
+
   Future<void> clearUserData() async {
     await sharedPreferences.remove(ApiConstants.keyAccessToken);
     await sharedPreferences.remove(ApiConstants.keyRefreshToken);
     await sharedPreferences.remove(ApiConstants.keyAccessTokenExpiresAt);
     await sharedPreferences.remove(ApiConstants.keyRefreshTokenExpiresAt);
     await sharedPreferences.remove(ApiConstants.keyUserData);
+    await sharedPreferences.remove(ApiConstants.keyGuestId);
     await sharedPreferences.setBool(ApiConstants.keyIsLoggedIn, false);
   }
 }

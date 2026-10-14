@@ -39,10 +39,22 @@ class AuthController extends ChangeNotifier {
 
   /// Clears persisted auth and in-memory auth state (logout).
   Future<void> logout() async {
-    await _authService.clearSession();
+    await _authService.logout();
     selectedRole = null;
     clearError();
     notifyListeners();
+  }
+
+  /// Opens the app with an anonymous golfer token so swings can be recorded
+  /// before sign-up. Register and login merge that data into the real account.
+  Future<bool> continueAsGuest() async {
+    return _runAuthCall(() async {
+      final response = await _authService.createGuestSession();
+      await _authService.persistAuthResponse(response);
+      await _authService.rememberGuest(response);
+      selectedRole = UserRole.golfer;
+      await _authService.ensureRestorableSession(role: UserRole.golfer);
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -121,6 +133,9 @@ class AuthController extends ChangeNotifier {
         password: signInPassword,
       );
       await _authService.persistAuthResponse(response);
+      try {
+        await _authService.mergeStoredGuestAfterLogin(response);
+      } catch (_) {}
 
       final apiRole = _authService.roleFromResponse(response);
       if (apiRole != null) {
@@ -163,10 +178,8 @@ class AuthController extends ChangeNotifier {
       _setError('Please choose your role first.');
       return false;
     }
-    if (fullName.trim().isEmpty ||
-        signUpEmail.trim().isEmpty ||
-        signUpPassword.isEmpty) {
-      _setError('Please fill in all fields.');
+    if (signUpEmail.trim().isEmpty || signUpPassword.isEmpty) {
+      _setError('Please enter your email and password.');
       return false;
     }
 
@@ -239,11 +252,9 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      final response = await _authService.verifySignUpOtp(
-        otp: otpCode,
-        email: signUpEmail.trim(),
-      );
+      final response = await _authService.verifySignUpOtp(otp: otpCode);
       await _authService.persistAuthResponse(response);
+      await _authService.clearStoredGuest();
 
       final apiRole = _authService.roleFromResponse(response);
       if (apiRole != null) {
@@ -313,10 +324,7 @@ class AuthController extends ChangeNotifier {
     }
 
     return _runAuthCall(() async {
-      await _authService.resetPassword(
-        newPassword: newPassword,
-        confirmPassword: confirmPassword,
-      );
+      await _authService.resetPassword(newPassword: newPassword);
     });
   }
 

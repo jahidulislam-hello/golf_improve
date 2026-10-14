@@ -107,4 +107,33 @@ class CoachService {
     );
     return Map<String, dynamic>.from(response as Map);
   }
+
+  Future<Map<String, dynamic>> updatePracticePlan({
+    required String shareId,
+    required String recommendedDrill,
+    required List<Map<String, dynamic>> practicePlan,
+    bool isApproved = true,
+  }) async {
+    final response = await _api.patch(
+      ApiConstants.updateSharePracticePlan(shareId),
+      body: {
+        'recommendedDrill': recommendedDrill,
+        'practicePlan': practicePlan,
+        'is_approved': isApproved,
+      },
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> completePracticeSession({
+    required String shareId,
+    required int sessionIndex,
+    bool isCompleted = true,
+  }) async {
+    final response = await _api.patch(
+      ApiConstants.completeCoachPracticeSession(shareId, sessionIndex),
+      body: {'is_completed': isCompleted},
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
 }

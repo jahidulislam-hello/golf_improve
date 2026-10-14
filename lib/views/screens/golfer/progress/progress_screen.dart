@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/progress/progress_controller.dart';
+import 'widgets/compare_six_weeks_card.dart';
 import 'widgets/handicap_progress_card.dart';
 import 'widgets/mini_stat_card.dart';
 import 'widgets/streak_card.dart';
@@ -105,6 +106,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           ThisWeekCard(controller: _controller),
           StreakCard(controller: _controller),
           HandicapProgressCard(controller: _controller),
+          CompareSixWeeksCard(controller: _controller),
           WeeklySwingsCard(controller: _controller),
           Row(
             children: [
@@ -117,7 +119,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   label: 'Total Sessions',
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: MiniStatCard(
                   icon: Icons.bolt_rounded,
@@ -125,6 +127,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   iconBackground: AppColors.accentPurpleBg,
                   value: '${_controller.totalSwings}',
                   label: 'Total Swings',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: MiniStatCard(
+                  icon: Icons.timer_outlined,
+                  iconColor: AppColors.accentGreen,
+                  iconBackground: AppColors.insightPositiveIconBg,
+                  value: '${_controller.totalPracticeMinutes}',
+                  label: 'Minutes Practised',
                 ),
               ),
             ],

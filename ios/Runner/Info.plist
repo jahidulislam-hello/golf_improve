@@ -6,6 +6,8 @@
 	<string>GolfImprove needs camera access to record and analyse your golf swing.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>GolfImprove needs microphone access while recording swing videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GolfImprove needs photo library access so you can update your profile picture.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

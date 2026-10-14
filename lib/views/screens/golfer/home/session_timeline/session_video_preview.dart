@@ -35,13 +35,15 @@ class SessionVideoPreview extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           // Background image / video frame.
-          Image.network(
-            video.thumbnailUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: AppColors.primaryNavy,
+          if (video.thumbnailUrl.trim().isEmpty)
+            const ColoredBox(color: AppColors.primaryNavy)
+          else
+            Image.network(
+              video.thumbnailUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const ColoredBox(color: AppColors.primaryNavy),
             ),
-          ),
 
           // Bottom scrim so the caption + scrub bar stay legible.
           const DecoratedBox(

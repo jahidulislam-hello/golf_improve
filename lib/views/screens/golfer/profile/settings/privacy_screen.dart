@@ -89,8 +89,10 @@ class PrivacyScreen extends StatelessWidget {
   // ── AppBar ──
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.surfaceWhite,
+      surfaceTintColor: AppColors.surfaceWhite,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: true,
       leading: Padding(
         padding: const EdgeInsets.all(8),
@@ -99,8 +101,8 @@ class PrivacyScreen extends StatelessWidget {
           child: Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
+            decoration: const BoxDecoration(
+              color: AppColors.borderLightGray,
               shape: BoxShape.circle,
             ),
             child: const Icon(

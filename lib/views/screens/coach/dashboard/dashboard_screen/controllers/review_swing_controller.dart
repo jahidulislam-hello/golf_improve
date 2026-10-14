@@ -9,7 +9,7 @@ enum ReviewSwingTab { submission, yourFeedback }
 
 /// Drives the entire "Review Swing" screen: the tab selection, the video
 /// play/scrub state, and every editable field on the "Your Feedback" tab
-/// (coach notes, recommended drill, practice-plan builder, AI agreement).
+/// (coach notes, recommended drill, and the practice plan to edit or approve).
 class CoachReviewSwingController extends ChangeNotifier {
   CoachReviewSwingController({
     required this.review,
@@ -30,6 +30,7 @@ class CoachReviewSwingController extends ChangeNotifier {
   bool isLoading = false;
   bool hasLoaded = false;
   String? errorMessage;
+  bool planApproved = true;
 
   ReviewSwingTab _tab = ReviewSwingTab.submission;
   ReviewSwingTab get tab => _tab;
@@ -83,10 +84,8 @@ class CoachReviewSwingController extends ChangeNotifier {
     item.description = description;
   }
 
-  AiAgreement get aiAgreement => review.aiAgreement;
-
-  void setAiAgreement(AiAgreement value) {
-    review.aiAgreement = value;
+  void setPlanApproved(bool value) {
+    planApproved = value;
     notifyListeners();
   }
 
@@ -157,24 +156,25 @@ class CoachReviewSwingController extends ChangeNotifier {
 
     try {
       final service = await _service();
-      String? verdict;
-      if (review.aiAgreement == AiAgreement.agreed) {
-        verdict = 'agreed';
-      } else if (review.aiAgreement == AiAgreement.needsCorrection) {
-        verdict = 'corrected';
-      }
-
+      final plan = review.practicePlan
+          .where((e) => e.dayRangeLabel.isNotEmpty || e.description.isNotEmpty)
+          .map((e) => e.toJson())
+          .toList();
       await service.respondToShare(
         shareId: review.id,
         feedbackText: feedback,
         recommendedDrill: _recommendedDrillController.text.trim(),
-        practicePlan: review.practicePlan
-            .where((e) => e.dayRangeLabel.isNotEmpty || e.description.isNotEmpty)
-            .map((e) => e.toJson())
-            .toList(),
-        aiAnalysisVerdict: verdict,
-        aiAnalysisNote: _aiExtraContextController.text.trim(),
+        practicePlan: plan,
       );
+      if (plan.isNotEmpty ||
+          _recommendedDrillController.text.trim().isNotEmpty) {
+        await service.updatePracticePlan(
+          shareId: review.id,
+          recommendedDrill: _recommendedDrillController.text.trim(),
+          practicePlan: plan,
+          isApproved: planApproved,
+        );
+      }
       return true;
     } catch (e) {
       errorMessage = e.toString();

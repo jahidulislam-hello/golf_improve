@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Holds all profile data and business logic.
@@ -63,7 +64,7 @@ class ProfileController extends ChangeNotifier {
   Future<void> logOut() async {
     final sharedPreferences = await SharedPreferences.getInstance();
     final apiService = ApiService(sharedPreferences: sharedPreferences);
-    await apiService.clearUserData();
+    await AuthService(apiService: apiService).logout();
   }
 
   @override

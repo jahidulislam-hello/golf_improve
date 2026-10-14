@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import '../controllers/share_coach_controller.dart';
 import '../controllers/swing_analysis_controller.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/video_preview.dart';
@@ -67,20 +68,25 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
   }
 
   void _openShareWithCoach() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ShareWithCoachScreen(
-          videoUrl: controller.videoUrl,
-          thumbnailUrl: controller.thumbnailUrl,
-          coachName: controller.coachName,
-          coachProfileUrl: controller.coachProfileUrl,
-          includeSwingVideo: controller.includeSwingVideo,
-          includeAiAnalysis: controller.includeAiAnalysis,
-          includePersonalNotes: controller.includePersonalNotes,
-          alreadyShared: controller.isSharedWithCoach,
-        ),
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => ShareWithCoachScreen(
+              videoUrl: controller.videoUrl,
+              thumbnailUrl: controller.thumbnailUrl,
+              coachName: controller.coachName,
+              coachProfileUrl: controller.coachProfileUrl,
+              coachId: controller.coachId,
+              swingLibraryId: controller.id,
+              practiceNoteId: controller.practiceNoteId,
+              initialStatus: controller.shareStatus,
+            ),
+          ),
+        )
+        .then((_) {
+          if (!mounted || controller.id.isEmpty) return;
+          controller.load(controller.id, showLoader: false);
+        });
   }
 
   @override
@@ -281,8 +287,12 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                   const SizedBox(height: 6),
                   Text(
                     controller.isSharedWithCoach
-                        ? (controller.shareStatus.isNotEmpty
-                            ? 'Status: ${controller.shareStatus}'
+                        ? (ShareCoachController.labelForShareStatus(
+                                  controller.shareStatus,
+                                ).isNotEmpty
+                            ? ShareCoachController.labelForShareStatus(
+                                controller.shareStatus,
+                              )
                             : 'Your coach can review this swing and send feedback.')
                         : 'Let ${controller.coachName} review the AI observations and add their professional feedback.',
                     style: AppTextStyles.type13.copyWith(

@@ -3,6 +3,7 @@ import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/helpers/routes.dart';
+import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
 import 'package:provider/provider.dart';
 
 import '../widgets/auth_text_field.dart';
@@ -99,7 +100,25 @@ class SignInScreen extends StatelessWidget {
                   AppRoutes.goToHomeForRole(auth.selectedRole);
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: auth.isLoading
+                    ? null
+                    : () async {
+                        final success = await auth.continueAsGuest();
+                        if (!context.mounted) return;
+                        if (!success) {
+                          _showAuthError(context, auth);
+                          return;
+                        }
+                        AppRoutes.goToHomeForRole(UserRole.golfer);
+                      },
+                child: Text(
+                  'Continue as guest',
+                  style: AppTextStyles.linkText.copyWith(fontSize: 14),
+                ),
+              ),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

@@ -26,7 +26,12 @@ class AiChatController extends ChangeNotifier {
   String? selectedReply;
   bool isOnline = true;
   bool isSending = false;
+  bool isSavingPlan = false;
   String? errorMessage;
+  String? recommendedDrill;
+  List<Map<String, dynamic>> practicePlan = const [];
+  String? clubType;
+  bool planSaved = false;
 
   void _seed(
     List<AiConversationEntry> conversation,
@@ -90,19 +95,32 @@ class AiChatController extends ChangeNotifier {
 
     try {
       final service = await _service();
-      final response = await service.askSwingQuestion(
+      final response = await service.askCoach(
         swingId: swingId,
         question: trimmed,
       );
-      final answer = _extractAnswer(response);
-      messages.add(
-        ChatMessage(
-          text: answer.isNotEmpty
-              ? answer
-              : 'Thanks — I received your question.',
-          isUser: false,
-        ),
-      );
+      final parsed = _parseCoachReply(response);
+      final answer = parsed.answer;
+      recommendedDrill = parsed.recommendedDrill;
+      practicePlan = parsed.practicePlan;
+      planSaved = parsed.isSaved;
+      if (parsed.suggestedQuestions.isNotEmpty) {
+        quickReplies = parsed.suggestedQuestions;
+      }
+      final drill = parsed.recommendedDrill;
+      final buffer = StringBuffer(answer.isNotEmpty ? answer : 'Thanks — I received your question.');
+      if (drill != null && drill.isNotEmpty) {
+        buffer.write('\n\nDrill: $drill');
+      }
+      if (parsed.practicePlan.isNotEmpty) {
+        buffer.write('\n\nPractice plan:');
+        for (final step in parsed.practicePlan) {
+          buffer.write(
+            '\n• ${step['dayRange'] ?? ''}: ${step['description'] ?? ''}',
+          );
+        }
+      }
+      messages.add(ChatMessage(text: buffer.toString().trim(), isUser: false));
     } catch (e) {
       errorMessage = e.toString();
       messages.add(
@@ -115,6 +133,73 @@ class AiChatController extends ChangeNotifier {
       isSending = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> savePlan({String? club}) async {
+    final drill = recommendedDrill?.trim() ?? '';
+    if (drill.isEmpty || isSavingPlan || planSaved) return false;
+    isSavingPlan = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final service = await _service();
+      final response = await service.saveDrillPlan(
+        title: drill.length > 80 ? '${drill.substring(0, 77)}...' : drill,
+        recommendedDrill: drill,
+        practicePlan: practicePlan,
+        clubType: club ?? clubType,
+        analysisId: swingId,
+      );
+      final saved = response['data'];
+      final noteId = saved is Map ? '${saved['_id'] ?? saved['id'] ?? ''}' : '';
+      if (noteId.isNotEmpty && swingId.trim().isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('linked_practice_note_$swingId', noteId);
+      }
+      planSaved = true;
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      return false;
+    } finally {
+      isSavingPlan = false;
+      notifyListeners();
+    }
+  }
+
+  _CoachReply _parseCoachReply(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is! Map) {
+      return _CoachReply(answer: _extractAnswer(response));
+    }
+    final map = Map<String, dynamic>.from(data);
+    final plan = <Map<String, dynamic>>[];
+    final rawPlan = map['practicePlan'];
+    if (rawPlan is List) {
+      for (final item in rawPlan) {
+        if (item is Map) {
+          plan.add({
+            'dayRange': '${item['dayRange'] ?? ''}',
+            'description': '${item['description'] ?? ''}',
+          });
+        }
+      }
+    }
+    final questions = <String>[];
+    final rawQuestions = map['suggestedQuestions'];
+    if (rawQuestions is List) {
+      questions.addAll(
+        rawQuestions.map((e) => e.toString().trim()).where((e) => e.isNotEmpty),
+      );
+    }
+    final drill = map['recommendedDrill']?.toString().trim();
+    return _CoachReply(
+      answer: _extractAnswer(response),
+      recommendedDrill: (drill == null || drill.isEmpty) ? null : drill,
+      practicePlan: plan,
+      suggestedQuestions: questions,
+      isSaved: map['isSavedToPlan'] == true,
+    );
   }
 
   String _extractAnswer(Map<String, dynamic> response) {
@@ -149,4 +234,20 @@ class AiChatController extends ChangeNotifier {
     inputController.dispose();
     super.dispose();
   }
+}
+
+class _CoachReply {
+  const _CoachReply({
+    required this.answer,
+    this.recommendedDrill,
+    this.practicePlan = const [],
+    this.suggestedQuestions = const [],
+    this.isSaved = false,
+  });
+
+  final String answer;
+  final String? recommendedDrill;
+  final List<Map<String, dynamic>> practicePlan;
+  final List<String> suggestedQuestions;
+  final bool isSaved;
 }

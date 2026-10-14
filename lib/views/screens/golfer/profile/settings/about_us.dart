@@ -30,22 +30,23 @@ class AboutUs extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: 0),
             Center(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.asset(
-                  "assets/images/about.png",
+                  "assets/images/hello.png",
                   width: 328,
-                  height: 172,
+                  height: 280,
                   fit: BoxFit.cover,
+                  color: Colors.black,
                 ),
               ),
             ),
             const SizedBox(height: 28),
             // ── Title ──
             Text(
-              'About Massrat',
+              'About ',
               style: TextStyle(
                 color: _textDark,
                 fontSize: 18,
@@ -85,8 +86,10 @@ class AboutUs extends StatelessWidget {
   // ── AppBar ──
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.surfaceWhite,
+      surfaceTintColor: AppColors.surfaceWhite,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: true,
       leading: Padding(
         padding: const EdgeInsets.all(8),
@@ -95,8 +98,8 @@ class AboutUs extends StatelessWidget {
           child: Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
+            decoration: const BoxDecoration(
+              color: AppColors.borderLightGray,
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -108,7 +111,7 @@ class AboutUs extends StatelessWidget {
         ),
       ),
       title: const Text(
-        'About Massrat',
+        'About Golfimprove',
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
