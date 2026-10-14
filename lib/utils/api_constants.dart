@@ -9,11 +9,18 @@ class ApiConstants {
   static const String keyRefreshTokenExpiresAt = 'refresh_token_expires_at';
   static const String keyUserData = 'user_data';
   static const String keyIsLoggedIn = 'is_logged_in';
+  static const String keyGuestId = 'guest_id';
+  static const String keyOfflineSwings = 'offline_swings';
+  static const String keyOfflineShares = 'offline_shares';
+  static const String keyLibraryCache = 'swing_library_cache';
+  static const String keyProgressCache = 'progress_cache';
 
   // Refresh Token
   static const String refreshToken = '$apiUrl/auth/refresh-token';
 
   // Auth endpoints
+  static const String guestSession = '$apiUrl/auth/guest-session';
+  static const String mergeGuest = '$apiUrl/auth/merge-guest';
   static const String register = '$apiUrl/auth/register';
   static const String verifyOtp = '$apiUrl/auth/verify-otp';
   static const String updateRegisterProfile = '$apiUrl/user/update-my-profile';
@@ -23,12 +30,24 @@ class ApiConstants {
   static const String forgotPasswordOTPVerify = '$apiUrl/auth/forgot-otp-verify';
   static const String resetPassword = '$apiUrl/auth/reset-password';
   static const String changePassword = '$apiUrl/auth/change-password';
+  static const String logout = '$apiUrl/auth/logout';
 
   // Profile
   static const String getMyProfile = '$apiUrl/user/get-my-profile';
-  static const String updateProfile = '$apiUrl/users/update-me';
-  static const String deleteAccount = '$apiUrl/users/me';
+  static const String updateProfile = '$apiUrl/user/update-my-profile';
+  static const String requestEmailChange = '$apiUrl/user/request-email-change';
+  static const String verifyEmailChange = '$apiUrl/user/verify-email-change';
+  static const String downloadMyData = '$apiUrl/user/download-my-data';
+  static const String deleteAccount = '$apiUrl/user/delete-account';
+  static const String updateHandicapUser = '$apiUrl/user/handicap';
   static const String getSkills = '$apiUrl/users/edit-options';
+  static const String paywallStatus = '$apiUrl/payment/paywall-status';
+
+  // Subscription plans & promo codes
+  static const String plans = '$apiUrl/plan/get-all';
+  static String planById(String id) => '$apiUrl/plan/find/$id';
+  static const String validatePromoCode = '$apiUrl/promo-code/validate';
+  static const String redeemPromoCode = '$apiUrl/promo-code/redeem';
 
   //User/Golfer
   static const String home = '$apiUrl/meta/user';
@@ -47,12 +66,22 @@ class ApiConstants {
       '$apiUrl/swing-library/find/$id';
   static String askSwingQuestion(String id) =>
       '$apiUrl/swing-library/ask/$id';
+  static String askCoach(String id) => '$apiUrl/swing-library/ask-coach/$id';
+  static const String saveDrillPlan = '$apiUrl/swing-library/save-drill-plan';
+  static String completeAiPracticeSession(String id, int sessionIndex) =>
+      '$apiUrl/swing-library/$id/practice-plan/$sessionIndex/complete';
   static String fullDetails(String id) => '$apiUrl/share-swing/find/$id';
   static const String filterLibraryCategories = '$apiUrl/meta/filter-categories';
 
   // AI Camera / Swing analyzer
   static const String cameraCategories = '$apiUrl/swing-category/camera';
   static const String swingAnalyzer = '$apiUrl/swing/analyzer';
+  static const String swingUploadUrl = '$apiUrl/swing/upload-url';
+  static const String swingCreate = '$apiUrl/swing/create';
+  static const String swingSyncOffline = '$apiUrl/swing/sync/offline';
+  static const String swingCompare = '$apiUrl/swing/compare';
+  static const String swingLibraryCompare = '$apiUrl/swing-library/compare';
+  static const String mySwings = '$apiUrl/swing/my-swings';
   static String analyzeSwingVideo(String id) =>
       '$apiUrl/swing/analyze/video/$id';
 
@@ -74,11 +103,21 @@ class ApiConstants {
       '$apiUrl/user/coach/students/$studentId';
 
   // Reviews / shares
+  static const String shareCreate = '$apiUrl/share-swing/create';
+  static const String shareSent = '$apiUrl/share-swing/sent';
   static const String shareReceived = '$apiUrl/share-swing/received';
   static const String sharePending = '$apiUrl/share-swing/pending';
   static String shareView(String id) => '$apiUrl/share-swing/view/$id';
   static String shareFind(String id) => '$apiUrl/share-swing/find/$id';
+  static String shareSingle(String id) => '$apiUrl/share-swing/single/$id';
   static String shareRespond(String id) => '$apiUrl/share-swing/respond/$id';
+  static String updateSharePracticePlan(String id) =>
+      '$apiUrl/share-swing/$id/practice-plan';
+  static String completeCoachPracticeSession(String id, int sessionIndex) =>
+      '$apiUrl/share-swing/practice-plan/$id/session/$sessionIndex/complete';
+
+  // Notifications
+  static const String notifications = '$apiUrl/notification/get-all';
 
 
 

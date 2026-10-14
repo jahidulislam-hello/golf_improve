@@ -13,10 +13,12 @@ class CoachFeedbackCard extends StatelessWidget {
     super.key,
     required this.feedback,
     required this.onReadFullFeedback,
+    this.buttonLabel = 'Read Full Feedback',
   });
 
   final CoachFeedback feedback;
   final VoidCallback onReadFullFeedback;
+  final String buttonLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +79,7 @@ class CoachFeedbackCard extends StatelessWidget {
                 ),
                 elevation: 0,
               ),
-              child: Text('Read Full Feedback', style: AppTextStyles.type14),
+              child: Text(buttonLabel, style: AppTextStyles.type14),
             ),
           ),
         ],

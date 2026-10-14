@@ -18,17 +18,22 @@ class HandicapProgressCard extends StatelessWidget {
       barrierColor: Colors.black.withOpacity(0.45),
       builder: (_) => HandicapUpdateDialog(
         initialValue: controller.handicapIndex,
+        min: -9.9,
         max: 54.0,
       ),
     );
     if (result == null || !context.mounted) return;
     final ok = await controller.updateHandicapIndex(result);
-    if (!context.mounted || ok) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(controller.errorMessage ?? 'Could not update handicap'),
+          content: Text(
+            ok
+                ? 'Handicap updated'
+                : (controller.errorMessage ?? 'Could not update handicap'),
+          ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColors.primaryNavy,
         ),
@@ -37,9 +42,6 @@ class HandicapProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final improvement = controller.improvement;
-    final improvementLabel =
-        '${improvement > 0 ? '+' : ''}${improvement.toStringAsFixed(1)}';
     final lastUpdated = controller.lastUpdatedLabel.isEmpty
         ? 'Last Updated: —'
         : 'Last Updated: ${controller.lastUpdatedLabel}';
@@ -105,9 +107,13 @@ class HandicapProgressCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _StatBox(
-                  label: 'Improvement',
-                  value: improvementLabel,
-                  valueColor: AppColors.destructiveRed,
+                  label: 'Change',
+                  value: controller.handicapChangeLabel,
+                  valueColor: controller.handicapChangeIsPositive
+                      ? AppColors.accentGreen
+                      : (controller.improvement > 0
+                          ? AppColors.destructiveRed
+                          : AppColors.textSecondary),
                 ),
               ),
             ],

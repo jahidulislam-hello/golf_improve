@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
-
 /// The "Handicap Index" popup shown when the user taps the "Update HCP"
 /// button on the Handicap Progress card. Returns the new value via
 /// `Navigator.pop(context, newValue)` when Update is pressed, or `null`
-/// when cancelled.
+/// when cancelled. The value is only what the golfer enters.
 class HandicapUpdateDialog extends StatefulWidget {
   const HandicapUpdateDialog({
     super.key,
     required this.initialValue,
-    this.min = 0.0,
+    this.min = -9.9,
     this.max = 54.0,
     this.step = 0.1,
   });
@@ -27,25 +27,59 @@ class HandicapUpdateDialog extends StatefulWidget {
 }
 
 class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
-  late double _value;
+  late final TextEditingController _controller;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _value = widget.initialValue;
+    final start = _round(_clamp(widget.initialValue));
+    _controller = TextEditingController(text: start.toStringAsFixed(1));
   }
 
-  void _increment() {
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _increment() => _write(_current + widget.step);
+
+  void _decrement() => _write(_current - widget.step);
+
+  double get _current {
+    final parsed = double.tryParse(_controller.text.trim().replaceAll(',', '.'));
+    return parsed ?? widget.initialValue;
+  }
+
+  void _write(double value) {
+    final next = _round(_clamp(value));
+    final text = next.toStringAsFixed(1);
     setState(() {
-      _value = (_value + widget.step).clamp(widget.min, widget.max);
+      _error = null;
+      _controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
     });
   }
 
-  void _decrement() {
-    setState(() {
-      _value = (_value - widget.step).clamp(widget.min, widget.max);
-    });
+  void _submit() {
+    final parsed = double.tryParse(
+      _controller.text.trim().replaceAll(',', '.'),
+    );
+    if (parsed == null || parsed < widget.min || parsed > widget.max) {
+      setState(() {
+        _error = 'Enter a handicap from ${widget.min} to ${widget.max}.';
+      });
+      return;
+    }
+    Navigator.of(context).pop(_round(parsed));
   }
+
+  double _clamp(double value) => value.clamp(widget.min, widget.max);
+
+  double _round(double value) => double.parse(value.toStringAsFixed(1));
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +93,17 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Handicap Index', style: AppTextStyles.sectionHeader.copyWith(fontSize: 20)),
+            Text(
+              'Handicap Index',
+              style: AppTextStyles.sectionHeader.copyWith(fontSize: 20),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Enter your current official or playing handicap.',
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -70,12 +114,31 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _StepperButton(icon: Icons.remove, onTap: _decrement),
-                      Text(
-                        _value.toStringAsFixed(1),
-                        style: AppTextStyles.statNumber.copyWith(fontSize: 32),
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          textAlign: TextAlign.center,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                            signed: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^-?\d{0,2}\.?\d{0,1}$'),
+                            ),
+                          ],
+                          style: AppTextStyles.statNumber.copyWith(fontSize: 32),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onChanged: (_) {
+                            if (_error != null) setState(() => _error = null);
+                          },
+                        ),
                       ),
                       _StepperButton(icon: Icons.add, onTap: _increment),
                     ],
@@ -98,10 +161,25 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('PRO LEVEL', style: AppTextStyles.caption.copyWith(letterSpacing: 0.5)),
-                Text('BEGINNER', style: AppTextStyles.caption.copyWith(letterSpacing: 0.5)),
+                Text(
+                  'LOWER',
+                  style: AppTextStyles.caption.copyWith(letterSpacing: 0.5),
+                ),
+                Text(
+                  'HIGHER',
+                  style: AppTextStyles.caption.copyWith(letterSpacing: 0.5),
+                ),
               ],
             ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.destructiveRed,
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             Row(
               children: [
@@ -113,23 +191,33 @@ class _HandicapUpdateDialogState extends State<HandicapUpdateDialog> {
                       foregroundColor: AppColors.textPrimary,
                       side: BorderSide.none,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: AppRadii.buttonBorderRadius),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadii.buttonBorderRadius,
+                      ),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(_value),
+                    onPressed: _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.ctaBrightBlue,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: AppRadii.buttonBorderRadius),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadii.buttonBorderRadius,
+                      ),
                     ),
-                    child: const Text('Update', style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Update',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ],

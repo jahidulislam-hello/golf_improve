@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/profile/profile_info_screen/profile_info_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/notification/notification_screen.dart';
 import '../../../auth/screens/sign_in_screen.dart';
 import 'profile_controller.dart';
 import 'package:golf_training_app/core/app_radii.dart';
@@ -148,7 +149,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     icon: Icons.notifications_none,
                     title: 'Notifications',
                     subtitle: 'Reminders & alerts',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1, color: AppColors.borderCard),
                   _MenuTile(

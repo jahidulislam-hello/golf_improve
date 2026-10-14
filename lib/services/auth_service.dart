@@ -24,33 +24,86 @@ class AuthService {
 
   Future<void> clearSession() => _api.clearUserData();
 
-  Future<dynamic> register({
-    required String name,
-    required String email,
-    required String password,
-    required UserRole role,
-  }) {
+  Future<dynamic> createGuestSession() {
+    return _api.post(ApiConstants.guestSession, body: <String, dynamic>{});
+  }
+
+  /// Remembers the anonymous user id so register/login can merge swings.
+  Future<void> rememberGuest(dynamic response) async {
+    final id = _guestIdFrom(response);
+    if (id == null || id.isEmpty) return;
+    await _api.saveGuestId(id);
+  }
+
+  Future<dynamic> mergeGuest({required String guestId}) {
     return _api.post(
-      ApiConstants.register,
-      body: {
-        'name': name,
-        'email': email,
-        'password': password,
-        'role': role.apiValue,
-      },
+      ApiConstants.mergeGuest,
+      body: {'guestId': guestId},
     );
   }
 
-  Future<dynamic> verifySignUpOtp({
-    required String otp,
+  /// After a real login, fold any stored guest swings into that account.
+  Future<void> mergeStoredGuestAfterLogin(dynamic loginResponse) async {
+    final guestId = _api.getGuestId();
+    if (guestId == null || guestId.isEmpty) return;
+
+    final loggedInId = _userIdFrom(loginResponse);
+    if (loggedInId != null && loggedInId == guestId) return;
+
+    try {
+      await mergeGuest(guestId: guestId);
+    } on ApiError catch (e) {
+      if (e.statusCode != 404 && e.statusCode != 400) rethrow;
+    }
+    await _api.clearGuestId();
+  }
+
+  Future<void> clearStoredGuest() => _api.clearGuestId();
+
+  Future<void> logout() async {
+    final user = _api.getUserData();
+    final isGuest = user?['isGuest'] == true;
+    final guestId = isGuest
+        ? (user?['_id']?.toString() ?? _api.getGuestId())
+        : null;
+    try {
+      await _api.get(ApiConstants.logout);
+    } catch (_) {}
+    await clearSession();
+    if (guestId != null && guestId.isNotEmpty) {
+      await _api.saveGuestId(guestId);
+    }
+  }
+
+  Future<dynamic> register({
+    String? name,
     required String email,
+    required String password,
+    required UserRole role,
+    String? guestId,
   }) {
+    final body = <String, dynamic>{
+      'email': email,
+      'password': password,
+      'role': role.apiValue,
+    };
+    final trimmedName = name?.trim() ?? '';
+    if (trimmedName.isNotEmpty) {
+      body['name'] = trimmedName;
+    }
+    final resolvedGuestId = (guestId != null && guestId.isNotEmpty)
+        ? guestId
+        : _api.getGuestId();
+    if (resolvedGuestId != null && resolvedGuestId.isNotEmpty) {
+      body['guestId'] = resolvedGuestId;
+    }
+    return _api.post(ApiConstants.register, body: body);
+  }
+
+  Future<dynamic> verifySignUpOtp({required String otp}) {
     return _api.post(
       ApiConstants.verifyOtp,
-      body: {
-        'otp': otp,
-        'email': email,
-      },
+      body: {'otp': otp},
     );
   }
 
@@ -92,16 +145,10 @@ class AuthService {
     );
   }
 
-  Future<dynamic> resetPassword({
-    required String newPassword,
-    required String confirmPassword,
-  }) {
+  Future<dynamic> resetPassword({required String newPassword}) {
     return _api.post(
       ApiConstants.resetPassword,
-      body: {
-        'newPassword': newPassword,
-        'confirmPassword': confirmPassword,
-      },
+      body: {'newPassword': newPassword},
     );
   }
 
@@ -113,14 +160,18 @@ class AuthService {
     String? certificateName,
     String? experienceYear,
   }) {
+    final ageRange = age.replaceAll('–', '-').replaceAll('—', '-');
     final fields = <String, String>{
-      'age': age,
+      'age_range': ageRange,
       'gender': mapGenderToApi(gender),
     };
     if (handicap != null) {
-      fields['handicap'] = handicap.toStringAsFixed(1);
+      final value = handicap.toStringAsFixed(1);
+      fields['handicap_index'] = value;
+      fields['handicap'] = value;
     }
     if (practiceSessionPerWeek != null && practiceSessionPerWeek.isNotEmpty) {
+      fields['practice_sessions_per_week'] = practiceSessionPerWeek;
       fields['practiceSessionPerWeek'] = practiceSessionPerWeek;
     }
     if (certificateName != null && certificateName.trim().isNotEmpty) {
@@ -248,6 +299,22 @@ class AuthService {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) return Map<String, dynamic>.from(value);
     return null;
+  }
+
+  String? _guestIdFrom(dynamic response) {
+    final root = _asMap(response);
+    final data = _asMap(root?['data']) ?? root;
+    final results = _asMap(data?['results']) ?? data;
+    return _readString(results, ['_id', 'id']);
+  }
+
+  String? _userIdFrom(dynamic response) {
+    final root = _asMap(response);
+    final data = _asMap(root?['data']) ?? root;
+    final user = _asMap(data?['user']) ??
+        _asMap(data?['results']) ??
+        data;
+    return _readString(user, ['_id', 'id']);
   }
 
   String? _readString(Map<String, dynamic>? map, List<String> keys) {

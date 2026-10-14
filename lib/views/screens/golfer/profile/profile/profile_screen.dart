@@ -3,6 +3,8 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/choose_plan/choose_plan_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/golf_stand/screen/golf_stand_activation.dart';
+import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_logbook_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/notification/notification_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/personal_info/personal_info_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/profile/profile_controller.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/profile/settings_list_item.dart';
@@ -41,6 +43,15 @@ class _GolferProfileScreenState extends State<GolferProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _openChoosePlan() async {
+    final redeemed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const ChoosePlanScreen()),
+    );
+    if (redeemed == true && mounted) {
+      await _controller.refresh();
+    }
+  }
+
   void _openPersonalInfo() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -53,6 +64,7 @@ class _GolferProfileScreenState extends State<GolferProfileScreen> {
               gender: payload.genderLabel,
               practiceSessionsPerWeek: payload.practiceSessionsPerWeek,
               handicap: payload.handicap,
+              avatarUrl: payload.avatarUrl,
             );
           },
         ),
@@ -64,19 +76,43 @@ class _GolferProfileScreenState extends State<GolferProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
+      appBar: AppBar(
+        backgroundColor: AppColors.surfaceWhite,
+        surfaceTintColor: AppColors.surfaceWhite,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 72,
+        flexibleSpace: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _controller.isLoading
+                  ? const SizedBox.shrink()
+                  : _ProfileHeader(controller: _controller),
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
+        top: false,
         child: _controller.isLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            _ProfileHeader(controller: _controller),
-            const SizedBox(height: 20),
-            _PlanUpsellCard(controller: _controller),
+            _PlanUpsellCard(
+              controller: _controller,
+              onUpgrade: _openChoosePlan,
+            ),
             const SizedBox(height: 16),
-            _GolfStandConnectedRow(controller: _controller),
+            const _GolfStandConnectedRow(),
             const SizedBox(height: 16),
-            _SettingsListCard(onPersonalInfoTap: _openPersonalInfo),
+            _SettingsListCard(
+              onPersonalInfoTap: _openPersonalInfo,
+              onSubscriptionTap: _openChoosePlan,
+            ),
             const SizedBox(height: 16),
             _LogOutRow(onTap: _controller.logOut),
           ],
@@ -94,15 +130,21 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: AppColors.cardBackground,
-          backgroundImage: controller.avatarUrl != null
-              ? NetworkImage(controller.avatarUrl!)
-              : null,
-          child: controller.avatarUrl == null
-              ? const Icon(Icons.person, color: AppColors.textSecondary)
-              : null,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(100),
+          child: Container(
+            width: 64,
+            height: 64,
+            color: AppColors.cardBackground,
+            child: controller.avatarUrl != null
+                ? Image.network(
+                    controller.avatarUrl!,
+                    width: 64,
+                    height: 64,
+                    fit: BoxFit.cover,
+                  )
+                : const Icon(Icons.person, color: AppColors.textSecondary),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -117,28 +159,19 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          width: 64,
-          height: 46,
-          decoration: const BoxDecoration(
-            color: AppColors.pillInactive,
-            shape: BoxShape.circle,
-          ),
-        ),
+
       ],
     );
   }
 }
 
 class _PlanUpsellCard extends StatelessWidget {
-  const _PlanUpsellCard({required this.controller});
+  const _PlanUpsellCard({
+    required this.controller,
+    required this.onUpgrade,
+  });
   final GolferProfileController controller;
-
-  void _openChoosePlan(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ChoosePlanScreen()),
-    );
-  }
+  final VoidCallback onUpgrade;
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +217,7 @@ class _PlanUpsellCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           ElevatedButton(
-            onPressed: () => _openChoosePlan(context),
+            onPressed: onUpgrade,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accentOrange,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -200,8 +233,7 @@ class _PlanUpsellCard extends StatelessWidget {
 }
 
 class _GolfStandConnectedRow extends StatelessWidget {
-  const _GolfStandConnectedRow({required this.controller});
-  final GolferProfileController controller;
+  const _GolfStandConnectedRow();
 
   void _openGolfStand(BuildContext context) {
     Navigator.of(context).push(
@@ -224,26 +256,23 @@ class _GolfStandConnectedRow extends StatelessWidget {
             borderRadius: AppRadii.cardBorderRadius,
             border: AppRadii.cardBorder,
           ),
-          child: Row(
+          child: const Row(
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: AppColors.successGreen,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  controller.golfStandConnected
-                      ? 'Golf Stand Connected'
-                      : 'Golf Stand Not Connected',
-                  style: AppTextStyles.listItemTitle,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('My GolfImprove Stand', style: AppTextStyles.listItemTitle),
+                    SizedBox(height: 2),
+                    Text(
+                      'Setup and recording guides',
+                      style: AppTextStyles.listItemSubtitle,
+                    ),
+                  ],
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
+              Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
             ],
           ),
         ),
@@ -253,8 +282,12 @@ class _GolfStandConnectedRow extends StatelessWidget {
 }
 
 class _SettingsListCard extends StatelessWidget {
-  const _SettingsListCard({required this.onPersonalInfoTap});
+  const _SettingsListCard({
+    required this.onPersonalInfoTap,
+    required this.onSubscriptionTap,
+  });
   final VoidCallback onPersonalInfoTap;
+  final VoidCallback onSubscriptionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -273,16 +306,30 @@ class _SettingsListCard extends StatelessWidget {
             onTap: onPersonalInfoTap,
           ),
           SettingsListItem(
+            icon: Icons.local_offer_outlined,
+            title: 'Subscription',
+            subtitle: 'Plans & promo codes',
+            onTap: onSubscriptionTap,
+          ),
+          SettingsListItem(
             icon: Icons.menu_book_outlined,
-            title: 'Logbook',
+            title: 'Practice Notes',
             subtitle: 'Tips & reminders',
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GolfLogbookScreen()),
+              );
+            },
           ),
           SettingsListItem(
             icon: Icons.notifications_none,
             title: 'Notifications',
             subtitle: 'Reminders & alerts',
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const NotificationScreen()),
+              );
+            },
           ),
           SettingsListItem(
             icon: Icons.help_outline,
@@ -296,7 +343,7 @@ class _SettingsListCard extends StatelessWidget {
           ),
           SettingsListItem(
             icon: Icons.grid_view_rounded,
-            title: 'Community & Legal',
+            title: 'Privacy & Legal',
             subtitle: 'Privacy, data & more',
             onTap: () {
               Navigator.of(context).push(

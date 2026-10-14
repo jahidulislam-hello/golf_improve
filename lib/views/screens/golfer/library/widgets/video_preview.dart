@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
@@ -16,6 +18,12 @@ class VideoPreview extends StatefulWidget {
   final BorderRadius borderRadius;
   final bool autoPlay;
 
+  /// 1.0 is normal speed. Applied after the player is ready.
+  final double playbackSpeed;
+
+  /// Increment to start playback from a parent (for example Play Both).
+  final int playRequest;
+
   /// Kept for older call sites that still pass fake playback state.
   /// Ignored when [videoUrl] is set — the player owns real state.
   final Duration? position;
@@ -33,6 +41,8 @@ class VideoPreview extends StatefulWidget {
     this.aspectRatio = 16 / 10,
     this.borderRadius = BorderRadius.zero,
     this.autoPlay = false,
+    this.playbackSpeed = 1.0,
+    this.playRequest = 0,
     this.position,
     this.total,
     this.isPlaying,
@@ -45,6 +55,7 @@ class VideoPreview extends StatefulWidget {
 
 class _VideoPreviewState extends State<VideoPreview> {
   VideoPlayerController? _controller;
+  int _appliedPlayRequest = 0;
   bool _initializing = false;
   bool _hasError = false;
   String? _loadedUrl;
@@ -60,6 +71,13 @@ class _VideoPreviewState extends State<VideoPreview> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoUrl != widget.videoUrl) {
       _initPlayer();
+      return;
+    }
+    if (oldWidget.playbackSpeed != widget.playbackSpeed) {
+      _applySpeed();
+    }
+    if (oldWidget.playRequest != widget.playRequest) {
+      _maybePlayRequested();
     }
   }
 
@@ -71,7 +89,10 @@ class _VideoPreviewState extends State<VideoPreview> {
 
   Future<void> _initPlayer() async {
     final url = widget.videoUrl?.trim() ?? '';
-    if (url.isEmpty || !url.startsWith('http')) {
+    final isRemote = url.startsWith('http');
+    final localFile = !isRemote && url.isNotEmpty ? File(url) : null;
+    final isLocal = localFile != null && localFile.existsSync();
+    if (!isRemote && !isLocal) {
       _disposeController();
       if (mounted) {
         setState(() {
@@ -92,19 +113,23 @@ class _VideoPreviewState extends State<VideoPreview> {
       _loadedUrl = url;
     });
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    final controller = isRemote
+        ? VideoPlayerController.networkUrl(Uri.parse(url))
+        : VideoPlayerController.file(localFile!);
     _controller = controller;
     controller.addListener(_onTick);
 
     try {
       await controller.initialize();
       await controller.setLooping(true);
+      await controller.setPlaybackSpeed(widget.playbackSpeed);
       if (!mounted || _controller != controller) {
         await controller.dispose();
         return;
       }
       setState(() => _initializing = false);
-      if (widget.autoPlay) {
+      if (widget.autoPlay || widget.playRequest > _appliedPlayRequest) {
+        _appliedPlayRequest = widget.playRequest;
         await controller.play();
       }
     } catch (_) {
@@ -114,6 +139,20 @@ class _VideoPreviewState extends State<VideoPreview> {
         _hasError = true;
       });
     }
+  }
+
+  Future<void> _applySpeed() async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    await c.setPlaybackSpeed(widget.playbackSpeed);
+  }
+
+  Future<void> _maybePlayRequested() async {
+    if (widget.playRequest <= _appliedPlayRequest) return;
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    _appliedPlayRequest = widget.playRequest;
+    await c.play();
   }
 
   void _disposeController() {

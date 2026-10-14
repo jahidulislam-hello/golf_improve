@@ -93,7 +93,7 @@ class _PracticePlanDayCardState extends State<PracticePlanDayCard> {
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
-                hintText: 'e.g. Hip Lead Drill only — 50% speed, 3 sets of 10',
+                hintText: 'Short range session for the one main correction',
                 hintStyle: TextStyle(
                   fontFamily: AppTextStyles.fontFamily,
                   fontSize: 14,

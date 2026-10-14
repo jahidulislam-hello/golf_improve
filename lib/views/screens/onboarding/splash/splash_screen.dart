@@ -49,7 +49,7 @@ class _SplashScreenState extends State<SplashScreen>
         children: [
           // ---- Background image (single image, exactly like screen 1) ----
           Image.asset(
-            'assets/images/splash.png',
+            'assets/images/neww.png',
             fit: BoxFit.cover,
           ),
 

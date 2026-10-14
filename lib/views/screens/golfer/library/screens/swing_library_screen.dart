@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/views/screens/golfer/home/compare_swings/compare_swings_screen.dart';
 import '../controllers/swing_library_controller.dart';
+import '../models/models.dart';
 import '../widgets/shared_widgets.dart';
+import '../widgets/video_preview.dart';
 import 'swing_analysis_screen.dart';
 
 /// Screen 1 — Swing Library.
@@ -17,16 +21,49 @@ class SwingLibraryScreen extends StatefulWidget {
 
 class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
   final SwingLibraryController controller = SwingLibraryController();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void dispose() {
+    _searchController.dispose();
     controller.dispose();
     super.dispose();
   }
 
-  void _openAnalysis(String swingId) {
+  void _openSwing(SwingVideo swing) {
+    if (controller.compareMode) {
+      final message = controller.toggleCompareSelection(swing);
+      if (message != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+      return;
+    }
+    if (swing.isLocal) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => _LocalSwingScreen(swing: swing)),
+      );
+      return;
+    }
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SwingAnalysisScreen(swingId: swingId)),
+      MaterialPageRoute(
+        builder: (_) => SwingAnalysisScreen(swingId: swing.id),
+      ),
+    );
+  }
+
+  void _openCompare() {
+    final first = controller.compareAId;
+    final second = controller.compareBId;
+    if (first == null || second == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CompareSwingsScreen(
+          initialSwingAId: first,
+          initialSwingBId: second,
+        ),
+      ),
     );
   }
 
@@ -37,7 +74,22 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
       builder: (context, _) {
         return Scaffold(
           backgroundColor: AppColors.backgroundOffWhite,
-          body: SafeArea(child: _buildBody()),
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(child: _buildBody()),
+                if (controller.compareMode && controller.canCompare)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: PrimaryButton(
+                      label: 'Compare',
+                      icon: Icons.compare_arrows,
+                      onTap: _openCompare,
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -85,10 +137,11 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Swing Library', style: AppTextStyles.screenTitle),
-                  const CircleIconButton(
+                  const Text('Swing Library', style: AppTextStyles.screenTitle),
+                  CircleIconButton(
                     icon: Icons.search,
                     background: AppColors.surfaceWhite,
+                    onTap: controller.toggleSearch,
                   ),
                 ],
               ),
@@ -117,11 +170,63 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
                     selectedColor: AppColors.ctaBrightBlue,
                   ),
                   const SizedBox(height: 20),
+                  if (controller.searchOpen) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceWhite,
+                        borderRadius: AppRadii.cardBorderRadius,
+                        border: AppRadii.cardBorder,
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: controller.setSearch,
+                        style: AppTextStyles.type14,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Search club, date, or session',
+                          hintStyle: AppTextStyles.type14.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   StatSplitCard(
                     leftValue: controller.totalSwings,
                     leftLabel: 'Total Swings',
                     rightValue: controller.sharedWithCoach,
-                    rightLabel: 'Shared w/ Coach',
+                    rightLabel: 'Shared with Coach',
+                  ),
+                  const SizedBox(height: 16),
+                  GestureDetector(
+                    onTap: controller.toggleCompareMode,
+                    child: Container(
+                      width: double.infinity,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: controller.compareMode
+                            ? AppColors.primaryNavy
+                            : AppColors.surfaceWhite,
+                        borderRadius: AppRadii.cardBorderRadius,
+                        border: controller.compareMode
+                            ? null
+                            : AppRadii.cardBorder,
+                      ),
+                      child: Text(
+                        controller.compareMode
+                            ? 'Cancel'
+                            : 'Select to Compare',
+                        style: AppTextStyles.type14.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: controller.compareMode
+                              ? AppColors.surfaceWhite
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   if (controller.isFiltering)
@@ -164,18 +269,82 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
                   crossAxisCount: 2,
                   mainAxisSpacing: 18,
                   crossAxisSpacing: 14,
-                  childAspectRatio: 0.76,
+                  childAspectRatio: 0.58,
                 ),
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final swing = controller.filteredSwings[index];
                   return SwingThumbnailCard(
                     swing: swing,
-                    onTap: () => _openAnalysis(swing.id),
+                    selected: controller.isCompareSelected(swing),
+                    dimmed: controller.isCompareDimmed(swing),
+                    onTap: () => _openSwing(swing),
                   );
                 }, childCount: controller.filteredSwings.length),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _LocalSwingScreen extends StatelessWidget {
+  const _LocalSwingScreen({required this.swing});
+
+  final SwingVideo swing;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = [
+      swing.club,
+      swing.angleLabel,
+      if (swing.recordedDateLabel.isNotEmpty) swing.recordedDateLabel,
+      if (swing.recordedTimeLabel.isNotEmpty) swing.recordedTimeLabel,
+    ].join(' · ');
+    return Scaffold(
+      backgroundColor: AppColors.backgroundOffWhite,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                children: [
+                  CircleIconButton(
+                    icon: Icons.arrow_back_ios_new,
+                    onTap: () => Navigator.of(context).maybePop(),
+                    size: 36,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Saved on this device',
+                      style: AppTextStyles.sectionHeader.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              child: VideoPreview(
+                videoUrl: swing.videoUrl,
+                thumbnailUrl: swing.thumbnailUrl,
+                aspectRatio: 16 / 11,
+                borderRadius: AppRadii.cardBorderRadius,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(details, style: AppTextStyles.body),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

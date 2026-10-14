@@ -141,7 +141,7 @@ class Joint {
 /// positions are supplied so a real pose-estimation model can drive this
 /// painter later — swap [joints] each frame and it updates live.
 class AutoDetectFramePainter extends CustomPainter {
-  final List<Joint> joints;
+  final List<Joint?> joints;
   final double cornerInset;
   final bool isMirrored;
 
@@ -191,60 +191,88 @@ class AutoDetectFramePainter extends CustomPainter {
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;
 
-    Offset pointAt(Joint joint) {
+    Offset? pointAt(int index) {
+      if (index < 0 || index >= joints.length) return null;
+      final joint = joints[index];
+      if (joint == null) return null;
       final x = isMirrored ? (1 - joint.x) : joint.x;
       return Offset(x * size.width, joint.y * size.height);
     }
 
-    // joints: [0 nose,1 shoulderL,2 elbowL,3 wristL,4 shoulderR,5 elbowR,
-    //          6 wristR,7 hipL,8 kneeL,9 ankleL,10 hipR,11 kneeR,12 ankleR,13 club]
-    final pts = joints.map(pointAt).toList();
-    if (pts.length >= 14) {
-      final path = Path()
-        ..moveTo(pts[0].dx, pts[0].dy)
-        ..lineTo(pts[1].dx, pts[1].dy)
-        ..moveTo(pts[0].dx, pts[0].dy)
-        ..lineTo(pts[4].dx, pts[4].dy)
-        ..moveTo(pts[1].dx, pts[1].dy)
-        ..lineTo(pts[2].dx, pts[2].dy)
-        ..lineTo(pts[3].dx, pts[3].dy)
-        ..lineTo(pts[13].dx, pts[13].dy)
-        ..moveTo(pts[1].dx, pts[1].dy)
-        ..lineTo(pts[4].dx, pts[4].dy)
-        ..moveTo(pts[4].dx, pts[4].dy)
-        ..lineTo(pts[5].dx, pts[5].dy)
-        ..lineTo(pts[6].dx, pts[6].dy)
-        ..moveTo(pts[1].dx, pts[1].dy)
-        ..lineTo(pts[7].dx, pts[7].dy)
-        ..lineTo(pts[8].dx, pts[8].dy)
-        ..lineTo(pts[9].dx, pts[9].dy)
-        ..moveTo(pts[4].dx, pts[4].dy)
-        ..lineTo(pts[10].dx, pts[10].dy)
-        ..lineTo(pts[11].dx, pts[11].dy)
-        ..lineTo(pts[12].dx, pts[12].dy)
-        ..moveTo(pts[7].dx, pts[7].dy)
-        ..lineTo(pts[10].dx, pts[10].dy);
-      _drawDashedPath(canvas, path, skeletonPaint, dashWidth: 5, gapWidth: 4);
+    // 0 nose, 1 shoulderL, 2 elbowL, 3 wristL, 4 shoulderR, 5 elbowR,
+    // 6 wristR, 7 hipL, 8 kneeL, 9 ankleL, 10 hipR, 11 kneeR, 12 ankleR, 13 club
+    final pts = List<Offset?>.generate(14, pointAt);
+    final path = Path();
+    void link(int a, int b) {
+      final start = pts[a];
+      final end = pts[b];
+      if (start == null || end == null) return;
+      path.moveTo(start.dx, start.dy);
+      path.lineTo(end.dx, end.dy);
+    }
 
-      final headRadius = ((pts[1].dx - pts[4].dx).abs() * 0.28).clamp(
-        10.0,
-        22.0,
-      );
+    link(0, 1);
+    link(0, 4);
+    link(1, 4);
+    link(1, 2);
+    link(2, 3);
+    link(4, 5);
+    link(5, 6);
+    final club = pts[13];
+    if (club != null) {
+      final leftHand = pts[3];
+      final rightHand = pts[6];
+      Offset? hand;
+      if (leftHand != null && rightHand != null) {
+        hand = (leftHand - club).distance <= (rightHand - club).distance
+            ? leftHand
+            : rightHand;
+      } else {
+        hand = leftHand ?? rightHand;
+      }
+      if (hand != null) {
+        path.moveTo(hand.dx, hand.dy);
+        path.lineTo(club.dx, club.dy);
+      }
+    }
+    link(1, 7);
+    link(7, 8);
+    link(8, 9);
+    link(4, 10);
+    link(10, 11);
+    link(11, 12);
+    link(7, 10);
+    if (path.computeMetrics().isNotEmpty) {
+      _drawDashedPath(canvas, path, skeletonPaint, dashWidth: 5, gapWidth: 4);
+    }
+
+    final nose = pts[0];
+    final shoulderL = pts[1];
+    final shoulderR = pts[4];
+    if (nose != null) {
+      final shoulderSpan = shoulderL != null && shoulderR != null
+          ? (shoulderL.dx - shoulderR.dx).abs()
+          : 48.0;
+      final headRadius = (shoulderSpan * 0.42).clamp(12.0, 28.0);
       final headPaint = Paint()
         ..color = AppCaptureColors.skeletonJoint
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5;
-      canvas.drawCircle(pts[0], headRadius, headPaint);
+      canvas.drawCircle(nose, headRadius, headPaint);
+    }
 
-      final jointPaint = Paint()..color = AppCaptureColors.skeletonJoint;
-      for (final p in pts) {
-        canvas.drawCircle(p, 5, jointPaint);
-      }
+    final jointPaint = Paint()..color = AppCaptureColors.skeletonJoint;
+    for (var i = 0; i < pts.length; i++) {
+      final point = pts[i];
+      if (point == null || i == 13) continue;
+      canvas.drawCircle(point, 5, jointPaint);
+    }
 
-      final handPaint = Paint()..color = Colors.white;
-      canvas.drawCircle(pts[3], 7, handPaint);
-      canvas.drawCircle(pts[6], 7, handPaint);
-      canvas.drawCircle(pts[13], 6, handPaint);
+    final handPaint = Paint()..color = Colors.white;
+    for (final index in const [3, 6, 13]) {
+      final point = pts[index];
+      if (point == null) continue;
+      canvas.drawCircle(point, index == 13 ? 6 : 7, handPaint);
     }
   }
 

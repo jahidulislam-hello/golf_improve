@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,8 +11,10 @@ import 'controllers/auth_controller.dart';
 import 'helpers/routes.dart';
 import 'services/api_services.dart';
 import 'services/auth_service.dart';
+import 'services/device_http_overrides.dart';
 
 void main() async {
+  HttpOverrides.global = DeviceHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations(
     [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],

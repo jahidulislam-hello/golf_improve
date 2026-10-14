@@ -128,14 +128,36 @@ class SwingReview {
           '${swing['thumbnailUrl'] ?? swing['videoUrl'] ?? ''}',
       currentPositionLabel: seconds > 0 ? '0:00/$durationLabel' : '',
       studentQuestion: '${data['message'] ?? ''}',
-      studentSessionNotes: '${swing['sessionNotes'] ?? ''}',
+      studentSessionNotes: _noteText(data['practice_note_id']) ??
+          '${swing['sessionNotes'] ?? ''}',
       sessionTags: _stringList(swing['sessionTags'] ?? data['sessionTags']),
-      aiAnalysisPoints: _aiPoints(swing['aiAnalysis'] ?? data['aiAnalysis']),
+      aiAnalysisPoints: _aiPoints(
+        swing['aiMetrics'] ??
+            data['aiMetrics'] ??
+            swing['aiAnalysis'] ??
+            data['aiAnalysis'],
+      ),
       lastNoteOnStudent: _nullableString(
         data['lastNote'] ?? swing['lastNoteOnStudent'] ?? data['lastNoteOnStudent'],
       ),
-      practicePlan: _practicePlan(data['practicePlan']),
+      recommendedDrill:
+          '${_asMap(data['coachFeedback'])?['recommendedDrill'] ?? data['recommendedDrill'] ?? ''}',
+      practicePlan: _practicePlan(
+        _asMap(data['coachFeedback'])?['practicePlan'] ?? data['practicePlan'],
+      ),
     );
+  }
+
+  static String? _noteText(dynamic raw) {
+    final note = _asMap(raw);
+    if (note == null) {
+      if (raw is String && raw.trim().isNotEmpty) return raw.trim();
+      return null;
+    }
+    final title = '${note['title'] ?? ''}'.trim();
+    final description = '${note['description'] ?? ''}'.trim();
+    final text = [title, description].where((e) => e.isNotEmpty).join('\n');
+    return text.isEmpty ? null : text;
   }
 
   static Map<String, dynamic>? _asMap(dynamic raw) {
@@ -170,6 +192,20 @@ class SwingReview {
   }
 
   static List<AiAnalysisPoint> _aiPoints(dynamic raw) {
+    if (raw is List) {
+      return raw.map(_asMap).whereType<Map<String, dynamic>>().map((item) {
+        final status = '${item['status'] ?? ''}'.toLowerCase();
+        final isClean = status == 'success' || status == 'clean';
+        return AiAnalysisPoint(
+          icon: Icons.info_outline,
+          title: '${item['title'] ?? 'Insight'}',
+          subtitle: '${item['description'] ?? ''}',
+          severity: isClean
+              ? AiAnalysisSeverity.clean
+              : AiAnalysisSeverity.warning,
+        );
+      }).toList();
+    }
     final map = _asMap(raw);
     if (map == null || map.isEmpty) return const [];
     return map.entries.map((entry) {

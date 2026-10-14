@@ -11,6 +11,10 @@ class StreakCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final target = controller.weeklyTargetSessions;
+    final done = controller.sessionsThisWeek;
+    final progress = target <= 0 ? 0.0 : (done / target).clamp(0.0, 1.0);
+
     return SectionCard(
       child: Row(
         children: [
@@ -18,12 +22,12 @@ class StreakCard extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: AppColors.accentOrangeBg,
+              color: AppColors.insightPositiveIconBg,
               borderRadius: AppRadii.cardBorderRadius,
             ),
             child: const Icon(
-              Icons.local_fire_department_rounded,
-              color: AppColors.accentOrange,
+              Icons.event_available_rounded,
+              color: AppColors.accentGreen,
               size: 26,
             ),
           ),
@@ -32,43 +36,33 @@ class StreakCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      '${controller.streakDays}',
-                      style: AppTextStyles.sectionHeader.copyWith(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Days',
-                      style: AppTextStyles.sectionHeader.copyWith(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
                 Text(
-                  'Practice Streak',
+                  'Practice Consistency',
                   style: AppTextStyles.body.copyWith(
                     color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  controller.consistencyLabel,
+                  style: AppTextStyles.sectionHeader.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: AppRadii.cardBorderRadius,
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 6,
+                    backgroundColor: AppColors.borderLightGray,
+                    color: AppColors.accentGreen,
                   ),
                 ),
               ],
             ),
           ),
-          if (controller.isPersonalBestStreak)
-            const Pill(
-              label: 'Personal Best',
-              background: AppColors.accentOrangeBg,
-              foreground: AppColors.accentOrange,
-            ),
         ],
       ),
     );

@@ -11,11 +11,6 @@ class ThisWeekCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUp = controller.thisWeekTrend.toLowerCase() != 'down';
-    final trendColor =
-        isUp ? AppColors.accentGreen : AppColors.destructiveRed;
-    final message = _message();
-
     return SectionCard(
       child: Stack(
         children: [
@@ -35,47 +30,37 @@ class ThisWeekCard extends StatelessWidget {
                   letterSpacing: 0.6,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text(
-                    '${controller.thisWeekSwings}',
-                    style: AppTextStyles.statNumber,
+                  Expanded(
+                    child: _WeekStat(
+                      value: '${controller.sessionsThisWeek}',
+                      label: 'Sessions',
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'swings',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: _WeekStat(
+                      value: '${controller.thisWeekSwings}',
+                      label: 'Swings',
+                    ),
+                  ),
+                  Expanded(
+                    child: _WeekStat(
+                      value: '${controller.minutesThisWeek}',
+                      label: 'Minutes Practised',
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    isUp
-                        ? Icons.arrow_upward_rounded
-                        : Icons.arrow_downward_rounded,
-                    size: 16,
-                    color: trendColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      message,
-                      style: AppTextStyles.caption.copyWith(
-                        color: trendColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 14),
+              Text(
+                controller.weekComparison,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
@@ -83,14 +68,29 @@ class ThisWeekCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  String _message() {
-    final base = controller.thisWeekMessage.isNotEmpty
-        ? controller.thisWeekMessage
-        : 'Up from ${controller.lastWeekSwings} last week';
-    if (controller.isBestWeek && !base.toLowerCase().contains('best')) {
-      return '$base — your best week yet.';
-    }
-    return base;
+class _WeekStat extends StatelessWidget {
+  const _WeekStat({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: AppTextStyles.statNumber.copyWith(fontSize: 28)),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 }

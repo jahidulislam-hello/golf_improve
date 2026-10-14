@@ -1,20 +1,25 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:golf_training_app/core/app_capture_colors.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
+import 'package:golf_training_app/services/offline_swing_queue.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../home/compare_swings/compare_swings_screen.dart';
+import '../../library/screens/share_with_coach_screen.dart';
 import '../models/capture_session.dart';
-import 'analysing_screen.dart';
+import 'fullscreen_review_screen.dart';
+import 'practice_coach_chat_screen.dart';
 
-/// Review the just-recorded clip, then upload + AI-analyse via AnalysingScreen.
+/// Review the just-recorded clip. Trimming and local save run in the
+/// background. Upload waits until the device is online.
 class ReviewSwingScreen extends StatefulWidget {
   final CaptureSession session;
 
@@ -28,7 +33,10 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
   late VideoPlayerController _controller;
   bool _initialized = false;
   bool _saving = false;
+  bool _discarded = false;
   double _speed = 1.0;
+  String? _queuedKey;
+  final DateTime _recordedAt = DateTime.now();
 
   @override
   void initState() {
@@ -41,6 +49,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
+    _saveInBackground();
   }
 
   @override
@@ -76,11 +85,18 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
     _controller.seekTo(duration * fraction.clamp(0.0, 1.0));
   }
 
-  CaptureSession _sessionWithPlayerDuration() {
+  CaptureSession _trimmedSession() {
     final playerSec = _initialized
         ? _controller.value.duration.inMilliseconds / 1000.0
         : widget.session.durationSeconds;
     final duration = playerSec > 0 ? playerSec : widget.session.durationSeconds;
+    var start = 0.0;
+    var end = duration;
+    if (duration > 1.5) {
+      start = 0.2;
+      end = duration - 0.2;
+      if (end <= start) end = duration;
+    }
     return CaptureSession(
       videoPath: widget.session.videoPath,
       clubType: widget.session.clubType,
@@ -88,92 +104,211 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
       recordingMode: widget.session.recordingMode,
       handedness: widget.session.handedness,
       durationSeconds: duration,
-      trimStart: 0,
-      trimEnd: duration,
+      trimStart: start,
+      trimEnd: end,
       poseSamples: widget.session.poseSamples,
       previewWidth: widget.session.previewWidth,
       previewHeight: widget.session.previewHeight,
       deviceModel: widget.session.deviceModel,
-    );
+    ).sanitized();
   }
 
-  Future<void> _save() async {
+  /// Copies the clip, stores trim metadata, and syncs only when online.
+  Future<void> _saveInBackground() async {
     if (_saving) return;
     setState(() => _saving = true);
+    File? copy;
     try {
-      final session = _sessionWithPlayerDuration();
+      final session = _trimmedSession();
+      final source = File(session.videoPath);
+      if (!await source.exists() || _discarded) return;
+
+      final docs = await getApplicationDocumentsDirectory();
+      final folder = Directory('${docs.path}/swings');
+      await folder.create(recursive: true);
+      final localId = 'mob_${DateTime.now().microsecondsSinceEpoch}';
+      final idempotencyKey = 'sync_$localId';
+      copy = File('${folder.path}/$localId.mp4');
+      await source.copy(copy.path);
+      if (_discarded) {
+        if (await copy.exists()) await copy.delete();
+        return;
+      }
+
       final prefs = await SharedPreferences.getInstance();
-      final service = GolferService(
-        apiService: ApiService(sharedPreferences: prefs),
-      );
+      final fileSize = await copy.length();
+      _queuedKey = idempotencyKey;
+      await OfflineSwingQueue.enqueue(prefs, {
+        'local_id': localId,
+        'idempotencyKey': idempotencyKey,
+        'client_session_id': 'session_$localId',
+        'videoPath': copy.path,
+        'clubType': session.clubType,
+        'cameraAngle': session.cameraAngle,
+        'recordingMode': session.recordingMode,
+        'handedness': session.handedness,
+        'duration': session.durationSeconds,
+        'trimStart': session.trimStart,
+        'trimEnd': session.effectiveTrimEnd,
+        'recorded_at': DateTime.now().toUtc().toIso8601String(),
+        'fileSize': fileSize,
+        'fileType': 'video/mp4',
+      });
+      if (_discarded) {
+        await _removeQueued(prefs);
+        return;
+      }
 
-      await service.uploadSwingForAnalysis(
-        videoPath: session.videoPath,
-        clubType: session.clubType,
-        cameraAngle: session.cameraAngle,
-        recordingMode: session.recordingMode,
-        handedness: session.handedness,
-        duration: session.durationSeconds,
-        trimStart: session.trimStart,
-        trimEnd: session.effectiveTrimEnd,
-        cameraData: SwingTelemetryBuilder.cameraData(
-          cameraAngle: session.cameraAngle,
-          width: session.previewWidth,
-          height: session.previewHeight,
-          deviceModel: session.deviceModel,
-        ),
-        calibration: SwingTelemetryBuilder.calibration(),
-        swingPhases: SwingTelemetryBuilder.swingPhases(
-          durationSeconds: session.durationSeconds,
-          samples: session.poseSamples,
-        ),
-      );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Swing saved.')),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      try {
+        final service = GolferService(
+          apiService: ApiService(sharedPreferences: prefs),
+        );
+        await service.syncPendingSwings();
+      } catch (_) {}
+    } catch (_) {
+      if (copy != null && await copy.exists() && _queuedKey == null) {
+        await copy.delete();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  void _analyze() {
-    final session = _sessionWithPlayerDuration();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AnalysingScreen(session: session),
-      ),
+  Future<void> _removeQueued(SharedPreferences prefs) async {
+    final key = _queuedKey;
+    if (key == null) return;
+    final items = await OfflineSwingQueue.load(prefs);
+    items.removeWhere((item) => item['idempotencyKey'] == key);
+    await OfflineSwingQueue.save(prefs, items);
+    _queuedKey = null;
+  }
+
+  Future<void> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surfaceWhite,
+          title: const Text('Discard Clip', style: AppTextStyles.sectionHeader),
+          content: const Text(
+            'Discard this clip? It will be removed from this device.',
+            style: AppTextStyles.body,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                'Discard',
+                style: AppTextStyles.buttonLabel.copyWith(
+                  color: AppColors.destructiveRed,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+    if (discard == true) _discard();
+  }
+
+  void _discard() {
+    _discarded = true;
+    SharedPreferences.getInstance().then(_removeQueued);
+    Navigator.of(context).pop();
+  }
+
+  String get _angleLabel {
+    final angle = widget.session.cameraAngle.toLowerCase();
+    if (angle.contains('down') || angle.contains('line')) {
+      return 'Down-the-Line';
+    }
+    return 'Face-On';
   }
 
   Future<void> _openFullscreen() async {
     if (!_initialized) return;
-    final wasPlaying = _controller.value.isPlaying;
-    final position = _controller.value.position;
     await _controller.pause();
-
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _ReviewFullscreenPlayer(
+        builder: (_) => FullscreenReviewScreen(
           videoPath: widget.session.videoPath,
-          initialPosition: position,
-          initialSpeed: _speed,
-          autoPlay: wasPlaying,
+          club: widget.session.clubType,
+          angleLabel: _angleLabel,
+          recordedAt: _recordedAt,
         ),
       ),
     );
   }
 
-  void _discard() {
-    Navigator.of(context).pop();
+  Future<void> _addNote() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'practice_note_${widget.session.videoPath.hashCode}';
+    final existing = prefs.getString(key) ?? '';
+    if (!mounted) return;
+    final controller = TextEditingController(text: existing);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surfaceWhite,
+          title: const Text('Add Note', style: AppTextStyles.sectionHeader),
+          content: TextField(
+            controller: controller,
+            maxLines: 4,
+            style: AppTextStyles.body,
+            decoration: const InputDecoration(
+              hintText: 'Write a practice note for this swing',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (saved == true) {
+      await prefs.setString(key, controller.text.trim());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Note saved.')),
+        );
+      }
+    }
+    controller.dispose();
+  }
+
+  void _shareWithCoach() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ShareWithCoachScreen(
+          videoUrl: widget.session.videoPath,
+        ),
+      ),
+    );
+  }
+
+  void _compare() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CompareSwingsScreen()),
+    );
+  }
+
+  void _talkWithCoach() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PracticeCoachChatScreen()),
+    );
   }
 
   double get _progress {
@@ -196,46 +331,19 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
           child: _RoundBackButton(onTap: () => Navigator.of(context).pop()),
         ),
         leadingWidth: 56,
-        title: Text('Review Swing', style: AppTextStyles.appBarTitle),
+        title: const Text('Review Swing', style: AppTextStyles.appBarTitle),
         centerTitle: false,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: SizedBox(
-                width: 75,
-                height: 32,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.ctaBrightBlue,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9999),
-                    ),
-                  ),
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          'Save',
-                          style: AppTextStyles.type13.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+          if (_saving)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(
+                child: Text(
+                  'Saving…',
+                  style: AppTextStyles.caption,
                 ),
               ),
             ),
-          ),
         ],
       ),
       body: SafeArea(
@@ -305,16 +413,23 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                       initialized: _initialized,
                       onPlay: _togglePlay,
                       onRewind: () =>
-                          _seekBy(const Duration(milliseconds: -200)),
+                          _seekBy(const Duration(milliseconds: -33)),
                       onForward: () =>
-                          _seekBy(const Duration(milliseconds: 200)),
+                          _seekBy(const Duration(milliseconds: 33)),
                       speed: _speed,
                       onSpeedChanged: _setSpeed,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
+                    _ReviewActions(
+                      onDraw: _openFullscreen,
+                      onCompare: _compare,
+                      onNote: _addNote,
+                      onShare: _shareWithCoach,
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
                       height: 52,
-                      child: ElevatedButton.icon(
+                      child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.ctaBrightBlue,
                           foregroundColor: Colors.white,
@@ -323,10 +438,11 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                             borderRadius: AppRadii.buttonBorderRadius,
                           ),
                         ),
-                        onPressed: _analyze,
-                        icon: const Icon(Icons.psychology_alt_outlined),
-                        label: Text('Analyze with AI',
-                            style: AppTextStyles.buttonLabel),
+                        onPressed: _talkWithCoach,
+                        child: const Text(
+                          'Talk with AI Golf Coach',
+                          style: AppTextStyles.buttonLabel,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -341,7 +457,7 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                             borderRadius: AppRadii.buttonBorderRadius,
                           ),
                         ),
-                        onPressed: _discard,
+                        onPressed: _confirmDiscard,
                         icon: const Icon(Icons.close),
                         label: Text('Discard Clip',
                             style: AppTextStyles.buttonLabel
@@ -387,157 +503,71 @@ class _VideoProgressBar extends StatelessWidget {
   }
 }
 
-/// Fullscreen local-file player opened from the expand icon.
-class _ReviewFullscreenPlayer extends StatefulWidget {
-  const _ReviewFullscreenPlayer({
-    required this.videoPath,
-    required this.initialPosition,
-    required this.initialSpeed,
-    required this.autoPlay,
+class _ReviewActions extends StatelessWidget {
+  const _ReviewActions({
+    required this.onDraw,
+    required this.onCompare,
+    required this.onNote,
+    required this.onShare,
   });
 
-  final String videoPath;
-  final Duration initialPosition;
-  final double initialSpeed;
-  final bool autoPlay;
-
-  @override
-  State<_ReviewFullscreenPlayer> createState() =>
-      _ReviewFullscreenPlayerState();
-}
-
-class _ReviewFullscreenPlayerState extends State<_ReviewFullscreenPlayer> {
-  late VideoPlayerController _controller;
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _controller = VideoPlayerController.file(File(widget.videoPath))
-      ..initialize().then((_) async {
-        if (!mounted) return;
-        await _controller.setPlaybackSpeed(widget.initialSpeed);
-        await _controller.seekTo(widget.initialPosition);
-        if (widget.autoPlay) await _controller.play();
-        setState(() => _ready = true);
-      });
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    _controller.dispose();
-    super.dispose();
-  }
-
-  double get _progress {
-    if (!_ready) return 0;
-    final duration = _controller.value.duration.inMilliseconds;
-    if (duration <= 0) return 0;
-    return (_controller.value.position.inMilliseconds / duration)
-        .clamp(0.0, 1.0);
-  }
+  final VoidCallback onDraw;
+  final VoidCallback onCompare;
+  final VoidCallback onNote;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Center(
-              child: _ready
-                  ? AspectRatio(
-                      aspectRatio: _controller.value.aspectRatio == 0
-                          ? 16 / 9
-                          : _controller.value.aspectRatio,
-                      child: VideoPlayer(_controller),
-                    )
-                  : const CircularProgressIndicator(color: Colors.white),
-            ),
-            Positioned(
-              top: 8,
-              left: 8,
-              child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
-              ),
-            ),
-            Positioned(
-              right: 16,
-              bottom: 72,
-              child: Material(
-                color: Colors.black54,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => Navigator.of(context).pop(),
-                  child: const SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Icon(
-                      Icons.fullscreen_exit,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
+    Widget action(IconData icon, String label, VoidCallback onTap) {
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: SizedBox(
+            height: 84,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textPrimary,
+                side: const BorderSide(color: AppColors.borderLightGray),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadii.buttonBorderRadius,
                 ),
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 24,
+              onPressed: onTap,
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 4,
-                      thumbShape:
-                          const RoundSliderThumbShape(enabledThumbRadius: 7),
-                      activeTrackColor: AppColors.ctaBrightBlue,
-                      inactiveTrackColor: Colors.white24,
-                      thumbColor: AppColors.ctaBrightBlue,
-                    ),
-                    child: Slider(
-                      value: _progress,
-                      onChanged: (v) {
-                        if (!_ready) return;
-                        final d = _controller.value.duration;
-                        _controller.seekTo(d * v);
-                      },
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: !_ready
-                        ? null
-                        : () {
-                            setState(() {
-                              _controller.value.isPlaying
-                                  ? _controller.pause()
-                                  : _controller.play();
-                            });
-                          },
-                    icon: Icon(
-                      _ready && _controller.value.isPlaying
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_filled,
-                      color: Colors.white,
-                      size: 48,
+                  Icon(icon, size: 18, color: AppColors.ctaBrightBlue),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.type11.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return Row(
+      children: [
+        action(Icons.draw, 'Draw', onDraw),
+        action(Icons.compare, 'Compare', onCompare),
+        action(Icons.note_add_outlined, 'Add Note', onNote),
+        action(Icons.ios_share, 'Share with Coach', onShare),
+      ],
     );
   }
 }
@@ -632,9 +662,9 @@ class _ScrubberCard extends StatelessWidget {
                   style: AppTextStyles.type16
                       .copyWith(color: AppColors.textSecondary)),
               const Spacer(),
-              _CircleIconButton(icon: Icons.replay, onTap: onRewind),
+              _CircleIconButton(icon: Icons.skip_previous, onTap: onRewind),
               const SizedBox(width: 8),
-              _CircleIconButton(icon: Icons.forward, onTap: onForward),
+              _CircleIconButton(icon: Icons.skip_next, onTap: onForward),
             ],
           ),
           const SizedBox(height: 14),
@@ -697,13 +727,13 @@ class _CircleIconButton extends StatelessWidget {
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: Container(
-        width: 32,
-        height: 32,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: AppColors.ctaBrightBlue),
         ),
-        child: Icon(icon, color: AppColors.ctaBrightBlue, size: 16),
+        child: Icon(icon, color: AppColors.ctaBrightBlue, size: 22),
       ),
     );
   }

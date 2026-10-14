@@ -58,8 +58,10 @@ class SwingAnalysisController extends ChangeNotifier {
   bool includePersonalNotes = true;
   String? shareId;
   String shareStatus = '';
+  String? practiceNoteId;
 
   String coachName = 'Coach';
+  String? coachId;
   String? coachProfileUrl;
   String? coachCertification;
 
@@ -120,6 +122,9 @@ class SwingAnalysisController extends ChangeNotifier {
     isSharedWithCoach = library['isSharedWithCoach'] == true ||
         data['isSharedWithCoach'] == true ||
         _asMap(data['shareDetails']) != null;
+    practiceNoteId = _extractPracticeNoteId(library) ??
+        _extractPracticeNoteId(data) ??
+        practiceNoteId;
 
     final metrics = library['aiMetrics'] ?? data['aiMetrics'];
     if (metrics is List) {
@@ -181,12 +186,14 @@ class SwingAnalysisController extends ChangeNotifier {
 
       final coach = _asMap(share['coach']);
       if (coach != null) {
+        coachId = _readString(coach, '_id') ?? _readString(coach, 'id') ?? coachId;
         coachName = _readString(coach, 'name') ?? coachName;
         coachProfileUrl = _readString(coach, 'profileUrl');
       }
     } else if (_asMap(data['coach']) != null) {
       // Share-find root `coach` object.
       final coach = _asMap(data['coach'])!;
+      coachId = _readString(coach, '_id') ?? _readString(coach, 'id') ?? coachId;
       coachName = _readString(coach, 'name') ?? coachName;
       coachProfileUrl = _readString(coach, 'profileUrl');
       shareId = _readString(data, '_id') ?? shareId;
@@ -297,6 +304,58 @@ class SwingAnalysisController extends ChangeNotifier {
   Map<String, dynamic>? _asMap(dynamic raw) {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  String? _extractPracticeNoteId(Map<String, dynamic> source) {
+    const directKeys = [
+      'practice_note_id',
+      'practiceNoteId',
+      'noteId',
+      'note_id',
+      'logbookNoteId',
+      'noteBookId',
+      'notebookId',
+    ];
+    for (final key in directKeys) {
+      final id = _idOf(source[key]);
+      if (id != null) return id;
+    }
+    const objectKeys = [
+      'practiceNote',
+      'practice_note',
+      'note',
+      'noteBook',
+      'notebook',
+      'logbookNote',
+      'drillPlan',
+      'savedDrill',
+    ];
+    for (final key in objectKeys) {
+      final id = _idOf(source[key]);
+      if (id != null) return id;
+    }
+    final notes = source['notes'] ?? source['practiceNotes'];
+    if (notes is List && notes.isNotEmpty) {
+      return _idOf(notes.first);
+    }
+    return null;
+  }
+
+  String? _idOf(dynamic value) {
+    if (value == null) return null;
+    if (value is String) {
+      final text = value.trim();
+      if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(text)) return null;
+      return text;
+    }
+    if (value is Map) {
+      final id = value['_id'] ?? value['id'];
+      if (id == null) return null;
+      final text = '$id'.trim();
+      if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(text)) return null;
+      return text;
+    }
     return null;
   }
 

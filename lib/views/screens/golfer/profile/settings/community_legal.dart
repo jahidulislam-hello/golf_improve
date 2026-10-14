@@ -1,7 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/golfer_service.dart';
+import 'package:golf_training_app/views/screens/auth/screens/sign_in_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/settings/privacy_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/settings/terms_conditions_screen.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'about_us.dart';
 
@@ -54,6 +62,12 @@ class OthersScreen extends StatelessWidget {
               ),
             ),
             _MenuItem(
+              icon: Icons.download_outlined,
+              label: 'Download my data',
+              color: AppColors.textPrimary,
+              onTap: () => _downloadMyData(context),
+            ),
+            _MenuItem(
               icon: Icons.delete_outline_rounded,
               label: 'Delete Account',
               color: const Color(0xFFE53935),
@@ -68,8 +82,10 @@ class OthersScreen extends StatelessWidget {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.surfaceWhite,
+      surfaceTintColor: AppColors.surfaceWhite,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: true,
       leading: Padding(
         padding: const EdgeInsets.all(8),
@@ -78,8 +94,8 @@ class OthersScreen extends StatelessWidget {
           child: Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white,
+            decoration: const BoxDecoration(
+              color: AppColors.borderLightGray,
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -107,6 +123,28 @@ class OthersScreen extends StatelessWidget {
       barrierColor: Colors.black.withOpacity(0.45),
       builder: (_) => const _DeleteAccountDialog(),
     );
+  }
+
+  Future<void> _downloadMyData(BuildContext context) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final service = GolferService(
+        apiService: ApiService(sharedPreferences: prefs),
+      );
+      final response = await service.downloadMyData();
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/golf-improve-data-export.json');
+      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(response));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Data saved to ${file.path}')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
   }
 }
 
@@ -203,8 +241,57 @@ class _MenuRow extends StatelessWidget {
 }
 
 // ─── Delete Account Dialog ────────────────────────────────────────────────────
-class _DeleteAccountDialog extends StatelessWidget {
+class _DeleteAccountDialog extends StatefulWidget {
   const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final TextEditingController _passwordController = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    final value = _passwordController.text.trim();
+    if (value.isEmpty) {
+      setState(() => _error = 'Enter your password to delete this account.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final api = ApiService(sharedPreferences: prefs);
+      final service = GolferService(apiService: api);
+      if (value == 'DELETE') {
+        await service.deleteAccount(confirmation: 'DELETE');
+      } else {
+        await service.deleteAccount(password: value);
+      }
+      await api.clearUserData();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.toString();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -255,13 +342,28 @@ class _DeleteAccountDialog extends StatelessWidget {
 
             // Body text
             const Text(
-              'Are you sure you want to delete\nyour account?',
+              'This permanently deletes your swings, notes, and account. Enter your password. Google or Apple accounts must type DELETE.',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
                 height: 1.5,
               ),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                hintText: 'Password',
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: const TextStyle(fontSize: 12, color: Color(0xFFE53935)),
+              ),
+            ],
             const SizedBox(height: 24),
 
             // Buttons
@@ -295,10 +397,7 @@ class _DeleteAccountDialog extends StatelessWidget {
                 // Delete
                 Expanded(
                   child: GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: handle account deletion
-                    },
+                    onTap: _busy ? null : _delete,
                     child: Container(
                       height: 46,
                       decoration: BoxDecoration(

@@ -49,8 +49,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   bool _autoDetectReady = false;
   bool _showAlignmentTip = false;
   bool _didShowAlignmentTip = false;
-  List<Joint> _joints = const [];
-  List<Joint> _smoothedJoints = const [];
+  List<Joint?> _joints = const [];
+  List<Joint?> _smoothedJoints = const [];
   int _previewWidth = 1920;
   int _previewHeight = 1080;
 
@@ -58,7 +58,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   String? _categoriesError;
   bool _loadingCategories = true;
 
-  List<String> _cameraAngles = const ['Face On', 'Down The Line', 'Side On'];
+  List<String> _cameraAngles = const ['Face On', 'Down The Line'];
   List<String> _recordingModes = const ['slow-mo', 'swing', 'video'];
   List<SwingCategory> _categories = const [];
 
@@ -341,17 +341,19 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     });
   }
 
-  List<Joint> _smoothJoints(List<Joint> next) {
+  List<Joint?> _smoothJoints(List<Joint?> next) {
     if (next.isEmpty) return _smoothedJoints;
     if (_smoothedJoints.length != next.length) {
-      _smoothedJoints = List<Joint>.from(next);
+      _smoothedJoints = List<Joint?>.from(next);
       return _smoothedJoints;
     }
 
-    const alpha = 0.32;
-    _smoothedJoints = List<Joint>.generate(next.length, (index) {
-      final prev = _smoothedJoints[index];
+    const alpha = 0.45;
+    _smoothedJoints = List<Joint?>.generate(next.length, (index) {
       final curr = next[index];
+      final prev = _smoothedJoints[index];
+      if (curr == null) return null;
+      if (prev == null) return curr;
       return Joint(
         prev.x + (curr.x - prev.x) * alpha,
         prev.y + (curr.y - prev.y) * alpha,
@@ -361,9 +363,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   }
 
   int _deviceOrientationDegrees() {
-    switch (MediaQuery.maybeOf(context)?.orientation) {
-      case Orientation.landscape:
+    switch (_controller?.value.deviceOrientation.name) {
+      case 'landscapeLeft':
         return 90;
+      case 'portraitDown':
+        return 180;
+      case 'landscapeRight':
+        return 270;
       default:
         return 0;
     }
@@ -379,9 +385,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted || _autoDetectReady) return;
       setState(() {
-        _autoDetectReady = true;
         _showAlignmentTip = true;
-        _joints = defaultSwingJoints;
+        _joints = const [];
       });
     });
     Future.delayed(const Duration(seconds: 5), () {

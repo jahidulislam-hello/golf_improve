@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/auth_service.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,6 +42,8 @@ class GolferProfileController extends ChangeNotifier {
   String get handicapLabel =>
       _handicap == null ? '' : 'Handicap ${_handicap!.toStringAsFixed(1)}';
 
+  Future<void> refresh() => _bootstrap();
+
   Future<void> _bootstrap() async {
     _isLoading = true;
     notifyListeners();
@@ -67,21 +70,39 @@ class GolferProfileController extends ChangeNotifier {
     _email = (data['email'] ?? '').toString();
     final profileUrl = data['profileUrl']?.toString();
     _avatarUrl = (profileUrl != null && profileUrl.isNotEmpty) ? profileUrl : null;
-    _handicap = data['handicap'] is num
-        ? (data['handicap'] as num).toDouble()
-        : double.tryParse('${data['handicap'] ?? ''}');
-    _ageRange = _ageRangeFromApi(data['age']);
+    final handicapRaw = data['handicap_index'] ?? data['handicap'];
+    _handicap = handicapRaw is num
+        ? handicapRaw.toDouble()
+        : double.tryParse('${handicapRaw ?? ''}');
+    _ageRange = _ageRangeFromApi(data['age_range'] ?? data['age']);
     _gender = _genderLabelFromApi(data['gender']?.toString());
-    _practiceSessionsPerWeek = _practiceFromApi(data['practiceSessionPerWeek']);
+    _practiceSessionsPerWeek = _practiceFromApi(
+      data['practice_sessions_per_week'] ?? data['practiceSessionPerWeek'],
+    );
+    _golfStandConnected = data['uses_golfimprove_stand'] == true;
 
-    final subscription = data['subscription'];
-    if (subscription is Map) {
-      final planType = '${subscription['planType'] ?? ''}'.toLowerCase();
-      _plan = (planType == 'trial' || planType == 'free')
-          ? PlanType.free
-          : PlanType.pro;
+    final paywall = data['paywall'];
+    final premium = data['hasPremiumAccess'] == true ||
+        (paywall is Map &&
+            (paywall['hasPremiumAccess'] == true ||
+                paywall['bypassActive'] == true));
+    if (premium) {
+      _plan = PlanType.pro;
     } else {
-      _plan = null;
+      final subscription = data['subscription'];
+      if (subscription is Map) {
+        final status = '${subscription['status'] ?? ''}'.toLowerCase();
+        final planType = '${subscription['planType'] ?? ''}'.toLowerCase();
+        final endRaw = subscription['endDate'] ?? subscription['periodEnd'];
+        final end = DateTime.tryParse('${endRaw ?? ''}');
+        final notExpired = end == null || end.isAfter(DateTime.now());
+        final active = notExpired &&
+            planType != 'free' &&
+            (status == 'active' || status == 'trialing' || status == 'trial');
+        _plan = active ? PlanType.pro : PlanType.free;
+      } else {
+        _plan = PlanType.free;
+      }
     }
   }
 
@@ -156,6 +177,7 @@ class GolferProfileController extends ChangeNotifier {
     required String gender,
     required int practiceSessionsPerWeek,
     required double handicap,
+    String? avatarUrl,
   }) {
     _name = name;
     _email = email;
@@ -163,12 +185,15 @@ class GolferProfileController extends ChangeNotifier {
     _gender = gender;
     _practiceSessionsPerWeek = practiceSessionsPerWeek;
     _handicap = handicap;
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      _avatarUrl = avatarUrl;
+    }
     notifyListeners();
   }
 
   Future<void> logOut() async {
     final sharedPreferences = await SharedPreferences.getInstance();
     final apiService = ApiService(sharedPreferences: sharedPreferences);
-    await apiService.clearUserData();
+    await AuthService(apiService: apiService).logout();
   }
 }

@@ -8,9 +8,14 @@ import 'package:golf_training_app/core/app_radii.dart';
 /// White rounded card titled "Journey" containing a vertical stepper
 /// of [JourneyStep]s, matching the design's connected-dots timeline.
 class JourneyTimelineCard extends StatelessWidget {
-  const JourneyTimelineCard({super.key, required this.steps});
+  const JourneyTimelineCard({
+    super.key,
+    required this.steps,
+    this.focusStep,
+  });
 
   final List<JourneyStep> steps;
+  final JourneyStep? focusStep;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +37,21 @@ class JourneyTimelineCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Journey', style: AppTextStyles.sectionHeader.copyWith(fontSize: 18)),
-          const SizedBox(height: 18),
+          if (focusStep != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              focusStep!.status == JourneyStepStatus.queued
+                  ? focusStep!.subtitle
+                  : 'Next · ${focusStep!.title}',
+              style: AppTextStyles.type14.copyWith(
+                color: focusStep!.status == JourneyStepStatus.queued
+                    ? AppColors.warningText
+                    : AppColors.ctaBrightBlue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
           for (int i = 0; i < steps.length; i++)
             _JourneyRow(
               step: steps[i],
@@ -53,12 +72,13 @@ class _JourneyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMuted = step.status == JourneyStepStatus.upcoming;
+    final lineReached = step.status == JourneyStepStatus.completed ||
+        step.status == JourneyStepStatus.inProgress;
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon + connecting line column.
           Column(
             children: [
               _StepIcon(step: step),
@@ -67,45 +87,57 @@ class _JourneyRow extends StatelessWidget {
                   child: Container(
                     width: 2,
                     margin: const EdgeInsets.symmetric(vertical: 2),
-                    color: step.status == JourneyStepStatus.upcoming
-                        ? AppColors.borderLightGray
-                        : AppColors.primaryNavy,
+                    color: lineReached
+                        ? AppColors.primaryNavy
+                        : AppColors.borderLightGray,
                   ),
                 ),
             ],
           ),
-          const SizedBox(width: 14),
-          // Text content.
+          const SizedBox(width: 12),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 22),
+              padding: EdgeInsets.only(bottom: isLast ? 8 : 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        step.title,
-                        style: isMuted
-                            ? AppTextStyles.type16.copyWith(color: AppColors.textSecondary)
-                            : AppTextStyles.type16,
+                      Expanded(
+                        child: Text(
+                          '${step.step}. ${step.title}',
+                          style: (isMuted
+                                  ? AppTextStyles.type14.copyWith(
+                                      color: AppColors.textSecondary,
+                                    )
+                                  : AppTextStyles.type14)
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
                       ),
-                      if (step.badgeText != null) ...[
-                        const SizedBox(width: 6),
-                        _BetaBadge(text: step.badgeText!),
+                      if (step.dateLabel != null) ...[
+                        const SizedBox(width: 8),
+                        Text(step.dateLabel!, style: AppTextStyles.type11),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(step.subtitle, style: AppTextStyles.type13),
-                  if (step.timestamp != null) ...[
-                    const SizedBox(height: 4),
-                    Text(step.timestamp!, style: AppTextStyles.type16),
-                  ],
-                  if (step.status == JourneyStepStatus.inProgress) ...[
-                    const SizedBox(height: 4),
-                    Text('In progress…', style: AppTextStyles.type14),
-                  ],
+                  const SizedBox(height: 2),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(step.subtitle, style: AppTextStyles.type13),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        step.statusLabel,
+                        style: AppTextStyles.type11.copyWith(
+                          color: _statusColor(step.status),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -113,6 +145,19 @@ class _JourneyRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _statusColor(JourneyStepStatus status) {
+    switch (status) {
+      case JourneyStepStatus.completed:
+        return AppColors.accentGreen;
+      case JourneyStepStatus.inProgress:
+        return AppColors.ctaBrightBlue;
+      case JourneyStepStatus.queued:
+        return AppColors.warningText;
+      case JourneyStepStatus.upcoming:
+        return AppColors.textSecondary;
+    }
   }
 }
 
@@ -153,6 +198,21 @@ class _StepIcon extends StatelessWidget {
           ),
         );
 
+      case JourneyStepStatus.queued:
+        return Container(
+          width: size,
+          height: size,
+          decoration: const BoxDecoration(
+            color: AppColors.warningBg,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.schedule_rounded,
+            color: AppColors.warningText,
+            size: 16,
+          ),
+        );
+
       case JourneyStepStatus.upcoming:
         return Container(
           width: size,
@@ -161,30 +221,12 @@ class _StepIcon extends StatelessWidget {
             color: AppColors.pillInactive,
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            step.icon ?? Icons.circle_outlined,
+          child: const Icon(
+            Icons.circle_outlined,
             color: AppColors.textSecondary,
             size: 15,
           ),
         );
     }
-  }
-}
-
-class _BetaBadge extends StatelessWidget {
-  const _BetaBadge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.betaBadgeBg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(text, style: AppTextStyles.type14),
-    );
   }
 }

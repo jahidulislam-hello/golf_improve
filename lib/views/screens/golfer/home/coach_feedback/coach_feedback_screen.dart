@@ -6,10 +6,9 @@ import 'package:golf_training_app/core/app_radii.dart';
 
 /// Coach Feedback screen.
 ///
-/// The "Coach's View on AI Analysis" card at the bottom is collapsible.
-/// Tapping it expands in place (screen 1) to reveal the three AI-observation
-/// rows shown in screen 2 — nothing navigates away, it's the same screen
-/// growing taller.
+/// One main correction, the coach's note, a drill created from that note,
+/// and a 2-week plan. After the golfer starts the plan, each range session
+/// can be marked complete.
 class CoachFeedbackScreen extends StatefulWidget {
   const CoachFeedbackScreen({super.key});
 
@@ -17,8 +16,42 @@ class CoachFeedbackScreen extends StatefulWidget {
   State<CoachFeedbackScreen> createState() => _CoachFeedbackScreenState();
 }
 
+class _PracticeSession {
+  _PracticeSession({
+    required this.icon,
+    required this.days,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String days;
+  final String description;
+  bool completed = false;
+}
+
 class _CoachFeedbackScreenState extends State<CoachFeedbackScreen> {
-  bool _aiAnalysisExpanded = false;
+  bool _planViewExpanded = false;
+  bool _planStarted = false;
+  final List<_PracticeSession> _sessions = [
+    _PracticeSession(
+      icon: Icons.golf_course_outlined,
+      days: 'Days 1–3',
+      description: 'Short range session. Hip-lead drill only, half speed, 3 sets of 8.',
+    ),
+    _PracticeSession(
+      icon: Icons.sports_golf_outlined,
+      days: 'Days 4–7',
+      description: 'Short range session. Same drill, then a few easy swings at your normal speed.',
+    ),
+    _PracticeSession(
+      icon: Icons.place_outlined,
+      days: 'Days 8–14',
+      description: 'Short range session. Stay with this one correction and stop when the feeling is clear.',
+    ),
+  ];
+
+  int get _completedCount =>
+      _sessions.where((session) => session.completed).length;
 
   @override
   Widget build(BuildContext context) {
@@ -41,21 +74,38 @@ class _CoachFeedbackScreenState extends State<CoachFeedbackScreen> {
                     const SizedBox(height: 16),
                     _CoachingFeedbackCard(),
                     const SizedBox(height: 16),
-                    _RecommendedDrillCard(),
+                    const _RecommendedDrillCard(),
                     const SizedBox(height: 16),
-                    _PracticePlanCard(),
+                    _PracticePlanCard(
+                      sessions: _sessions,
+                      started: _planStarted,
+                      completedCount: _completedCount,
+                      onToggle: (index) {
+                        setState(() {
+                          _sessions[index].completed = !_sessions[index].completed;
+                        });
+                      },
+                    ),
                     const SizedBox(height: 16),
-                    _AiAnalysisCard(
-                      expanded: _aiAnalysisExpanded,
+                    _PracticePlanReviewCard(
+                      expanded: _planViewExpanded,
                       onTap: () {
-                        setState(() => _aiAnalysisExpanded = !_aiAnalysisExpanded);
+                        setState(() => _planViewExpanded = !_planViewExpanded);
                       },
                     ),
                   ],
                 ),
               ),
             ),
-            _MarkPracticeDoneButton(),
+            if (!_planStarted)
+              _StartPracticePlanButton(
+                onPressed: () => setState(() => _planStarted = true),
+              )
+            else
+              _PlanProgressBar(
+                completed: _completedCount,
+                total: _sessions.length,
+              ),
           ],
         ),
       ),
@@ -203,14 +253,25 @@ class _CoachingFeedbackCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '"Great effort, Alex. I can see the transition issue clearly '
-            'in frame 0:04. Your upper body is firing before your hips have '
-            'cleared — this creates an out-to-in path which is why you\'re '
-            'seeing pushes and slices.\n\n'
-            'The good news: your setup and takeaway are solid. The problem '
-            'starts at the top of the backswing. Focus on the feeling of '
-            'your left hip turning towards the target before your right '
-            'shoulder begins to drop."',
+            'Main correction',
+            style: AppTextStyles.caption.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Start the downswing with your hips before your shoulders.',
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '"Great effort, Alex. Keep this as the only change for now: '
+            'feel your hips turn toward the target before your shoulders '
+            'follow. Use that feeling in short range sessions."',
             style: AppTextStyles.body.copyWith(height: 1.5),
           ),
         ],
@@ -221,6 +282,8 @@ class _CoachingFeedbackCard extends StatelessWidget {
 
 /// "Recommended Drill" card with the highlighted lavender drill box.
 class _RecommendedDrillCard extends StatelessWidget {
+  const _RecommendedDrillCard();
+
   @override
   Widget build(BuildContext context) {
     return _CardShell(
@@ -233,9 +296,14 @@ class _RecommendedDrillCard extends StatelessWidget {
               const Icon(Icons.golf_course_outlined,
                   size: 18, color: AppColors.quickActionAiIcon),
               const SizedBox(width: 8),
-              Text('Recommended Drill',
+              Text('AI Recommended Drill',
                   style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Created from your coach's feedback.",
+            style: AppTextStyles.caption,
           ),
           const SizedBox(height: 12),
           Container(
@@ -290,8 +358,20 @@ class _NumberedLine extends StatelessWidget {
   }
 }
 
-/// "2-Week Practice Plan" card with the three day-range rows.
+/// "2-Week Practice Plan" built around one correction and short range sessions.
 class _PracticePlanCard extends StatelessWidget {
+  const _PracticePlanCard({
+    required this.sessions,
+    required this.started,
+    required this.completedCount,
+    required this.onToggle,
+  });
+
+  final List<_PracticeSession> sessions;
+  final bool started;
+  final int completedCount;
+  final ValueChanged<int> onToggle;
+
   @override
   Widget build(BuildContext context) {
     return _CardShell(
@@ -304,29 +384,43 @@ class _PracticePlanCard extends StatelessWidget {
               const Icon(Icons.calendar_today_outlined,
                   size: 18, color: AppColors.textPrimary),
               const SizedBox(width: 8),
-              Text('2-Week Practice Plan',
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+              Expanded(
+                child: Text('2-Week Practice Plan',
+                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+              ),
             ],
           ),
+          if (started) ...[
+            const SizedBox(height: 8),
+            Text(
+              '$completedCount of ${sessions.length} sessions completed',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.successGreen,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: sessions.isEmpty ? 0 : completedCount / sessions.length,
+                minHeight: 6,
+                backgroundColor: AppColors.borderCard,
+                color: AppColors.successGreen,
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
-          _PlanRow(
-            icon: Icons.golf_course_outlined,
-            days: 'Days 1–3',
-            description: 'Hip Lead Drill only — 50% speed, 3 sets of 10',
-            showDivider: true,
-          ),
-          _PlanRow(
-            icon: Icons.camera_alt_outlined,
-            days: 'Days 4–7',
-            description: 'Add full swings. Film face-on and compare transition frame',
-            showDivider: true,
-          ),
-          _PlanRow(
-            icon: Icons.place_outlined,
-            days: 'Days 8–14',
-            description: 'On-course practice. Focus on hip initiation under pressure',
-            showDivider: false,
-          ),
+          for (var i = 0; i < sessions.length; i++)
+            _PlanRow(
+              icon: sessions[i].icon,
+              days: sessions[i].days,
+              description: sessions[i].description,
+              showDivider: i < sessions.length - 1,
+              showComplete: started,
+              completed: sessions[i].completed,
+              onToggle: () => onToggle(i),
+            ),
         ],
       ),
     );
@@ -338,12 +432,18 @@ class _PlanRow extends StatelessWidget {
   final String days;
   final String description;
   final bool showDivider;
+  final bool showComplete;
+  final bool completed;
+  final VoidCallback? onToggle;
 
   const _PlanRow({
     required this.icon,
     required this.days,
     required this.description,
     required this.showDivider,
+    this.showComplete = false,
+    this.completed = false,
+    this.onToggle,
   });
 
   @override
@@ -355,7 +455,22 @@ class _PlanRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 18, color: AppColors.textSecondary),
+              if (showComplete)
+                InkWell(
+                  onTap: onToggle,
+                  customBorder: const CircleBorder(),
+                  child: Icon(
+                    completed
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 22,
+                    color: completed
+                        ? AppColors.successGreen
+                        : AppColors.textSecondary,
+                  ),
+                )
+              else
+                Icon(icon, size: 18, color: AppColors.textSecondary),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -377,16 +492,13 @@ class _PlanRow extends StatelessWidget {
   }
 }
 
-/// The collapsible "Coach's View on AI Analysis" card.
-///
-/// Collapsed = header row only (screen 1's default state).
-/// Expanded  = header row + the three observation rows from screen 2,
-/// rendered in an AnimatedSize so the card grows smoothly in place.
-class _AiAnalysisCard extends StatelessWidget {
+
+/// Collapsible coach review of the drill and plan.
+class _PracticePlanReviewCard extends StatelessWidget {
   final bool expanded;
   final VoidCallback onTap;
 
-  const _AiAnalysisCard({required this.expanded, required this.onTap});
+  const _PracticePlanReviewCard({required this.expanded, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -417,26 +529,16 @@ class _AiAnalysisCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                "Coach's View on AI Analysis",
-                                style: AppTextStyles.body
-                                    .copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            _Badge(
-                              label: 'BETA',
-                              background: AppColors.betaBadgeBg,
-                              textColor: AppColors.betaBadgeText,
-                            ),
-                          ],
+                        Text(
+                          "Coach's View on Your Practice Plan",
+                          style: AppTextStyles.body
+                              .copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 2),
-                        Text('James Keller reviewed the AI observations',
-                            style: AppTextStyles.caption),
+                        Text(
+                          'James reviewed your recommended drill and practice plan.',
+                          style: AppTextStyles.caption,
+                        ),
                       ],
                     ),
                   ),
@@ -455,32 +557,18 @@ class _AiAnalysisCard extends StatelessWidget {
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeInOut,
             child: expanded
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                ? const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                     child: Column(
-                      children: const [
-                        _AiObservationRow(
-                          agreed: true,
-                          title: 'Head movement — Agreed',
-                          verdict: 'Agreed',
-                          description:
-                              'Confirmed — the head shift is a secondary effect of the hip issue. Fix the hips and this will self-correct.',
+                      children: [
+                        _PlanAdjustment(
+                          text:
+                              'Use 8 reps instead of 10 so each range session stays short.',
                         ),
                         SizedBox(height: 10),
-                        _AiObservationRow(
-                          agreed: false,
-                          title: 'Lead leg at impact — Corrected',
-                          verdict: 'Corrected',
-                          description:
-                              'Partially correct. The bent leg is mostly caused by the early upper body — not a standalone issue.',
-                        ),
-                        SizedBox(height: 10),
-                        _AiObservationRow(
-                          agreed: true,
-                          title: 'Takeaway path — Agreed',
-                          verdict: 'Agreed',
-                          description:
-                              'Takeaway looks fine to me as well. No changes needed here.',
+                        _PlanAdjustment(
+                          text:
+                              'Keep every session on the range and stay with this one hip-lead correction.',
                         ),
                       ],
                     ),
@@ -493,76 +581,34 @@ class _AiAnalysisCard extends StatelessWidget {
   }
 }
 
-/// One observation row inside the expanded AI Analysis card — green for
-/// "Agreed", amber for "Corrected", matching screen 2 exactly.
-class _AiObservationRow extends StatelessWidget {
-  final bool agreed;
-  final String title;
-  final String verdict;
-  final String description;
+class _PlanAdjustment extends StatelessWidget {
+  final String text;
 
-  const _AiObservationRow({
-    required this.agreed,
-    required this.title,
-    required this.verdict,
-    required this.description,
-  });
+  const _PlanAdjustment({required this.text});
 
   @override
   Widget build(BuildContext context) {
-    final Color bg = agreed ? AppColors.insightPositiveIconBg : AppColors.warningBg;
-    final Color border = agreed ? AppColors.insightPositiveIconBg : AppColors.warningBorder;
-    final Color iconColor = agreed ? AppColors.insightPositiveIcon : AppColors.warningText;
-    final Color titleColor = agreed ? AppColors.insightPositiveIcon : AppColors.warningText;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bg,
+        color: AppColors.pillInactive,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            agreed ? Icons.thumb_up_alt_outlined : Icons.thumb_down_alt_outlined,
-            size: 16,
-            color: iconColor,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: titleColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textPrimary.withOpacity(0.85),
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Text(
+        text,
+        style: AppTextStyles.body.copyWith(height: 1.4),
       ),
     );
   }
 }
 
-/// Fixed bottom "Mark Practice as Done" CTA button.
-class _MarkPracticeDoneButton extends StatelessWidget {
+/// Fixed bottom button that starts the 2-week plan.
+class _StartPracticePlanButton extends StatelessWidget {
+  const _StartPracticePlanButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -572,7 +618,7 @@ class _MarkPracticeDoneButton extends StatelessWidget {
       child: SizedBox(
         height: 52,
         child: ElevatedButton(
-          onPressed: () {},
+          onPressed: onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.ctaBrightBlue,
             shape: RoundedRectangleBorder(
@@ -580,15 +626,47 @@ class _MarkPracticeDoneButton extends StatelessWidget {
             ),
             elevation: 0,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.check, size: 18, color: AppColors.surfaceWhite),
-              const SizedBox(width: 8),
-              Text('Mark Practice as Done', style: AppTextStyles.buttonLabel),
-            ],
+          child: const Text(
+            'Start This Practice Plan',
+            style: AppTextStyles.buttonLabel,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PlanProgressBar extends StatelessWidget {
+  const _PlanProgressBar({required this.completed, required this.total});
+
+  final int completed;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      color: AppColors.backgroundOffWhite,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '$completed of $total sessions completed',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: total == 0 ? 0 : completed / total,
+              minHeight: 8,
+              backgroundColor: AppColors.borderCard,
+              color: AppColors.successGreen,
+            ),
+          ),
+        ],
       ),
     );
   }

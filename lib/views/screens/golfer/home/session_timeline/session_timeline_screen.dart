@@ -37,6 +37,7 @@ class _SessionTimelineScreenState extends State<SessionTimelineScreen> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+    widget.controller.load();
   }
 
   @override
@@ -45,7 +46,10 @@ class _SessionTimelineScreenState extends State<SessionTimelineScreen> {
     super.dispose();
   }
 
-  void _onControllerChanged() => setState(() {});
+  void _onControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +67,15 @@ class _SessionTimelineScreenState extends State<SessionTimelineScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (controller.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          color: AppColors.ctaBrightBlue,
+                          backgroundColor: AppColors.borderLightGray,
+                        ),
+                      ),
                     ClipRRect(
                       borderRadius: AppRadii.cardBorderRadius,
                       child: SessionVideoPreview(
@@ -74,19 +87,73 @@ class _SessionTimelineScreenState extends State<SessionTimelineScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    JourneyTimelineCard(steps: controller.journeySteps),
-                    const SizedBox(height: 20),
-                    CoachFeedbackCard(
-                      feedback: controller.feedback,
-                      onReadFullFeedback: () =>
-                          controller.onReadFullFeedback(context),
+                    if (controller.isOffline) ...[
+                      const _OfflineBanner(),
+                      const SizedBox(height: 12),
+                    ],
+                    JourneyTimelineCard(
+                      steps: controller.journeySteps,
+                      focusStep: controller.focusStep,
                     ),
+                    if (controller.showReadFeedback &&
+                        controller.feedback != null) ...[
+                      const SizedBox(height: 20),
+                      CoachFeedbackCard(
+                        feedback: controller.feedback!,
+                        buttonLabel: controller.feedbackButtonLabel,
+                        onReadFullFeedback: () =>
+                            controller.onReadFullFeedback(context),
+                      ),
+                    ] else if (controller.showReadFeedback) ...[
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () =>
+                              controller.onReadFullFeedback(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.ctaBrightBlue,
+                            foregroundColor: AppColors.surfaceWhite,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: AppRadii.buttonBorderRadius,
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            controller.feedbackButtonLabel,
+                            style: AppTextStyles.buttonLabel,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.warningBg,
+        borderRadius: AppRadii.cardBorderRadius,
+        border: Border.all(color: AppColors.warningBorder),
+      ),
+      child: Text(
+        'Sharing is queued and will continue automatically later.',
+        style: AppTextStyles.type13.copyWith(color: AppColors.warningText),
       ),
     );
   }

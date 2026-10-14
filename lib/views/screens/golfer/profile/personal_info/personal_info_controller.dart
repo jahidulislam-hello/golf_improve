@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum Gender { man, woman, nonBinary, preferNotToSay }
@@ -24,7 +28,8 @@ extension GenderLabel on Gender {
 class GolferPersonalInfoController extends ChangeNotifier {
   GolferPersonalInfoController()
       : nameController = TextEditingController(),
-        emailController = TextEditingController() {
+        emailController = TextEditingController(),
+        handicapController = TextEditingController(text: '0.0') {
     loadProfile();
   }
 
@@ -42,16 +47,21 @@ class GolferPersonalInfoController extends ChangeNotifier {
 
   final TextEditingController nameController;
   final TextEditingController emailController;
+  final TextEditingController handicapController;
 
   String? ageRange;
   Gender? _gender;
   double _handicapIndex = 0;
   int _practiceSessionsPerWeek = 0;
   String? avatarUrl;
+  String? localAvatarPath;
+  bool isPickingAvatar = false;
 
   bool isLoading = false;
   bool isSaving = false;
+  bool emailChangePending = false;
   String? errorMessage;
+  String _originalEmail = '';
 
   Gender? get gender => _gender;
   double get handicapIndex => _handicapIndex;
@@ -82,15 +92,20 @@ class GolferPersonalInfoController extends ChangeNotifier {
     final data = Map<String, dynamic>.from(rawData);
 
     nameController.text = (data['name'] ?? '').toString();
-    emailController.text = (data['email'] ?? '').toString();
+    _originalEmail = (data['email'] ?? '').toString();
+    emailController.text = _originalEmail;
     final profileUrl = data['profileUrl']?.toString();
     avatarUrl = (profileUrl != null && profileUrl.isNotEmpty) ? profileUrl : null;
-    ageRange = _ageRangeFromApi(data['age']);
+    ageRange = _ageRangeFromApi(data['age_range'] ?? data['age']);
     _gender = GenderApi.fromApi(data['gender']?.toString());
-    _handicapIndex = data['handicap'] is num
-        ? (data['handicap'] as num).toDouble()
-        : double.tryParse('${data['handicap'] ?? ''}') ?? 0;
-    _practiceSessionsPerWeek = _practiceFromApi(data['practiceSessionPerWeek']);
+    final handicapRaw = data['handicap_index'] ?? data['handicap'];
+    final parsed = handicapRaw is num
+        ? handicapRaw.toDouble()
+        : double.tryParse('${handicapRaw ?? ''}') ?? 0;
+    _writeHandicap(parsed, notify: false);
+    _practiceSessionsPerWeek = _practiceFromApi(
+      data['practice_sessions_per_week'] ?? data['practiceSessionPerWeek'],
+    );
   }
 
   String? _ageRangeFromApi(dynamic raw) {
@@ -130,14 +145,43 @@ class GolferPersonalInfoController extends ChangeNotifier {
   }
 
   void incrementHandicap({double step = 0.1}) {
-    _handicapIndex = (_handicapIndex + step).clamp(minHandicap, maxHandicap);
-    notifyListeners();
+    final current = double.tryParse(handicapController.text.trim()) ?? _handicapIndex;
+    _writeHandicap(_roundTenth(current + step));
   }
 
   void decrementHandicap({double step = 0.1}) {
-    _handicapIndex = (_handicapIndex - step).clamp(minHandicap, maxHandicap);
-    notifyListeners();
+    final current = double.tryParse(handicapController.text.trim()) ?? _handicapIndex;
+    _writeHandicap(_roundTenth(current - step));
   }
+
+  /// Applies a typed handicap. Returns false when the value is outside
+  /// -9.9 to 54.0.
+  bool commitHandicap() {
+    final raw = handicapController.text.trim().replaceAll(',', '.');
+    final parsed = double.tryParse(raw);
+    if (parsed == null || parsed < minHandicap || parsed > maxHandicap) {
+      errorMessage =
+          'Enter a handicap between $minHandicap and $maxHandicap.';
+      notifyListeners();
+      return false;
+    }
+    _writeHandicap(_roundTenth(parsed));
+    return true;
+  }
+
+  void _writeHandicap(double value, {bool notify = true}) {
+    _handicapIndex = value.clamp(minHandicap, maxHandicap);
+    final text = _handicapIndex.toStringAsFixed(1);
+    if (handicapController.text != text) {
+      handicapController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+    if (notify) notifyListeners();
+  }
+
+  double _roundTenth(double value) => (value * 10).round() / 10.0;
 
   void setPracticeSessionsPerWeek(int sessions) {
     if (_practiceSessionsPerWeek == sessions) return;
@@ -145,22 +189,94 @@ class GolferPersonalInfoController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Opens the device gallery so the golfer can replace their profile photo.
+  Future<void> pickAvatarFromGallery() async {
+    if (isPickingAvatar) return;
+    isPickingAvatar = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final allowed = await _ensureGalleryAccess();
+      if (!allowed) {
+        errorMessage = 'Allow photo access to update your profile picture.';
+        return;
+      }
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      localAvatarPath = file.path;
+    } catch (_) {
+      errorMessage = 'Could not open your gallery. Please try again.';
+    } finally {
+      isPickingAvatar = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _ensureGalleryAccess() async {
+    if (Platform.isIOS) {
+      final status = await Permission.photos.request();
+      if (status.isGranted || status.isLimited) return true;
+      if (status.isPermanentlyDenied) await openAppSettings();
+      return false;
+    }
+    if (!Platform.isAndroid) return true;
+
+    final photos = await Permission.photos.status;
+    final storage = await Permission.storage.status;
+    if (photos.isGranted ||
+        photos.isLimited ||
+        storage.isGranted ||
+        storage.isLimited) {
+      return true;
+    }
+
+    final requestedPhotos = await Permission.photos.request();
+    if (requestedPhotos.isGranted || requestedPhotos.isLimited) return true;
+    await Permission.storage.request();
+    // The system photo picker can still open when a runtime grant is skipped.
+    return true;
+  }
+
   Future<bool> saveChanges() async {
+    if (!commitHandicap()) return false;
     isSaving = true;
     errorMessage = null;
     notifyListeners();
 
     try {
       final golferService = await _service();
-      await golferService.updateMyProfile(
+      final response = await golferService.updateMyProfile(
         name: nameController.text.trim(),
         age: ageRange ?? '',
         gender: _gender?.apiValue ?? 'other',
         handicap: _handicapIndex,
-        practiceSessionPerWeek: _practiceSessionsPerWeek == 3
-            ? '3+'
-            : _practiceSessionsPerWeek.toString(),
+        practiceSessionPerWeek: '$_practiceSessionsPerWeek',
+        profileImagePath: localAvatarPath,
       );
+      final uploadedUrl = _profileUrlFrom(response);
+      if (uploadedUrl != null) {
+        avatarUrl = uploadedUrl;
+        localAvatarPath = null;
+      } else if (localAvatarPath != null) {
+        final fresh = await golferService.getMyProfile();
+        final freshUrl = _profileUrlFrom(fresh);
+        if (freshUrl != null) {
+          avatarUrl = freshUrl;
+          localAvatarPath = null;
+        }
+      }
+      final nextEmail = emailController.text.trim();
+      if (nextEmail.isNotEmpty &&
+          nextEmail.toLowerCase() != _originalEmail.toLowerCase()) {
+        await golferService.requestEmailChange(newEmail: nextEmail);
+        emailChangePending = true;
+      } else {
+        emailChangePending = false;
+      }
       isSaving = false;
       notifyListeners();
       return true;
@@ -170,6 +286,49 @@ class GolferPersonalInfoController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<bool> confirmEmailChange(String otp) async {
+    final code = otp.trim();
+    if (code.length < 4) {
+      errorMessage = 'Enter the verification code sent to your new email.';
+      notifyListeners();
+      return false;
+    }
+    isSaving = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final golferService = await _service();
+      await golferService.verifyEmailChange(
+        newEmail: emailController.text.trim(),
+        otp: code,
+      );
+      _originalEmail = emailController.text.trim();
+      emailChangePending = false;
+      isSaving = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      isSaving = false;
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  String? _profileUrlFrom(dynamic response) {
+    if (response is! Map) return null;
+    final data = response['data'];
+    if (data is! Map) return null;
+    final direct = data['profileUrl']?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final user = data['user'];
+    if (user is Map) {
+      final nested = user['profileUrl']?.toString();
+      if (nested != null && nested.isNotEmpty) return nested;
+    }
+    return null;
   }
 
   Future<GolferService> _service() async {
@@ -182,6 +341,7 @@ class GolferPersonalInfoController extends ChangeNotifier {
   void dispose() {
     nameController.dispose();
     emailController.dispose();
+    handicapController.dispose();
     super.dispose();
   }
 }

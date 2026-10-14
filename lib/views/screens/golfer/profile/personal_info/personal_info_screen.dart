@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/personal_info/personal_info_controller.dart';
@@ -38,9 +41,33 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
     super.dispose();
   }
 
+  Future<void> _pickAvatar() async {
+    await _controller.pickAvatarFromGallery();
+    if (!mounted) return;
+    final message = _controller.errorMessage;
+    if (message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
   Future<void> _handleSave() async {
     final success = await _controller.saveChanges();
-    if (!success) return;
+    if (!success) {
+      if (!mounted) return;
+      final message = _controller.errorMessage;
+      if (message != null && message.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+      return;
+    }
+    if (_controller.emailChangePending) {
+      final verified = await _promptEmailCode();
+      if (!verified || !mounted) return;
+    }
     widget.onSaved?.call(
       PersonalInfoPayload(
         name: _controller.nameController.text.trim(),
@@ -49,9 +76,56 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
         genderLabel: _controller.gender?.label ?? '',
         practiceSessionsPerWeek: _controller.practiceSessionsPerWeek,
         handicap: _controller.handicapIndex,
+        avatarUrl: _controller.avatarUrl,
       ),
     );
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    ScaffoldMessenger.of(navigator.context).showSnackBar(
+      const SnackBar(content: Text('Profile saved.')),
+    );
+  }
+
+  Future<bool> _promptEmailCode() async {
+    final codeController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Verify new email'),
+          content: TextField(
+            controller: codeController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: '6-digit code',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Verify'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return false;
+    final ok = await _controller.confirmEmailChange(codeController.text);
+    codeController.dispose();
+    if (!ok && mounted) {
+      final message = _controller.errorMessage;
+      if (message != null && message.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    }
+    return ok;
   }
 
   @override
@@ -65,7 +139,14 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           const SizedBox(height: 8),
-          Center(child: _AvatarPicker(imageUrl: _controller.avatarUrl)),
+          Center(
+            child: _AvatarPicker(
+              imageUrl: _controller.avatarUrl,
+              localPath: _controller.localAvatarPath,
+              isBusy: _controller.isPickingAvatar,
+              onTap: _controller.isPickingAvatar ? null : _pickAvatar,
+            ),
+          ),
           const SizedBox(height: 28),
           _FieldCard(
             label: 'Full Name',
@@ -112,16 +193,38 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: AppColors.backgroundOffWhite,
+      backgroundColor: AppColors.surfaceWhite,
+      surfaceTintColor: AppColors.surfaceWhite,
       elevation: 0,
       scrolledUnderElevation: 0,
-      centerTitle: false,
-      titleSpacing: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-        onPressed: () => Navigator.of(context).maybePop(),
+      centerTitle: true,
+      leading: Padding(
+        padding: const EdgeInsets.all(8),
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: AppColors.borderLightGray,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.black,
+              size: 24,
+            ),
+          ),
+        ),
       ),
-      title: const Text('Personal Info', style: AppTextStyles.appBarTitle),
+      title: const Text(
+        'Golf Profile',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ),
     );
   }
 }
@@ -134,6 +237,7 @@ class PersonalInfoPayload {
     required this.genderLabel,
     required this.practiceSessionsPerWeek,
     required this.handicap,
+    this.avatarUrl,
   });
 
   final String name;
@@ -142,6 +246,7 @@ class PersonalInfoPayload {
   final String genderLabel;
   final int practiceSessionsPerWeek;
   final double handicap;
+  final String? avatarUrl;
 }
 
 /// White card that holds a field label + its control together,
@@ -185,50 +290,91 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _AvatarPicker extends StatelessWidget {
-  const _AvatarPicker({this.imageUrl});
+  const _AvatarPicker({
+    this.imageUrl,
+    this.localPath,
+    this.isBusy = false,
+    this.onTap,
+  });
+
   final String? imageUrl;
+  final String? localPath;
+  final bool isBusy;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final hasLocal = localPath != null && localPath!.isNotEmpty;
+    final hasNetwork = imageUrl != null && imageUrl!.isNotEmpty;
+    final ImageProvider? image = hasLocal
+        ? FileImage(File(localPath!))
+        : (hasNetwork ? NetworkImage(imageUrl!) : null);
+
     return SizedBox(
       width: 96,
       height: 96,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              color: AppColors.backButtonBorder,
-              shape: BoxShape.circle,
-              image: imageUrl != null
-                  ? DecorationImage(
-                      image: NetworkImage(imageUrl!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onTap,
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: AppColors.backButtonBorder,
+                  shape: BoxShape.circle,
+                  image: image == null
+                      ? null
+                      : DecorationImage(image: image, fit: BoxFit.cover),
+                ),
+                child: image == null
+                    ? const Icon(
+                        Icons.camera_alt_outlined,
+                        size: 28,
+                        color: AppColors.ctaBrightBlue,
+                      )
+                    : null,
+              ),
             ),
-            child: imageUrl == null
-                ? const Icon(
-                    Icons.camera_alt_outlined,
-                    size: 28,
-                    color: AppColors.ctaBrightBlue,
-                  )
-                : null,
           ),
           Positioned(
             right: -2,
             bottom: -2,
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: AppColors.ctaBrightBlue,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.backgroundOffWhite, width: 2),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onTap,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: AppColors.ctaBrightBlue,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.backgroundOffWhite,
+                      width: 2,
+                    ),
+                  ),
+                  child: isBusy
+                      ? const Padding(
+                          padding: EdgeInsets.all(7),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.surfaceWhite,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.add,
+                          size: 16,
+                          color: AppColors.surfaceWhite,
+                        ),
+                ),
               ),
-              child: const Icon(Icons.add, size: 16, color: AppColors.surfaceWhite),
             ),
           ),
         ],
@@ -392,9 +538,27 @@ class _HandicapCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _StepperButton(icon: Icons.remove, onTap: controller.decrementHandicap),
-                    Text(
-                      controller.handicapIndex.toStringAsFixed(1),
-                      style: AppTextStyles.statNumber.copyWith(fontSize: 28),
+                    SizedBox(
+                      width: 120,
+                      child: TextField(
+                        controller: controller.handicapController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        textAlign: TextAlign.center,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^-?\d{0,2}\.?\d{0,1}$'),
+                          ),
+                        ],
+                        style: AppTextStyles.statNumber.copyWith(fontSize: 28),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
                     ),
                     _StepperButton(icon: Icons.add, onTap: controller.incrementHandicap),
                   ],
@@ -514,9 +678,9 @@ class _SaveChangesButton extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            const Text('Save Changes', style: AppTextStyles.buttonLabel),
+            const Text('Save Profile', style: AppTextStyles.buttonLabel),
             const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward, size: 18, color: AppColors.surfaceWhite),
+            // const Icon(Icons.arrow_forward, size: 18, color: AppColors.surfaceWhite),
           ],
         ),
       ),

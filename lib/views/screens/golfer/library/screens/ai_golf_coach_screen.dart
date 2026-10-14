@@ -122,6 +122,36 @@ class _AiGolfCoachScreenState extends State<AiGolfCoachScreen> {
                     },
                   ),
                 ),
+                if ((controller.recommendedDrill ?? '').isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: controller.planSaved || controller.isSavingPlan
+                            ? null
+                            : () async {
+                                final ok = await controller.savePlan();
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? 'Drill saved to your logbook.'
+                                          : (controller.errorMessage ??
+                                              'Could not save the drill.'),
+                                    ),
+                                  ),
+                                );
+                              },
+                        child: Text(
+                          controller.planSaved
+                              ? 'Saved to logbook'
+                              : 'Save drill to logbook',
+                        ),
+                      ),
+                    ),
+                  ),
                 if (controller.quickReplies.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
