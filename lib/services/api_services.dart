@@ -10,6 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/api_constants.dart';
 
 class ApiService {
+  /// Set from app startup. Called when a premium route returns HTTP 402.
+  static void Function()? onPaymentRequired;
+
   final SharedPreferences sharedPreferences;
 
   ApiService({required this.sharedPreferences});
@@ -256,6 +259,9 @@ class ApiService {
       if (statusCode >= 200 && statusCode < 300) {
         return <String, dynamic>{};
       }
+      if (statusCode == 402) {
+        ApiService.onPaymentRequired?.call();
+      }
       throw ApiError(
         message: 'Something went wrong ($statusCode)',
         statusCode: statusCode,
@@ -335,6 +341,10 @@ class ApiService {
         errorMessage =
             (concrete.isNotEmpty ? concrete : details).join('\n');
       }
+    }
+
+    if (statusCode == 402) {
+      ApiService.onPaymentRequired?.call();
     }
 
     throw ApiError(

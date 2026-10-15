@@ -105,24 +105,24 @@ class ProfileSetUpScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // ---- Gender ----
-              _sectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('GENDER', style: AppTextStyles.inputLabel),
-                    const SizedBox(height: 12),
-                    PillSelector(
-                      options: const ['Man', 'Woman', 'Non-binary', 'Prefer not to say'],
-                      selected: auth.gender,
-                      onSelected: auth.setGender,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+              // ---- Gender (removed from docs v2 — kept commented) ----
+              // _sectionCard(
+              //   child: Column(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       Text('GENDER', style: AppTextStyles.inputLabel),
+              //       const SizedBox(height: 12),
+              //       PillSelector(
+              //         options: const ['Man', 'Woman', 'Non-binary', 'Prefer not to say'],
+              //         selected: auth.gender,
+              //         onSelected: auth.setGender,
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              // const SizedBox(height: 16),
 
-              // ---- Handicap index ----
+              // ---- Handicap index (-9.9 … 54.0) ----
               _sectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,16 +158,19 @@ class ProfileSetUpScreen extends StatelessWidget {
                         thumbColor: AppColors.ctaBrightBlue,
                       ),
                       child: Slider(
-                        min: 0,
-                        max: 40,
-                        value: auth.handicapIndex.clamp(0, 40),
+                        min: AuthController.minHandicap,
+                        max: AuthController.maxHandicap,
+                        value: auth.handicapIndex.clamp(
+                          AuthController.minHandicap,
+                          AuthController.maxHandicap,
+                        ),
                         onChanged: auth.setHandicapIndex,
                       ),
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('PRO LEVEL', style: AppTextStyles.type11),
+                        Text('PRO (+)', style: AppTextStyles.type11),
                         Text('BEGINNER', style: AppTextStyles.type11),
                       ],
                     ),
@@ -189,6 +192,26 @@ class ProfileSetUpScreen extends StatelessWidget {
                       onSelected: auth.setPracticeSessions,
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ---- GolfImprove Stand (free premium bypass) ----
+              _sectionCard(
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: auth.usesGolfImproveStand,
+                  activeThumbColor: AppColors.surfaceWhite,
+                  activeTrackColor: AppColors.ctaBrightBlue,
+                  title: Text(
+                    'I use a GolfImprove Stand',
+                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Stand owners get complimentary premium access.',
+                    style: AppTextStyles.caption,
+                  ),
+                  onChanged: auth.setUsesGolfImproveStand,
                 ),
               ),
               const SizedBox(height: 26),

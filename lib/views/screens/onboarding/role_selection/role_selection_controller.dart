@@ -30,17 +30,8 @@ extension UserRoleApi on UserRole {
 class RoleSelectionController extends ChangeNotifier {
   UserRole? selectedRole;
 
-  bool get canContinue => selectedRole != null;
-
   void selectRole(UserRole role) {
     selectedRole = role;
     notifyListeners();
-  }
-
-  /// Called from the primary action once a role is chosen.
-  void confirmSelection(ValueChanged<UserRole> onConfirmed) {
-    if (selectedRole != null) {
-      onConfirmed(selectedRole!);
-    }
   }
 }

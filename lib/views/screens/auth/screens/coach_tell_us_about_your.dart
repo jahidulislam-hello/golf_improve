@@ -103,26 +103,27 @@ class CoachProfileSetUpScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _sectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('GENDER', style: AppTextStyles.inputLabel),
-                    const SizedBox(height: 12),
-                    PillSelector(
-                      options: const [
-                        'Man',
-                        'Woman',
-                        'Non-binary',
-                        'Prefer not to say'
-                      ],
-                      selected: auth.gender,
-                      onSelected: auth.setGender,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+              // Gender removed from docs v2 — kept commented.
+              // _sectionCard(
+              //   child: Column(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       Text('GENDER', style: AppTextStyles.inputLabel),
+              //       const SizedBox(height: 12),
+              //       PillSelector(
+              //         options: const [
+              //           'Man',
+              //           'Woman',
+              //           'Non-binary',
+              //           'Prefer not to say'
+              //         ],
+              //         selected: auth.gender,
+              //         onSelected: auth.setGender,
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              // const SizedBox(height: 16),
               AuthTextField(
                 label: 'CERTIFICATE NAME',
                 hintText: 'PGA Certificate',

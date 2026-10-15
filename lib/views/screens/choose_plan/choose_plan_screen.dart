@@ -42,6 +42,15 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
 
   Future<void> _handleCta() async {
     final typed = _controller.promoController.text.trim();
+    if (typed.isEmpty && _controller.appliedPromo == null) {
+      final message = await _controller.startTrial();
+      if (!mounted || message == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      Navigator.of(context).pop(true);
+      return;
+    }
     final quote = _controller.appliedPromo;
     final ready = quote != null &&
         quote.code.toUpperCase() == typed.toUpperCase();

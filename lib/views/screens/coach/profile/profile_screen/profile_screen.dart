@@ -3,6 +3,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/profile/profile_info_screen/profile_info_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/notification/notification_screen.dart';
+import 'package:golf_training_app/views/screens/onboarding/role_selection/role_switch_sheet.dart';
 import '../../../auth/screens/sign_in_screen.dart';
 import 'profile_controller.dart';
 import 'package:golf_training_app/core/app_radii.dart';
@@ -144,6 +145,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       );
                     },
                   ),
+                  // const Divider(height: 1, color: AppColors.borderCard),
+                  // _MenuTile(
+                  //   icon: Icons.swap_horiz,
+                  //   title: 'Account Role',
+                  //   subtitle: 'Switch between golfer and coach',
+                  //   onTap: () => showRoleSwitchSheet(context),
+                  // ),
                   const Divider(height: 1, color: AppColors.borderCard),
                   _MenuTile(
                     icon: Icons.notifications_none,

@@ -53,6 +53,53 @@ class GolferService {
     return Map<String, dynamic>.from(response as Map);
   }
 
+  /// Primary €14.99/mo launch plan with 3-day trial.
+  Future<Map<String, dynamic>> getLaunchPlan() async {
+    final response = await _api.get(ApiConstants.launchPlan);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> startTrial({required String planId}) async {
+    final response = await _api.post(
+      ApiConstants.startTrial,
+      body: {'planId': planId},
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> verifyAppleReceipt({
+    required String receiptData,
+    required String productId,
+    String? transactionId,
+  }) async {
+    final body = <String, dynamic>{
+      'receiptData': receiptData,
+      'productId': productId,
+    };
+    if (transactionId != null && transactionId.isNotEmpty) {
+      body['transactionId'] = transactionId;
+    }
+    final response =
+        await _api.post(ApiConstants.verifyAppleReceipt, body: body);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> verifyGoogleReceipt({
+    required String purchaseToken,
+    required String productId,
+    required String packageName,
+  }) async {
+    final response = await _api.post(
+      ApiConstants.verifyGoogleReceipt,
+      body: {
+        'purchaseToken': purchaseToken,
+        'productId': productId,
+        'packageName': packageName,
+      },
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
   Future<Map<String, dynamic>> validatePromoCode({
     required String code,
     required String planId,
@@ -125,24 +172,33 @@ class GolferService {
   Future<Map<String, dynamic>> updateMyProfile({
     required String name,
     required String age,
-    required String gender,
+    // Gender removed from docs v2 — optional / ignored when omitted.
+    String? gender,
     required double handicap,
     required String practiceSessionPerWeek,
     bool? usesGolfImproveStand,
     String? profileImagePath,
+    String? role,
   }) async {
     final ageRange = age.replaceAll('–', '-').replaceAll('—', '-');
     final handicapValue = handicap.toStringAsFixed(1);
     final fields = <String, String>{
       'name': name,
       'age_range': ageRange,
-      'gender': gender,
+      // 'gender': gender ?? 'other',
       'handicap_index': handicapValue,
       'handicap': handicapValue,
       'practice_sessions_per_week': practiceSessionPerWeek,
       'practiceSessionPerWeek': practiceSessionPerWeek,
     };
+    // if (gender != null && gender.isNotEmpty) {
+    //   fields['gender'] = gender;
+    // }
+    if (role != null && role.isNotEmpty) {
+      fields['role'] = role;
+    }
     if (usesGolfImproveStand != null) {
+      fields['usesGolfImproveStand'] = usesGolfImproveStand.toString();
       fields['uses_golfimprove_stand'] = usesGolfImproveStand.toString();
     }
     final files = <String, String>{};
@@ -209,8 +265,11 @@ class GolferService {
     bool isSwingVideo = true,
     bool isAiAnalysis = false,
     bool isPersonalNotesAndTips = false,
+    bool allowDrawOnVideo = false,
+    // Legacy alias — prefer [allowDrawOnVideo].
     bool allowCoachToDraw = false,
   }) async {
+    final drawAllowed = allowDrawOnVideo || allowCoachToDraw;
     final body = <String, dynamic>{
       'coachId': coachId,
       'swingLibraryId': swingLibraryId,
@@ -220,6 +279,8 @@ class GolferService {
       'isSwingVideo': isSwingVideo,
       'isAiAnalysis': isAiAnalysis,
       'isPersonalNotesAndTips': isPersonalNotesAndTips,
+      'allowDrawOnVideo': drawAllowed,
+      // 'allowCoachToDraw': drawAllowed, // legacy field name
     };
     if (message != null && message.trim().isNotEmpty) {
       body['message'] = message.trim();
@@ -227,8 +288,16 @@ class GolferService {
     if (practiceNoteId != null && practiceNoteId.isNotEmpty) {
       body['practice_note_id'] = practiceNoteId;
     }
-    body['allowCoachToDraw'] = allowCoachToDraw;
     final response = await _api.post(ApiConstants.shareCreate, body: body);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  /// Transitions an offline queued share `waiting_to_send` → `sent`.
+  Future<Map<String, dynamic>> sendQueuedShare(String shareId) async {
+    final response = await _api.patch(
+      ApiConstants.shareSendQueued(shareId),
+      body: <String, dynamic>{},
+    );
     return Map<String, dynamic>.from(response as Map);
   }
 
@@ -256,18 +325,28 @@ class GolferService {
       final swingLibraryId = '${map['swingLibraryId'] ?? ''}'.trim();
       if (coachId.isEmpty || swingLibraryId.isEmpty) continue;
       try {
-        await createShare(
-          coachId: coachId,
-          swingLibraryId: swingLibraryId,
-          practiceNoteId: map['practice_note_id']?.toString(),
-          message: map['message']?.toString(),
-          idempotencyKey: map['idempotencyKey']?.toString(),
-          status: 'sent',
-          isSwingVideo: true,
-          isAiAnalysis: false,
-          isPersonalNotesAndTips: map['isPersonalNotesAndTips'] == true,
-          allowCoachToDraw: map['allowCoachToDraw'] == true,
-        );
+        final existingShareId =
+            '${map['_id'] ?? map['shareId'] ?? map['id'] ?? ''}'.trim();
+        final queuedStatus = '${map['status'] ?? ''}'.trim();
+        if (existingShareId.isNotEmpty &&
+            (queuedStatus == 'waiting_to_send' ||
+                map['queuedLocally'] == true)) {
+          await sendQueuedShare(existingShareId);
+        } else {
+          await createShare(
+            coachId: coachId,
+            swingLibraryId: swingLibraryId,
+            practiceNoteId: map['practice_note_id']?.toString(),
+            message: map['message']?.toString(),
+            idempotencyKey: map['idempotencyKey']?.toString(),
+            status: 'sent',
+            isSwingVideo: true,
+            isAiAnalysis: false,
+            isPersonalNotesAndTips: map['isPersonalNotesAndTips'] == true,
+            allowDrawOnVideo: map['allowDrawOnVideo'] == true ||
+                map['allowCoachToDraw'] == true,
+          );
+        }
       } on ApiError catch (error) {
         if (error.statusCode == 0 || error.statusCode >= 500) {
           remaining.add(map);
@@ -284,11 +363,44 @@ class GolferService {
     }
   }
 
+  Future<Map<String, dynamic>> startPracticePlan(String shareId) async {
+    final response = await _api.post(
+      ApiConstants.practicePlanStart(shareId),
+      body: <String, dynamic>{},
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> getPracticePlan(String shareId) async {
+    final response = await _api.get(ApiConstants.practicePlanMyPlan(shareId));
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> togglePracticeSession({
+    required String sessionId,
+  }) async {
+    final response = await _api.patch(
+      ApiConstants.practicePlanToggleSession(sessionId),
+      body: <String, dynamic>{},
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  /// Prefer session-id toggle; fall back to legacy index-based complete.
   Future<Map<String, dynamic>> completeCoachPracticeSession({
     required String shareId,
     required int sessionIndex,
+    String? sessionId,
     bool isCompleted = true,
   }) async {
+    final id = sessionId?.trim() ?? '';
+    if (id.isNotEmpty) {
+      try {
+        return await togglePracticeSession(sessionId: id);
+      } on ApiError catch (e) {
+        if (e.statusCode != 404 && e.statusCode != 405) rethrow;
+      }
+    }
     final response = await _api.patch(
       ApiConstants.completeCoachPracticeSession(shareId, sessionIndex),
       body: {'is_completed': isCompleted},
@@ -314,6 +426,8 @@ class GolferService {
     required List<Map<String, dynamic>> practicePlan,
     String? clubType,
     String? analysisId,
+    String? conversationId,
+    String? note,
   }) async {
     final body = <String, dynamic>{
       'title': title,
@@ -324,8 +438,93 @@ class GolferService {
     if (analysisId != null && analysisId.isNotEmpty) {
       body['analysisId'] = analysisId;
     }
-    final response = await _api.post(ApiConstants.saveDrillPlan, body: body);
+    if (conversationId != null && conversationId.isNotEmpty) {
+      body['conversationId'] = conversationId;
+    }
+    if (note != null && note.isNotEmpty) body['note'] = note;
+
+    // Prefer live AI coach notes endpoint; fall back to legacy save-drill-plan.
+    try {
+      final response =
+          await _api.post(ApiConstants.aiCoachSaveToNotes, body: body);
+      return Map<String, dynamic>.from(response as Map);
+    } on ApiError catch (e) {
+      if (e.statusCode != 404 && e.statusCode != 405) rethrow;
+      final response = await _api.post(ApiConstants.saveDrillPlan, body: body);
+      return Map<String, dynamic>.from(response as Map);
+    }
+  }
+
+  /// Conversational AI coach (`POST /ai-coach/chat`).
+  Future<Map<String, dynamic>> aiCoachChat({
+    required String message,
+    String? clubType,
+    String? sessionId,
+    List<Map<String, dynamic>> conversationHistory = const [],
+  }) async {
+    final body = <String, dynamic>{
+      'message': message,
+      if (clubType != null && clubType.isNotEmpty) 'clubType': clubType,
+      if (sessionId != null && sessionId.isNotEmpty) 'sessionId': sessionId,
+      if (conversationHistory.isNotEmpty)
+        'conversationHistory': conversationHistory,
+    };
+    final response = await _api.post(
+      ApiConstants.aiCoachChat,
+      body: body,
+      timeout: _api.analyzeTimeout,
+    );
     return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> aiCoachShareWithCoach({
+    required String conversationId,
+    required String coachId,
+    String? message,
+    String? planTitle,
+    String? recommendedDrill,
+  }) async {
+    final body = <String, dynamic>{
+      'conversationId': conversationId,
+      'coachId': coachId,
+      if (message != null && message.isNotEmpty) 'message': message,
+      if (planTitle != null && planTitle.isNotEmpty) 'planTitle': planTitle,
+      if (recommendedDrill != null && recommendedDrill.isNotEmpty)
+        'recommendedDrill': recommendedDrill,
+    };
+    final response =
+        await _api.post(ApiConstants.aiCoachShareWithCoach, body: body);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  /// Asks the AI coach. Prefers `/ai-coach/chat`, then ask-coach / ask aliases.
+  Future<Map<String, dynamic>> askCoach({
+    required String swingId,
+    required String question,
+    String? clubType,
+    List<Map<String, dynamic>> conversationHistory = const [],
+  }) async {
+    try {
+      return await aiCoachChat(
+        message: question,
+        clubType: clubType,
+        sessionId: swingId,
+        conversationHistory: conversationHistory,
+      );
+    } on ApiError catch (e) {
+      if (e.statusCode != 404 && e.statusCode != 405) rethrow;
+    }
+    try {
+      final response = await _api.post(
+        ApiConstants.askCoach(swingId),
+        body: {'question': question},
+        timeout: _api.analyzeTimeout,
+      );
+      return Map<String, dynamic>.from(response as Map);
+    } on ApiError catch (e) {
+      if (e.statusCode != 404 && e.statusCode != 405) rethrow;
+      return askSwingQuestion(swingId: swingId, question: question);
+    }
   }
 
   Future<Map<String, dynamic>> getNotifications({
@@ -486,10 +685,10 @@ class GolferService {
       if (n.contains('down') || n.contains('line') || n.contains('dtl')) {
         return 'Down The Line';
       }
-      if (n.contains('side')) return 'Side On';
-      if (n.contains('over')) return 'Overhead';
-      if (n.contains('slow') || n == 'swing' || n == 'video') return 'Face On';
-      return raw.trim().isEmpty ? 'Face On' : raw.trim();
+      // Side On / Overhead deprecated — API rejects with 400.
+      // if (n.contains('side')) return 'Side On';
+      // if (n.contains('over')) return 'Overhead';
+      return 'Face On';
     }
 
     String normClub(String raw) {
@@ -533,11 +732,7 @@ class GolferService {
         ...cameraData,
         'view': safeAngle.toLowerCase().contains('face')
             ? 'face_on'
-            : safeAngle.toLowerCase().contains('side')
-                ? 'side_on'
-                : safeAngle.toLowerCase().contains('over')
-                    ? 'overhead'
-                    : 'down_the_line',
+            : 'down_the_line',
       }),
       'calibration': jsonEncode(calibration),
       'swingPhases': jsonEncode(swingPhases),
@@ -563,24 +758,6 @@ class GolferService {
       timeout: _api.analyzeTimeout,
     );
     return Map<String, dynamic>.from(response as Map);
-  }
-
-  /// Asks the AI coach. Falls back to `/ask/:id` if the mobile alias is missing.
-  Future<Map<String, dynamic>> askCoach({
-    required String swingId,
-    required String question,
-  }) async {
-    try {
-      final response = await _api.post(
-        ApiConstants.askCoach(swingId),
-        body: {'question': question},
-        timeout: _api.analyzeTimeout,
-      );
-      return Map<String, dynamic>.from(response as Map);
-    } on ApiError catch (e) {
-      if (e.statusCode != 404 && e.statusCode != 405) rethrow;
-      return askSwingQuestion(swingId: swingId, question: question);
-    }
   }
 
   /// Pre-signed S3 upload, then `POST /swing/create`.

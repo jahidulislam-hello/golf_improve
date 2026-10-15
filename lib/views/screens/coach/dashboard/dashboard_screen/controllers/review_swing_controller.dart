@@ -17,6 +17,9 @@ class CoachReviewSwingController extends ChangeNotifier {
     this.canSendFeedback = true,
   }) {
     _bindControllers();
+    if (review.practicePlan.isEmpty) {
+      review.practicePlan.addAll(_defaultPhases());
+    }
     final id = (shareId != null && shareId!.isNotEmpty) ? shareId! : review.id;
     if (id.isNotEmpty) {
       loadShare(id);
@@ -50,12 +53,17 @@ class CoachReviewSwingController extends ChangeNotifier {
   }
 
   late final TextEditingController _coachFeedbackController;
+  late final TextEditingController _primaryCorrectionController;
   late final TextEditingController _recommendedDrillController;
+  late final TextEditingController _drillSubtitleController;
   late final TextEditingController _aiExtraContextController;
 
   TextEditingController get coachFeedbackController => _coachFeedbackController;
+  TextEditingController get primaryCorrectionController =>
+      _primaryCorrectionController;
   TextEditingController get recommendedDrillController =>
       _recommendedDrillController;
+  TextEditingController get drillSubtitleController => _drillSubtitleController;
   TextEditingController get aiExtraContextController =>
       _aiExtraContextController;
 
@@ -124,11 +132,16 @@ class CoachReviewSwingController extends ChangeNotifier {
             aiAnalysisPoints: review.aiAnalysisPoints,
             lastNoteOnStudent: review.lastNoteOnStudent,
             coachFeedback: review.coachFeedback,
+            primaryCorrection: review.primaryCorrection,
             recommendedDrill: review.recommendedDrill,
+            drillSubtitle: review.drillSubtitle,
             practicePlan: review.practicePlan,
             aiAgreement: review.aiAgreement,
             aiExtraContext: review.aiExtraContext,
           );
+        }
+        if (review.practicePlan.isEmpty) {
+          review.practicePlan.addAll(_defaultPhases());
         }
         _syncControllers();
       }
@@ -160,10 +173,15 @@ class CoachReviewSwingController extends ChangeNotifier {
           .where((e) => e.dayRangeLabel.isNotEmpty || e.description.isNotEmpty)
           .map((e) => e.toJson())
           .toList();
+      final primary = _primaryCorrectionController.text.trim();
+      final subtitle = _drillSubtitleController.text.trim();
       await service.respondToShare(
         shareId: review.id,
         feedbackText: feedback,
+        primaryCorrection: primary.isEmpty ? feedback : primary,
+        detailedComments: feedback,
         recommendedDrill: _recommendedDrillController.text.trim(),
+        drillSubtitle: subtitle.isEmpty ? null : subtitle,
         practicePlan: plan,
       );
       if (plan.isNotEmpty ||
@@ -189,11 +207,20 @@ class CoachReviewSwingController extends ChangeNotifier {
     _coachFeedbackController =
         TextEditingController(text: review.coachFeedback)
           ..addListener(() => review.coachFeedback = _coachFeedbackController.text);
+    _primaryCorrectionController =
+        TextEditingController(text: review.primaryCorrection)
+          ..addListener(
+            () => review.primaryCorrection = _primaryCorrectionController.text,
+          );
     _recommendedDrillController =
         TextEditingController(text: review.recommendedDrill)
           ..addListener(
             () => review.recommendedDrill = _recommendedDrillController.text,
           );
+    _drillSubtitleController = TextEditingController(text: review.drillSubtitle)
+      ..addListener(
+        () => review.drillSubtitle = _drillSubtitleController.text,
+      );
     _aiExtraContextController =
         TextEditingController(text: review.aiExtraContext)
           ..addListener(
@@ -203,8 +230,18 @@ class CoachReviewSwingController extends ChangeNotifier {
 
   void _syncControllers() {
     _coachFeedbackController.text = review.coachFeedback;
+    _primaryCorrectionController.text = review.primaryCorrection;
     _recommendedDrillController.text = review.recommendedDrill;
+    _drillSubtitleController.text = review.drillSubtitle;
     _aiExtraContextController.text = review.aiExtraContext;
+  }
+
+  List<PracticePlanItem> _defaultPhases() {
+    return [
+      PracticePlanItem(id: 'phase_1', dayRangeLabel: 'Days 1–3'),
+      PracticePlanItem(id: 'phase_2', dayRangeLabel: 'Days 4–7'),
+      PracticePlanItem(id: 'phase_3', dayRangeLabel: 'Days 8–14'),
+    ];
   }
 
   Future<CoachService> _service() async {
@@ -221,7 +258,9 @@ class CoachReviewSwingController extends ChangeNotifier {
   @override
   void dispose() {
     _coachFeedbackController.dispose();
+    _primaryCorrectionController.dispose();
     _recommendedDrillController.dispose();
+    _drillSubtitleController.dispose();
     _aiExtraContextController.dispose();
     super.dispose();
   }

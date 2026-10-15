@@ -252,7 +252,7 @@ class GolferPersonalInfoController extends ChangeNotifier {
       final response = await golferService.updateMyProfile(
         name: nameController.text.trim(),
         age: ageRange ?? '',
-        gender: _gender?.apiValue ?? 'other',
+        // gender: _gender?.apiValue ?? 'other',
         handicap: _handicapIndex,
         practiceSessionPerWeek: '$_practiceSessionsPerWeek',
         profileImagePath: localAvatarPath,

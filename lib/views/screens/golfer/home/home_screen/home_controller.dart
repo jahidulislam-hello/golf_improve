@@ -290,6 +290,13 @@ class HomeController extends ChangeNotifier {
             _readString(feedback, 'title') ??
             'Coach sent feedback on your session',
         isUnread: true,
+        shareId: _readId(feedback, const [
+          'shareId',
+          'share_id',
+          'shareSwingId',
+          '_id',
+          'id',
+        ]),
       );
       hasUnreadNotifications = true;
     } else {
@@ -414,11 +421,14 @@ class HomeController extends ChangeNotifier {
       title: _coachFeedback.title,
       subtitle: _coachFeedback.subtitle,
       isUnread: false,
+      shareId: _coachFeedback.shareId,
     );
     _notifySafely();
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CoachFeedbackScreen()));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CoachFeedbackScreen(shareId: _coachFeedback.shareId),
+      ),
+    );
   }
 
   void _openSessionTimeline(BuildContext context) {

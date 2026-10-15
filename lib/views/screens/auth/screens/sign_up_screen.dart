@@ -59,12 +59,14 @@ class SignUpScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 22),
-              AuthTextField(
-                label: 'FULL NAME',
-                hintText: 'Alex Thompson',
-                onChanged: auth.updateFullName,
-              ),
-              const SizedBox(height: 14),
+              // Full name removed from register (docs v2: email + password only).
+              // Collect name later in profile setup.
+              // AuthTextField(
+              //   label: 'FULL NAME',
+              //   hintText: 'Alex Thompson',
+              //   onChanged: auth.updateFullName,
+              // ),
+              // const SizedBox(height: 14),
               AuthTextField(
                 label: 'EMAIL',
                 hintText: 'alex@example.com',

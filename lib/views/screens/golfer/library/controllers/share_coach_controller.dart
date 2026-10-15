@@ -159,7 +159,8 @@ class ShareCoachController extends ChangeNotifier {
         isSwingVideo: true,
         isAiAnalysis: false,
         isPersonalNotesAndTips: payload['isPersonalNotesAndTips'] == true,
-        allowCoachToDraw: payload['allowCoachToDraw'] == true,
+        allowDrawOnVideo: payload['allowDrawOnVideo'] == true ||
+            payload['allowCoachToDraw'] == true,
       );
       _applyShareResponse(response);
       _watchStatus();
@@ -385,7 +386,8 @@ class ShareCoachController extends ChangeNotifier {
       'idempotencyKey': _idempotencyKey,
       'message': questionController.text.trim(),
       'practice_note_id': noteOn ? practiceNoteId : null,
-      'allowCoachToDraw': _isOn('Allow Coach to Draw on Video'),
+      'allowDrawOnVideo': _isOn('Allow Coach to Draw on Video'),
+      // 'allowCoachToDraw': _isOn('Allow Coach to Draw on Video'),
       'isPersonalNotesAndTips': noteOn && hasLinkedPracticeNote,
       'status': 'waiting_to_send',
     };

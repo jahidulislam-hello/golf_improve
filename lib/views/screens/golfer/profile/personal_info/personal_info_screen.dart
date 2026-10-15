@@ -170,11 +170,6 @@ class _GolferPersonalInfoScreenState extends State<GolferPersonalInfoScreen> {
             child: _AgeRangeDropdown(controller: _controller),
           ),
           const SizedBox(height: 16),
-          _FieldCard(
-            label: 'Gender',
-            child: _GenderPicker(controller: _controller),
-          ),
-          const SizedBox(height: 16),
           _HandicapCard(controller: _controller),
           const SizedBox(height: 16),
           _FieldCard(
@@ -443,54 +438,6 @@ class _AgeRangeDropdown extends StatelessWidget {
               .map((age) => DropdownMenuItem(value: age, child: Text(age)))
               .toList(),
           onChanged: controller.setAgeRange,
-        ),
-      ),
-    );
-  }
-}
-
-class _GenderPicker extends StatelessWidget {
-  const _GenderPicker({required this.controller});
-  final GolferPersonalInfoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: Gender.values.map((g) {
-        final selected = controller.gender == g;
-        return _SegmentPill(
-          label: g.label,
-          selected: selected,
-          onTap: () => controller.setGender(g),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _SegmentPill extends StatelessWidget {
-  const _SegmentPill({required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryNavy : AppColors.pillInactive,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: selected ? AppTextStyles.segmentLabelActive : AppTextStyles.segmentLabel,
         ),
       ),
     );

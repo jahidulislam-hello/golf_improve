@@ -186,7 +186,8 @@ class AuthController extends ChangeNotifier {
     return _runAuthCall(() async {
       otpFlow = OtpFlow.signUp;
       final response = await _authService.register(
-        name: fullName.trim(),
+        // Name collected later in profile setup (docs v2: email + password only).
+        // name: fullName.trim(),
         email: signUpEmail.trim(),
         password: signUpPassword,
         role: selectedRole!,
@@ -252,7 +253,10 @@ class AuthController extends ChangeNotifier {
         return;
       }
 
-      final response = await _authService.verifySignUpOtp(otp: otpCode);
+      final response = await _authService.verifySignUpOtp(
+        email: signUpEmail.trim(),
+        otp: otpCode,
+      );
       await _authService.persistAuthResponse(response);
       await _authService.clearStoredGuest();
 
@@ -318,32 +322,49 @@ class AuthController extends ChangeNotifier {
       _setError('Please enter and confirm your new password.');
       return false;
     }
+    if (newPassword.length < 8) {
+      _setError('Password must be at least 8 characters.');
+      return false;
+    }
     if (newPassword != confirmPassword) {
       _setError('Passwords do not match.');
       return false;
     }
 
     return _runAuthCall(() async {
-      await _authService.resetPassword(newPassword: newPassword);
+      await _authService.resetPassword(
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
     });
   }
 
   // ---------------------------------------------------------------------
   // Onboarding — "Tell us about yourself"
   // ---------------------------------------------------------------------
+  static const double minHandicap = -9.9;
+  static const double maxHandicap = 54.0;
+
   String? ageRange;
+  // Gender removed from active registration (docs v2). Kept for reference:
   String gender = 'Man';
   double handicapIndex = 12.4;
   String practiceSessionsPerWeek = '2';
   String certificateName = '';
   String experienceYear = '';
+  bool usesGolfImproveStand = false;
 
   void setAgeRange(String value) {
     ageRange = value;
     notifyListeners();
   }
 
+  // void setGender(String value) {
+  //   gender = value;
+  //   notifyListeners();
+  // }
   void setGender(String value) {
+    // Gender no longer sent to API — kept so commented UI still compiles.
     gender = value;
     notifyListeners();
   }
@@ -363,44 +384,52 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setUsesGolfImproveStand(bool value) {
+    usesGolfImproveStand = value;
+    notifyListeners();
+  }
+
   void incrementHandicap() {
-    handicapIndex =
-        double.parse((handicapIndex + 0.1).clamp(0, 40).toStringAsFixed(1));
+    handicapIndex = double.parse(
+      (handicapIndex + 0.1).clamp(minHandicap, maxHandicap).toStringAsFixed(1),
+    );
     notifyListeners();
   }
 
   void decrementHandicap() {
-    handicapIndex =
-        double.parse((handicapIndex - 0.1).clamp(0, 40).toStringAsFixed(1));
+    handicapIndex = double.parse(
+      (handicapIndex - 0.1).clamp(minHandicap, maxHandicap).toStringAsFixed(1),
+    );
     notifyListeners();
   }
 
   void setHandicapIndex(double value) {
-    handicapIndex = double.parse(value.clamp(0, 40).toStringAsFixed(1));
+    handicapIndex = double.parse(
+      value.clamp(minHandicap, maxHandicap).toStringAsFixed(1),
+    );
     notifyListeners();
   }
 
   Future<bool> completeOnboarding() async {
-    if (ageRange == null) {
-      _setError('Please select your age range.');
-      return false;
-    }
+    // Age is optional per docs; keep soft prompt only when stand/name need it.
+    // if (ageRange == null) {
+    //   _setError('Please select your age range.');
+    //   return false;
+    // }
 
     return _runAuthCall(() async {
       await _authService.updateRegisterProfile(
-        age: ageRange!,
-        gender: gender,
+        age: ageRange ?? '',
+        // gender: gender,
         handicap: handicapIndex,
         practiceSessionPerWeek: practiceSessionsPerWeek,
+        usesGolfImproveStand: usesGolfImproveStand,
+        name: fullName.trim().isEmpty ? null : fullName.trim(),
       );
     });
   }
 
   Future<bool> completeCoachOnboarding() async {
-    if (ageRange == null) {
-      _setError('Please select your age range.');
-      return false;
-    }
     if (certificateName.trim().isEmpty) {
       _setError('Please enter your certificate name.');
       return false;
@@ -412,11 +441,23 @@ class AuthController extends ChangeNotifier {
 
     return _runAuthCall(() async {
       await _authService.updateRegisterProfile(
-        age: ageRange!,
-        gender: gender,
+        age: ageRange ?? '',
+        // gender: gender,
         certificateName: certificateName,
         experienceYear: experienceYear,
+        usesGolfImproveStand: usesGolfImproveStand,
+        name: fullName.trim().isEmpty ? null : fullName.trim(),
       );
+    });
+  }
+
+  /// Settings: switch between Golfer and Coach roles.
+  Future<bool> switchRole(UserRole role) async {
+    return _runAuthCall(() async {
+      final response = await _authService.updateUserRole(role: role);
+      await _authService.persistAuthResponse(response);
+      selectedRole = role;
+      await _authService.ensureRestorableSession(role: role);
     });
   }
 }

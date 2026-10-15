@@ -22,9 +22,13 @@ class ApiConstants {
   static const String guestSession = '$apiUrl/auth/guest-session';
   static const String mergeGuest = '$apiUrl/auth/merge-guest';
   static const String register = '$apiUrl/auth/register';
-  static const String verifyOtp = '$apiUrl/auth/verify-otp';
+  // Docs v2: /auth/verify-email (legacy: /auth/verify-otp)
+  static const String verifyOtp = '$apiUrl/auth/verify-email';
+  // static const String verifyOtp = '$apiUrl/auth/verify-otp';
   static const String updateRegisterProfile = '$apiUrl/user/update-my-profile';
-  static const String resendOTP = '$apiUrl/auth/resend-otp';
+  // Docs v2: /auth/resend-code (legacy: /auth/resend-otp)
+  static const String resendOTP = '$apiUrl/auth/resend-code';
+  // static const String resendOTP = '$apiUrl/auth/resend-otp';
   static const String login = '$apiUrl/auth/login';
   static const String forgotPassword = '$apiUrl/auth/forgot-password';
   static const String forgotPasswordOTPVerify = '$apiUrl/auth/forgot-otp-verify';
@@ -42,8 +46,13 @@ class ApiConstants {
   static const String updateHandicapUser = '$apiUrl/user/handicap';
   static const String getSkills = '$apiUrl/users/edit-options';
   static const String paywallStatus = '$apiUrl/payment/paywall-status';
+  static const String startTrial = '$apiUrl/payment/start-trial';
+  static const String verifyAppleReceipt = '$apiUrl/payment/verify-apple-receipt';
+  static const String verifyGoogleReceipt =
+      '$apiUrl/payment/verify-google-receipt';
 
   // Subscription plans & promo codes
+  static const String launchPlan = '$apiUrl/plan/launch-plan';
   static const String plans = '$apiUrl/plan/get-all';
   static String planById(String id) => '$apiUrl/plan/find/$id';
   static const String validatePromoCode = '$apiUrl/promo-code/validate';
@@ -77,6 +86,8 @@ class ApiConstants {
   static const String cameraCategories = '$apiUrl/swing-category/camera';
   static const String swingAnalyzer = '$apiUrl/swing/analyzer';
   static const String swingUploadUrl = '$apiUrl/swing/upload-url';
+  static const String swingResumableUploadInitiate =
+      '$apiUrl/swing/resumable-upload/initiate';
   static const String swingCreate = '$apiUrl/swing/create';
   static const String swingSyncOffline = '$apiUrl/swing/sync/offline';
   static const String swingCompare = '$apiUrl/swing/compare';
@@ -85,7 +96,19 @@ class ApiConstants {
   static String analyzeSwingVideo(String id) =>
       '$apiUrl/swing/analyze/video/$id';
 
+  // AI Coach (Gemini conversational surface)
+  static const String aiCoachChat = '$apiUrl/ai-coach/chat';
+  static const String aiCoachSaveToNotes = '$apiUrl/ai-coach/save-to-notes';
+  static const String aiCoachShareWithCoach =
+      '$apiUrl/ai-coach/share-with-coach';
 
+  // 2-week practice plan tracking
+  static String practicePlanStart(String shareId) =>
+      '$apiUrl/practice-plan/start/$shareId';
+  static String practicePlanToggleSession(String sessionId) =>
+      '$apiUrl/practice-plan/toggle-session/$sessionId';
+  static String practicePlanMyPlan(String shareId) =>
+      '$apiUrl/practice-plan/my-plan/$shareId';
 
 
 
@@ -111,8 +134,11 @@ class ApiConstants {
   static String shareFind(String id) => '$apiUrl/share-swing/find/$id';
   static String shareSingle(String id) => '$apiUrl/share-swing/single/$id';
   static String shareRespond(String id) => '$apiUrl/share-swing/respond/$id';
+  static String shareSendQueued(String id) =>
+      '$apiUrl/share-swing/send-queued/$id';
   static String updateSharePracticePlan(String id) =>
       '$apiUrl/share-swing/$id/practice-plan';
+  // Legacy index-based complete (kept for fallback)
   static String completeCoachPracticeSession(String id, int sessionIndex) =>
       '$apiUrl/share-swing/practice-plan/$id/session/$sessionIndex/complete';
 

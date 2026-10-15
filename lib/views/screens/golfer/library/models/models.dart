@@ -74,7 +74,7 @@ class SwingVideo {
       case 'dtl':
         return 'Down-the-Line';
       case 'side':
-        return 'Side On';
+        return 'Face-On';
       default:
         return raw.trim().isEmpty ? 'Face-On' : raw.trim();
     }

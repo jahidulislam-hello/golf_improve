@@ -31,7 +31,10 @@ class AiChatController extends ChangeNotifier {
   String? recommendedDrill;
   List<Map<String, dynamic>> practicePlan = const [];
   String? clubType;
+  String? conversationId;
   bool planSaved = false;
+  bool planShared = false;
+  bool isSharingPlan = false;
 
   void _seed(
     List<AiConversationEntry> conversation,
@@ -95,15 +98,30 @@ class AiChatController extends ChangeNotifier {
 
     try {
       final service = await _service();
+      final history = messages
+          .take(messages.length - 1)
+          .map(
+            (message) => {
+              'role': message.isUser ? 'user' : 'assistant',
+              'content': message.text,
+            },
+          )
+          .toList();
       final response = await service.askCoach(
         swingId: swingId,
         question: trimmed,
+        clubType: clubType,
+        conversationHistory: history,
       );
       final parsed = _parseCoachReply(response);
       final answer = parsed.answer;
       recommendedDrill = parsed.recommendedDrill;
       practicePlan = parsed.practicePlan;
+      if (parsed.conversationId != null) {
+        conversationId = parsed.conversationId;
+      }
       planSaved = parsed.isSaved;
+      planShared = false;
       if (parsed.suggestedQuestions.isNotEmpty) {
         quickReplies = parsed.suggestedQuestions;
       }
@@ -149,6 +167,7 @@ class AiChatController extends ChangeNotifier {
         practicePlan: practicePlan,
         clubType: club ?? clubType,
         analysisId: swingId,
+        conversationId: conversationId,
       );
       final saved = response['data'];
       final noteId = saved is Map ? '${saved['_id'] ?? saved['id'] ?? ''}' : '';
@@ -167,6 +186,51 @@ class AiChatController extends ChangeNotifier {
     }
   }
 
+  /// Sends the current AI plan to the golfer's assigned coach.
+  Future<String?> sharePlanWithCoach() async {
+    final id = conversationId?.trim() ?? '';
+    final drill = recommendedDrill?.trim() ?? '';
+    if (id.isEmpty || drill.isEmpty || isSharingPlan || planShared) {
+      errorMessage = 'Ask a question first so there is a plan to share.';
+      notifyListeners();
+      return null;
+    }
+    isSharingPlan = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final service = await _service();
+      final profile = await service.getMyProfile();
+      final data = profile['data'];
+      final coach = data is Map ? data['coach'] : null;
+      final coachId = coach is Map
+          ? '${coach['_id'] ?? coach['id'] ?? ''}'.trim()
+          : '';
+      if (coachId.isEmpty) {
+        errorMessage = 'Add a coach before sharing this plan.';
+        return null;
+      }
+      final response = await service.aiCoachShareWithCoach(
+        conversationId: id,
+        coachId: coachId,
+        message: 'Please review this practice plan.',
+        planTitle: drill,
+        recommendedDrill: drill,
+      );
+      planShared = true;
+      final message = '${response['message'] ?? ''}'.trim();
+      return message.isEmpty
+          ? 'Practice plan shared with your coach.'
+          : message;
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isSharingPlan = false;
+      notifyListeners();
+    }
+  }
+
   _CoachReply _parseCoachReply(Map<String, dynamic> response) {
     final data = response['data'];
     if (data is! Map) {
@@ -179,26 +243,33 @@ class AiChatController extends ChangeNotifier {
       for (final item in rawPlan) {
         if (item is Map) {
           plan.add({
-            'dayRange': '${item['dayRange'] ?? ''}',
-            'description': '${item['description'] ?? ''}',
+            'phase': '${item['phase'] ?? ''}',
+            'days': '${item['days'] ?? item['dayRange'] ?? ''}',
+            'dayRange': '${item['days'] ?? item['dayRange'] ?? ''}',
+            'drill': '${item['drill'] ?? ''}',
+            'description':
+                '${item['description'] ?? item['drill'] ?? ''}',
           });
         }
       }
     }
     final questions = <String>[];
-    final rawQuestions = map['suggestedQuestions'];
+    final rawQuestions = map['suggestedQuestions'] ?? map['followUpQuestions'];
     if (rawQuestions is List) {
       questions.addAll(
         rawQuestions.map((e) => e.toString().trim()).where((e) => e.isNotEmpty),
       );
     }
     final drill = map['recommendedDrill']?.toString().trim();
+    final conversation = map['conversationId']?.toString().trim();
     return _CoachReply(
       answer: _extractAnswer(response),
       recommendedDrill: (drill == null || drill.isEmpty) ? null : drill,
       practicePlan: plan,
       suggestedQuestions: questions,
       isSaved: map['isSavedToPlan'] == true,
+      conversationId:
+          (conversation == null || conversation.isEmpty) ? null : conversation,
     );
   }
 
@@ -243,6 +314,7 @@ class _CoachReply {
     this.practicePlan = const [],
     this.suggestedQuestions = const [],
     this.isSaved = false,
+    this.conversationId,
   });
 
   final String answer;
@@ -250,4 +322,5 @@ class _CoachReply {
   final List<Map<String, dynamic>> practicePlan;
   final List<String> suggestedQuestions;
   final bool isSaved;
+  final String? conversationId;
 }
