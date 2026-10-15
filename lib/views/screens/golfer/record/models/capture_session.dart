@@ -64,8 +64,8 @@ class CaptureFieldNormalizer {
   static const preferredAngles = [
     'Face On',
     'Down The Line',
-    'Side On',
-    'Overhead',
+    // 'Side On', // deprecated — API returns 400
+    // 'Overhead',
   ];
 
   static const preferredModes = ['slow-mo', 'swing', 'video'];
@@ -78,11 +78,12 @@ class CaptureFieldNormalizer {
         compact.contains('line')) {
       return 'Down The Line';
     }
-    if (compact.contains('side')) return 'Side On';
-    if (compact.contains('over')) return 'Overhead';
+    // Side On / Overhead deprecated — fall back to Face On.
+    // if (compact.contains('side')) return 'Side On';
+    // if (compact.contains('over')) return 'Overhead';
     if (_looksLikeMode(compact)) return 'Face On';
     if (raw.trim().isEmpty) return 'Face On';
-    return raw.trim();
+    return 'Face On';
   }
 
   static String recordingMode(String raw) {
@@ -177,8 +178,16 @@ class CaptureFieldNormalizer {
       ingest(value);
     }
 
+    final safeAngles = angles
+        .where((a) {
+          final n = a.toLowerCase();
+          return !n.contains('side') && !n.contains('over');
+        })
+        .toList();
     return (
-      angles: angles.isNotEmpty ? angles : preferredAngles.take(3).toList(),
+      angles: safeAngles.isNotEmpty
+          ? safeAngles
+          : List<String>.from(preferredAngles),
       modes: modes.isNotEmpty ? modes : List<String>.from(preferredModes),
     );
   }

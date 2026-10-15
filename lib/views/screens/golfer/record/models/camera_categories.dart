@@ -24,10 +24,16 @@ class CameraCategoriesData {
       cats.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     }
 
+    final allowed = angles
+        .where((a) {
+          final n = a.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+          return !n.contains('side') && !n.contains('over');
+        })
+        .toList();
     return CameraCategoriesData(
-      cameraAngles: angles.isNotEmpty
-          ? angles
-          : const ['Face On', 'Down The Line', 'Side On'],
+      cameraAngles: allowed.isNotEmpty
+          ? allowed
+          : const ['Face On', 'Down The Line'],
       recordingModes: modes.isNotEmpty
           ? modes
           : const ['slow-mo', 'swing', 'video'],
@@ -40,6 +46,10 @@ class CameraCategoriesData {
     return raw
         .map((e) => e.toString().trim())
         .where((e) => e.isNotEmpty)
+        .where((e) {
+          final n = e.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+          return !n.contains('side') && !n.contains('over');
+        })
         .toList();
   }
 }

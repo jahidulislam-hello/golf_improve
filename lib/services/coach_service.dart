@@ -70,17 +70,34 @@ class CoachService {
   Future<Map<String, dynamic>> respondToShare({
     required String shareId,
     required String feedbackText,
+    String? primaryCorrection,
+    String? detailedComments,
     String? recommendedDrill,
+    String? drillSubtitle,
     List<Map<String, dynamic>> practicePlan = const [],
     String? aiAnalysisVerdict,
     String? aiAnalysisNote,
     List<String> filePaths = const [],
+    int? rating,
   }) async {
     final fields = <String, String>{
       'feedbackText': feedbackText,
+      'detailedComments':
+          (detailedComments != null && detailedComments.trim().isNotEmpty)
+              ? detailedComments.trim()
+              : feedbackText,
     };
+    if (primaryCorrection != null && primaryCorrection.trim().isNotEmpty) {
+      fields['primaryCorrection'] = primaryCorrection.trim();
+    }
     if (recommendedDrill != null && recommendedDrill.isNotEmpty) {
       fields['recommendedDrill'] = recommendedDrill;
+    }
+    if (drillSubtitle != null && drillSubtitle.trim().isNotEmpty) {
+      fields['drillSubtitle'] = drillSubtitle.trim();
+    }
+    if (rating != null) {
+      fields['rating'] = '$rating';
     }
     if (practicePlan.isNotEmpty) {
       fields['practicePlan'] = jsonEncode(practicePlan);
@@ -125,11 +142,43 @@ class CoachService {
     return Map<String, dynamic>.from(response as Map);
   }
 
+  Future<Map<String, dynamic>> startPracticePlan(String shareId) async {
+    final response = await _api.post(
+      ApiConstants.practicePlanStart(shareId),
+      body: <String, dynamic>{},
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> getPracticePlan(String shareId) async {
+    final response = await _api.get(ApiConstants.practicePlanMyPlan(shareId));
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> togglePracticeSession({
+    required String sessionId,
+  }) async {
+    final response = await _api.patch(
+      ApiConstants.practicePlanToggleSession(sessionId),
+      body: <String, dynamic>{},
+    );
+    return Map<String, dynamic>.from(response as Map);
+  }
+
   Future<Map<String, dynamic>> completePracticeSession({
     required String shareId,
     required int sessionIndex,
+    String? sessionId,
     bool isCompleted = true,
   }) async {
+    final id = sessionId?.trim() ?? '';
+    if (id.isNotEmpty) {
+      try {
+        return await togglePracticeSession(sessionId: id);
+      } on ApiError catch (e) {
+        if (e.statusCode != 404 && e.statusCode != 405) rethrow;
+      }
+    }
     final response = await _api.patch(
       ApiConstants.completeCoachPracticeSession(shareId, sessionIndex),
       body: {'is_completed': isCompleted},

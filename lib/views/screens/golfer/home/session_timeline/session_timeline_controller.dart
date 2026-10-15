@@ -163,8 +163,11 @@ class SessionTimelineController extends ChangeNotifier {
   void onOpenAnalysisTool() {}
 
   void onReadFullFeedback(BuildContext context) {
+    final id = _primaryAction?.shareId?.trim().isNotEmpty == true
+        ? _primaryAction!.shareId
+        : shareId;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CoachFeedbackScreen()),
+      MaterialPageRoute(builder: (_) => CoachFeedbackScreen(shareId: id)),
     );
   }
 

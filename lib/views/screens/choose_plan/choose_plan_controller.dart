@@ -55,7 +55,8 @@ class ChoosePlanController extends ChangeNotifier {
       return 'Redeem ${quote.code}';
     }
     if (promoController.text.trim().isNotEmpty) return 'Apply promo code';
-    return 'Redeem promo code';
+    if (days > 0) return 'Start $days-Day Free Trial';
+    return 'Continue';
   }
 
   Future<void> loadPlans() async {
@@ -64,8 +65,18 @@ class ChoosePlanController extends ChangeNotifier {
     _notify();
     try {
       final service = await _service();
+      SubscriptionPlan? launch;
+      try {
+        final launchResponse = await service.getLaunchPlan();
+        final parsed = parsePlans(launchResponse['data']);
+        if (parsed.isNotEmpty) launch = parsed.first;
+      } catch (_) {}
       final response = await service.getPlans();
       plans = parsePlans(response['data']);
+      if (launch != null) {
+        plans.removeWhere((plan) => plan.id == launch!.id);
+        plans.insert(0, launch);
+      }
       if (selectedIndex >= plans.length) selectedIndex = 0;
       if (plans.isEmpty) {
         errorMessage = 'No subscription plans are available right now.';
@@ -149,6 +160,35 @@ class ChoosePlanController extends ChangeNotifier {
         isValidating = false;
         _notify();
       }
+    }
+  }
+
+  /// Starts the plan's free trial when no promo code is entered.
+  Future<String?> startTrial() async {
+    final plan = selectedPlan;
+    if (plan == null || plan.id.isEmpty) {
+      _setPromoMessage('Choose a plan first.', isError: true);
+      return null;
+    }
+    isRedeeming = true;
+    promoMessageIsError = false;
+    _notify();
+    try {
+      final service = await _service();
+      final response = await service.startTrial(planId: plan.id);
+      final message = '${response['message'] ?? ''}'.trim();
+      return message.isEmpty
+          ? 'Your ${plan.trialDays > 0 ? plan.trialDays : 3}-day free trial is active.'
+          : message;
+    } on ApiError catch (e) {
+      _setPromoMessage(e.message, isError: true);
+      return null;
+    } catch (e) {
+      _setPromoMessage(e.toString(), isError: true);
+      return null;
+    } finally {
+      isRedeeming = false;
+      _notify();
     }
   }
 

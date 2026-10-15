@@ -2,59 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/core/app_radii.dart';
+import 'package:golf_training_app/views/screens/golfer/home/coach_feedback/coach_feedback_controller.dart';
 
 
 /// Coach Feedback screen.
 ///
-/// One main correction, the coach's note, a drill created from that note,
-/// and a 2-week plan. After the golfer starts the plan, each range session
-/// can be marked complete.
+/// Loads the share, then starts and toggles the 2-week plan on the server.
 class CoachFeedbackScreen extends StatefulWidget {
-  const CoachFeedbackScreen({super.key});
+  const CoachFeedbackScreen({super.key, this.shareId});
+
+  final String? shareId;
 
   @override
   State<CoachFeedbackScreen> createState() => _CoachFeedbackScreenState();
 }
 
-class _PracticeSession {
-  _PracticeSession({
-    required this.icon,
-    required this.days,
-    required this.description,
-  });
-
-  final IconData icon;
-  final String days;
-  final String description;
-  bool completed = false;
-}
-
 class _CoachFeedbackScreenState extends State<CoachFeedbackScreen> {
+  late final CoachFeedbackController _controller;
   bool _planViewExpanded = false;
-  bool _planStarted = false;
-  final List<_PracticeSession> _sessions = [
-    _PracticeSession(
-      icon: Icons.golf_course_outlined,
-      days: 'Days 1–3',
-      description: 'Short range session. Hip-lead drill only, half speed, 3 sets of 8.',
-    ),
-    _PracticeSession(
-      icon: Icons.sports_golf_outlined,
-      days: 'Days 4–7',
-      description: 'Short range session. Same drill, then a few easy swings at your normal speed.',
-    ),
-    _PracticeSession(
-      icon: Icons.place_outlined,
-      days: 'Days 8–14',
-      description: 'Short range session. Stay with this one correction and stop when the feeling is clear.',
-    ),
-  ];
 
-  int get _completedCount =>
-      _sessions.where((session) => session.completed).length;
+  @override
+  void initState() {
+    super.initState();
+    _controller = CoachFeedbackController(shareId: widget.shareId);
+    _controller.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startPlan() async {
+    final ok = await _controller.startPlan();
+    if (!mounted) return;
+    final message = _controller.errorMessage;
+    if (!ok && message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final sessions = _controller.sessions;
+    final notes = [
+      if (_controller.drillSubtitle.trim().isNotEmpty) _controller.drillSubtitle.trim(),
+      if (_controller.detailedComments.trim().isNotEmpty &&
+          _controller.detailedComments.trim() != _controller.primaryCorrection.trim())
+        _controller.detailedComments.trim(),
+    ];
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
@@ -63,49 +65,77 @@ class _CoachFeedbackScreenState extends State<CoachFeedbackScreen> {
           children: [
             _buildAppBar(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _CoachHeaderCard(),
-                    const SizedBox(height: 16),
-                    _VideoThumbnail(),
-                    const SizedBox(height: 16),
-                    _CoachingFeedbackCard(),
-                    const SizedBox(height: 16),
-                    const _RecommendedDrillCard(),
-                    const SizedBox(height: 16),
-                    _PracticePlanCard(
-                      sessions: _sessions,
-                      started: _planStarted,
-                      completedCount: _completedCount,
-                      onToggle: (index) {
-                        setState(() {
-                          _sessions[index].completed = !_sessions[index].completed;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _PracticePlanReviewCard(
-                      expanded: _planViewExpanded,
-                      onTap: () {
-                        setState(() => _planViewExpanded = !_planViewExpanded);
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              child: _controller.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _controller.errorMessage != null &&
+                          _controller.coachName.isEmpty
+                      ? _FeedbackError(
+                          message: _controller.errorMessage!,
+                          onRetry: _controller.load,
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _CoachHeaderCard(
+                                name: _controller.coachName,
+                                meta: _controller.coachMeta,
+                                avatarUrl: _controller.avatarUrl,
+                              ),
+                              const SizedBox(height: 16),
+                              _VideoThumbnail(
+                                thumbnailUrl: _controller.thumbnailUrl,
+                              ),
+                              const SizedBox(height: 16),
+                              _CoachingFeedbackCard(
+                                primaryCorrection: _controller.primaryCorrection,
+                                comments: _controller.detailedComments,
+                              ),
+                              if (_controller.recommendedDrill.trim().isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                _RecommendedDrillCard(
+                                  title: _controller.recommendedDrill,
+                                  subtitle: _controller.drillSubtitle,
+                                ),
+                              ],
+                              if (sessions.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                _PracticePlanCard(
+                                  sessions: sessions,
+                                  started: _controller.planStarted,
+                                  completedCount: _controller.completedCount,
+                                  onToggle: _controller.toggleSession,
+                                ),
+                              ],
+                              if (notes.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                _PracticePlanReviewCard(
+                                  coachName: _controller.coachName,
+                                  notes: notes,
+                                  expanded: _planViewExpanded,
+                                  onTap: () {
+                                    setState(
+                                      () => _planViewExpanded = !_planViewExpanded,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
             ),
-            if (!_planStarted)
-              _StartPracticePlanButton(
-                onPressed: () => setState(() => _planStarted = true),
-              )
-            else
-              _PlanProgressBar(
-                completed: _completedCount,
-                total: _sessions.length,
-              ),
+            if (!_controller.isLoading && _controller.coachName.isNotEmpty)
+              if (!_controller.planStarted)
+                _StartPracticePlanButton(
+                  isLoading: _controller.isStarting,
+                  onPressed: _controller.canStart ? _startPlan : null,
+                )
+              else
+                _PlanProgressBar(
+                  completed: _controller.completedCount,
+                  total: sessions.length,
+                ),
           ],
         ),
       ),
@@ -135,7 +165,9 @@ class _CoachFeedbackScreenState extends State<CoachFeedbackScreen> {
                         size: 14, color: AppColors.successGreen),
                     const SizedBox(width: 4),
                     Text(
-                      'Professional review · James Keller',
+                      _controller.coachName.trim().isEmpty
+                          ? 'Professional review'
+                          : 'Professional review · ${_controller.coachName}',
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.successGreen,
                         fontWeight: FontWeight.w600,
@@ -154,32 +186,48 @@ class _CoachFeedbackScreenState extends State<CoachFeedbackScreen> {
 
 /// White card at the top: avatar, coach name, credentials line.
 class _CoachHeaderCard extends StatelessWidget {
+  const _CoachHeaderCard({
+    required this.name,
+    required this.meta,
+    this.avatarUrl,
+  });
+
+  final String name;
+  final String meta;
+  final String? avatarUrl;
+
   @override
   Widget build(BuildContext context) {
+    final photo = avatarUrl;
     return _CardShell(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
+          ClipOval(
+            child: Container(
+              width: 48,
+              height: 48,
               color: AppColors.primaryNavy,
-              shape: BoxShape.circle,
+              child: photo != null && photo.startsWith('http')
+                  ? Image.network(photo, fit: BoxFit.cover)
+                  : const Icon(Icons.person, color: AppColors.surfaceWhite),
             ),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('James Keller',
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 2),
-              Text(
-                'PGA Certified · Driver · Face On · Today\n11:30 AM',
-                style: AppTextStyles.caption,
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name.isEmpty ? 'Your coach' : name,
+                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+                ),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(meta, style: AppTextStyles.caption),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -187,10 +235,15 @@ class _CoachHeaderCard extends StatelessWidget {
   }
 }
 
-/// Swing video thumbnail with "Coach Annotated" pill and frame label.
+/// Swing video thumbnail.
 class _VideoThumbnail extends StatelessWidget {
+  const _VideoThumbnail({required this.thumbnailUrl});
+
+  final String thumbnailUrl;
+
   @override
   Widget build(BuildContext context) {
+    final hasImage = thumbnailUrl.startsWith('http');
     return ClipRRect(
       borderRadius: AppRadii.cardBorderRadius,
       child: AspectRatio(
@@ -198,25 +251,16 @@ class _VideoThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Placeholder for the golfer video frame / thumbnail image.
-            Container(color: AppColors.textSecondary.withOpacity(0.2)),
-            // Coach annotation line drawings would be layered here as a
-            // CustomPaint / overlay image in the real implementation.
+            if (hasImage)
+              Image.network(thumbnailUrl, fit: BoxFit.cover)
+            else
+              Container(color: AppColors.textSecondary.withOpacity(0.2)),
             Positioned(
               top: 12,
               right: 12,
               child: _Pill(
-                label: 'Coach Annotated',
+                label: 'Coach review',
                 background: AppColors.primaryNavy.withOpacity(0.85),
-                textColor: AppColors.surfaceWhite,
-              ),
-            ),
-            Positioned(
-              left: 12,
-              bottom: 12,
-              child: _Pill(
-                label: 'Frame 0:04 — Transition point',
-                background: Colors.black.withOpacity(0.55),
                 textColor: AppColors.surfaceWhite,
               ),
             ),
@@ -229,8 +273,19 @@ class _VideoThumbnail extends StatelessWidget {
 
 /// "Coaching Feedback" card with the PROFESSIONAL badge and quoted notes.
 class _CoachingFeedbackCard extends StatelessWidget {
+  const _CoachingFeedbackCard({
+    required this.primaryCorrection,
+    required this.comments,
+  });
+
+  final String primaryCorrection;
+  final String comments;
+
   @override
   Widget build(BuildContext context) {
+    final correction = primaryCorrection.trim().isEmpty
+        ? 'Your coach has not named a main correction yet.'
+        : primaryCorrection.trim();
     return _CardShell(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -261,28 +316,35 @@ class _CoachingFeedbackCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Start the downswing with your hips before your shoulders.',
+            correction,
             style: AppTextStyles.body.copyWith(
               fontWeight: FontWeight.w700,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            '"Great effort, Alex. Keep this as the only change for now: '
-            'feel your hips turn toward the target before your shoulders '
-            'follow. Use that feeling in short range sessions."',
-            style: AppTextStyles.body.copyWith(height: 1.5),
-          ),
+          if (comments.trim().isNotEmpty &&
+              comments.trim() != primaryCorrection.trim()) ...[
+            const SizedBox(height: 12),
+            Text(
+              comments.trim(),
+              style: AppTextStyles.body.copyWith(height: 1.5),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// "Recommended Drill" card with the highlighted lavender drill box.
+/// Recommended drill written by the coach.
 class _RecommendedDrillCard extends StatelessWidget {
-  const _RecommendedDrillCard();
+  const _RecommendedDrillCard({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +358,7 @@ class _RecommendedDrillCard extends StatelessWidget {
               const Icon(Icons.golf_course_outlined,
                   size: 18, color: AppColors.quickActionAiIcon),
               const SizedBox(width: 8),
-              Text('AI Recommended Drill',
+              Text('Recommended Drill',
                   style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
@@ -317,42 +379,20 @@ class _RecommendedDrillCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hip Lead Drill — 10 reps',
+                  title,
                   style: AppTextStyles.body.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.quickActionAiIcon,
                   ),
                 ),
-                const SizedBox(height: 8),
-                _NumberedLine(number: 1, text: 'Take your normal address position.'),
-                _NumberedLine(number: 2, text: 'Place a club across your hips, parallel to the ground.'),
-                _NumberedLine(
-                    number: 3,
-                    text: 'On the downswing, initiate by pointing the grip end of the club towards the target first.'),
-                _NumberedLine(
-                    number: 4,
-                    text: 'Your right shoulder should NOT drop until the club grip has moved at least 10 cm.'),
+                if (subtitle.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(subtitle.trim(), style: AppTextStyles.body),
+                ],
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NumberedLine extends StatelessWidget {
-  final int number;
-  final String text;
-  const _NumberedLine({required this.number, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(
-        '$number. $text',
-        style: AppTextStyles.body.copyWith(height: 1.4),
       ),
     );
   }
@@ -367,7 +407,7 @@ class _PracticePlanCard extends StatelessWidget {
     required this.onToggle,
   });
 
-  final List<_PracticeSession> sessions;
+  final List<PracticeSessionItem> sessions;
   final bool started;
   final int completedCount;
   final ValueChanged<int> onToggle;
@@ -413,17 +453,28 @@ class _PracticePlanCard extends StatelessWidget {
           const SizedBox(height: 4),
           for (var i = 0; i < sessions.length; i++)
             _PlanRow(
-              icon: sessions[i].icon,
-              days: sessions[i].days,
+              icon: _iconForPhase(i),
+              days: sessions[i].dayRange,
               description: sessions[i].description,
               showDivider: i < sessions.length - 1,
               showComplete: started,
-              completed: sessions[i].completed,
+              completed: sessions[i].isCompleted,
               onToggle: () => onToggle(i),
             ),
         ],
       ),
     );
+  }
+}
+
+IconData _iconForPhase(int index) {
+  switch (index) {
+    case 0:
+      return Icons.golf_course_outlined;
+    case 1:
+      return Icons.sports_golf_outlined;
+    default:
+      return Icons.place_outlined;
   }
 }
 
@@ -495,10 +546,17 @@ class _PlanRow extends StatelessWidget {
 
 /// Collapsible coach review of the drill and plan.
 class _PracticePlanReviewCard extends StatelessWidget {
+  final String coachName;
+  final List<String> notes;
   final bool expanded;
   final VoidCallback onTap;
 
-  const _PracticePlanReviewCard({required this.expanded, required this.onTap});
+  const _PracticePlanReviewCard({
+    required this.coachName,
+    required this.notes,
+    required this.expanded,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -536,7 +594,7 @@ class _PracticePlanReviewCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'James reviewed your recommended drill and practice plan.',
+                          '${coachName.trim().isEmpty ? 'Your coach' : coachName} reviewed this drill and practice plan.',
                           style: AppTextStyles.caption,
                         ),
                       ],
@@ -557,19 +615,14 @@ class _PracticePlanReviewCard extends StatelessWidget {
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeInOut,
             child: expanded
-                ? const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     child: Column(
                       children: [
-                        _PlanAdjustment(
-                          text:
-                              'Use 8 reps instead of 10 so each range session stays short.',
-                        ),
-                        SizedBox(height: 10),
-                        _PlanAdjustment(
-                          text:
-                              'Keep every session on the range and stay with this one hip-lead correction.',
-                        ),
+                        for (var i = 0; i < notes.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 10),
+                          _PlanAdjustment(text: notes[i]),
+                        ],
                       ],
                     ),
                   )
@@ -605,9 +658,13 @@ class _PlanAdjustment extends StatelessWidget {
 
 /// Fixed bottom button that starts the 2-week plan.
 class _StartPracticePlanButton extends StatelessWidget {
-  const _StartPracticePlanButton({required this.onPressed});
+  const _StartPracticePlanButton({
+    required this.onPressed,
+    this.isLoading = false,
+  });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -618,7 +675,7 @@ class _StartPracticePlanButton extends StatelessWidget {
       child: SizedBox(
         height: 52,
         child: ElevatedButton(
-          onPressed: onPressed,
+          onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.ctaBrightBlue,
             shape: RoundedRectangleBorder(
@@ -626,10 +683,19 @@ class _StartPracticePlanButton extends StatelessWidget {
             ),
             elevation: 0,
           ),
-          child: const Text(
-            'Start This Practice Plan',
-            style: AppTextStyles.buttonLabel,
-          ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.surfaceWhite,
+                  ),
+                )
+              : const Text(
+                  'Start This Practice Plan',
+                  style: AppTextStyles.buttonLabel,
+                ),
         ),
       ),
     );
@@ -667,6 +733,30 @@ class _PlanProgressBar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FeedbackError extends StatelessWidget {
+  const _FeedbackError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, textAlign: TextAlign.center, style: AppTextStyles.body),
+            const SizedBox(height: 16),
+            TextButton(onPressed: onRetry, child: const Text('Try again')),
+          ],
+        ),
       ),
     );
   }

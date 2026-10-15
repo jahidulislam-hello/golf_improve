@@ -11,6 +11,7 @@ import 'package:golf_training_app/views/screens/golfer/profile/profile/settings_
 import 'package:golf_training_app/views/screens/golfer/profile/settings/community_legal.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/settings/help_support_screen.dart';
 import 'package:golf_training_app/views/screens/auth/screens/sign_in_screen.dart';
+import 'package:golf_training_app/views/screens/onboarding/role_selection/role_switch_sheet.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
 
@@ -311,6 +312,12 @@ class _SettingsListCard extends StatelessWidget {
             subtitle: 'Plans & promo codes',
             onTap: onSubscriptionTap,
           ),
+          // SettingsListItem(
+          //   icon: Icons.swap_horiz,
+          //   title: 'Account Role',
+          //   subtitle: 'Switch between golfer and coach',
+          //   onTap: () => showRoleSwitchSheet(context),
+          // ),
           SettingsListItem(
             icon: Icons.menu_book_outlined,
             title: 'Practice Notes',

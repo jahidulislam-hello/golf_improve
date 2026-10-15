@@ -127,28 +127,58 @@ class _AiGolfCoachScreenState extends State<AiGolfCoachScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: controller.planSaved || controller.isSavingPlan
-                            ? null
-                            : () async {
-                                final ok = await controller.savePlan();
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok
-                                          ? 'Drill saved to your logbook.'
-                                          : (controller.errorMessage ??
-                                              'Could not save the drill.'),
-                                    ),
-                                  ),
-                                );
-                              },
-                        child: Text(
-                          controller.planSaved
-                              ? 'Saved to logbook'
-                              : 'Save drill to logbook',
-                        ),
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          TextButton(
+                            onPressed: controller.planSaved ||
+                                    controller.isSavingPlan
+                                ? null
+                                : () async {
+                                    final ok = await controller.savePlan();
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Drill saved to your logbook.'
+                                              : (controller.errorMessage ??
+                                                  'Could not save the drill.'),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                            child: Text(
+                              controller.planSaved
+                                  ? 'Saved to logbook'
+                                  : 'Save drill to logbook',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: controller.planShared ||
+                                    controller.isSharingPlan
+                                ? null
+                                : () async {
+                                    final message =
+                                        await controller.sharePlanWithCoach();
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          message ??
+                                              controller.errorMessage ??
+                                              'Could not share the plan.',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                            child: Text(
+                              controller.planShared
+                                  ? 'Shared with coach'
+                                  : 'Share plan with coach',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

@@ -43,11 +43,13 @@ class CoachFeedbackModel {
   final String title; // "New Coach Feedback"
   final String subtitle; // "James Keller reviewed your 7 Iron session"
   final bool isUnread;
+  final String? shareId;
 
   const CoachFeedbackModel({
     required this.title,
     required this.subtitle,
     this.isUnread = true,
+    this.shareId,
   });
 }
 

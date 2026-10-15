@@ -100,17 +100,23 @@ class AuthService {
     return _api.post(ApiConstants.register, body: body);
   }
 
-  Future<dynamic> verifySignUpOtp({required String otp}) {
+  Future<dynamic> verifySignUpOtp({
+    required String email,
+    required String otp,
+  }) {
     return _api.post(
       ApiConstants.verifyOtp,
-      body: {'otp': otp},
+      body: {
+        'email': email.trim(),
+        'otp': otp,
+      },
     );
   }
 
   Future<dynamic> resendOtp({required String email}) {
     return _api.post(
       ApiConstants.resendOTP,
-      body: {'email': email},
+      body: {'email': email.trim()},
     );
   }
 
@@ -145,26 +151,46 @@ class AuthService {
     );
   }
 
-  Future<dynamic> resetPassword({required String newPassword}) {
+  Future<dynamic> resetPassword({
+    required String newPassword,
+    required String confirmPassword,
+  }) {
     return _api.post(
       ApiConstants.resetPassword,
-      body: {'newPassword': newPassword},
+      body: {
+        'newPassword': newPassword,
+        'confirmPassword': confirmPassword,
+      },
     );
   }
 
   Future<dynamic> updateRegisterProfile({
     required String age,
-    required String gender,
+    // Gender removed from active profile setup (docs v2). Kept for reference:
+    // required String gender,
+    String? gender,
     double? handicap,
     String? practiceSessionPerWeek,
     String? certificateName,
     String? experienceYear,
+    bool? usesGolfImproveStand,
+    String? name,
+    String? role,
   }) {
     final ageRange = age.replaceAll('–', '-').replaceAll('—', '-');
     final fields = <String, String>{
       'age_range': ageRange,
-      'gender': mapGenderToApi(gender),
+      // 'gender': mapGenderToApi(gender ?? 'other'),
     };
+    // if (gender != null && gender.isNotEmpty) {
+    //   fields['gender'] = mapGenderToApi(gender);
+    // }
+    if (name != null && name.trim().isNotEmpty) {
+      fields['name'] = name.trim();
+    }
+    if (role != null && role.trim().isNotEmpty) {
+      fields['role'] = role.trim();
+    }
     if (handicap != null) {
       final value = handicap.toStringAsFixed(1);
       fields['handicap_index'] = value;
@@ -180,11 +206,23 @@ class AuthService {
     if (experienceYear != null && experienceYear.trim().isNotEmpty) {
       fields['experience'] = experienceYear.trim();
     }
+    if (usesGolfImproveStand != null) {
+      fields['usesGolfImproveStand'] = usesGolfImproveStand.toString();
+      fields['uses_golfimprove_stand'] = usesGolfImproveStand.toString();
+    }
 
     return _api.multipartRequest(
       ApiConstants.updateRegisterProfile,
       method: 'PATCH',
       fields: fields,
+    );
+  }
+
+  /// Switch Golfer ↔ Coach via `PATCH /user/update-my-profile`.
+  Future<dynamic> updateUserRole({required UserRole role}) {
+    return _api.patch(
+      ApiConstants.updateProfile,
+      body: {'role': role.apiValue},
     );
   }
 
@@ -270,6 +308,11 @@ class AuthService {
 
     final existing = _api.getUserData();
     if (existing != null) {
+      if (role != null && existing['role'] != role.apiValue) {
+        existing['role'] = role.apiValue;
+        await _api.saveUserData(existing);
+        return;
+      }
       if (!_api.isLoggedIn) {
         await _api.saveUserData(existing);
       }

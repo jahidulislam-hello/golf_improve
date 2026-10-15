@@ -18,10 +18,15 @@ class RoleSelectionScreen extends StatefulWidget {
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   final RoleSelectionController _controller = RoleSelectionController();
 
+  void _choose(UserRole role) {
+    _controller.selectRole(role);
+    widget.onRoleConfirmed(role);
+  }
+
   @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() => setState(() {}));
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -43,55 +48,28 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               ),
               const SizedBox(height: 20),
               const Text(
-                'Choose your role',
+                'How Will You Use GolfImprove?',
                 style: AppTextStyles.screenTitle,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Choose your role to get started.',
-                style: AppTextStyles.body,
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-
               RoleCard(
-                icon: Icons.show_chart,
+                icon: Icons.sports_golf,
                 title: "I'm a Golfer",
                 description:
-                    'Record swings, get AI coaching, track progress and share with your pro.',
+                    'Record and review your swings, track progress and share clips with your coach.',
                 selected: _controller.selectedRole == UserRole.golfer,
-                onTap: () => _controller.selectRole(UserRole.golfer),
+                onTap: () => _choose(UserRole.golfer),
               ),
               const SizedBox(height: 16),
               RoleCard(
                 icon: Icons.workspace_premium_outlined,
                 title: "I'm a Coach",
                 description:
-                    'Review student swings, annotate technique and deliver expert coaching feedback.',
+                    'Record and review student swings, draw lines and share feedback.',
                 selected: _controller.selectedRole == UserRole.coach,
-                onTap: () => _controller.selectRole(UserRole.coach),
+                onTap: () => _choose(UserRole.coach),
               ),
-
-              const Spacer(),
-
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _controller.canContinue
-                      ? () => _controller.confirmSelection(widget.onRoleConfirmed)
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.ctaBrightBlue,
-                    disabledBackgroundColor: AppColors.borderLightGray,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadii.buttonBorderRadius,
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text('Continue', style: AppTextStyles.buttonLabel),
-                ),
-              ),
-              const SizedBox(height: 24),
             ],
           ),
         ),

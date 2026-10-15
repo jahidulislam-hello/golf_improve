@@ -20,7 +20,7 @@ class PendingReview {
   /// e.g. "Driver", "7 Iron", "Wedge"
   final String club;
 
-  /// e.g. "Face On", "Down the Line", "Side On"
+  /// e.g. "Face On", "Down the Line"
   final String angle;
 
   /// e.g. "2h ago", "Yesterday"

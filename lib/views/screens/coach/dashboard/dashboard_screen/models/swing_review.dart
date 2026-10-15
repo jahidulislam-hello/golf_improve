@@ -39,10 +39,14 @@ class PracticePlanItem {
       };
 
   factory PracticePlanItem.fromJson(Map<String, dynamic> json) {
+    final dayRange = '${json['dayRange'] ?? json['dayRangeLabel'] ?? json['days'] ?? ''}';
+    final phase = '${json['phase'] ?? ''}'.trim();
+    final drill = '${json['drill'] ?? ''}'.trim();
+    final description = '${json['description'] ?? ''}'.trim();
     return PracticePlanItem(
-      id: '${json['id'] ?? DateTime.now().microsecondsSinceEpoch}',
-      dayRangeLabel: '${json['dayRange'] ?? json['dayRangeLabel'] ?? ''}',
-      description: '${json['description'] ?? ''}',
+      id: '${json['_id'] ?? json['id'] ?? DateTime.now().microsecondsSinceEpoch}',
+      dayRangeLabel: dayRange.trim().isNotEmpty ? dayRange.trim() : phase,
+      description: description.isNotEmpty ? description : drill,
     );
   }
 }
@@ -66,7 +70,9 @@ class SwingReview {
     required this.aiAnalysisPoints,
     this.lastNoteOnStudent,
     this.coachFeedback = '',
+    this.primaryCorrection = '',
     this.recommendedDrill = '',
+    this.drillSubtitle = '',
     List<PracticePlanItem>? practicePlan,
     this.aiAgreement = AiAgreement.undecided,
     this.aiExtraContext = '',
@@ -96,7 +102,9 @@ class SwingReview {
 
   // ----- Editable on "Your Feedback" -----
   String coachFeedback;
+  String primaryCorrection;
   String recommendedDrill;
+  String drillSubtitle;
   List<PracticePlanItem> practicePlan;
   AiAgreement aiAgreement;
   String aiExtraContext;
@@ -140,12 +148,25 @@ class SwingReview {
       lastNoteOnStudent: _nullableString(
         data['lastNote'] ?? swing['lastNoteOnStudent'] ?? data['lastNoteOnStudent'],
       ),
+      coachFeedback: _feedbackText(data),
+      primaryCorrection:
+          '${_asMap(data['coachFeedback'])?['primaryCorrection'] ?? data['primaryCorrection'] ?? ''}',
       recommendedDrill:
           '${_asMap(data['coachFeedback'])?['recommendedDrill'] ?? data['recommendedDrill'] ?? ''}',
+      drillSubtitle:
+          '${_asMap(data['coachFeedback'])?['drillSubtitle'] ?? data['drillSubtitle'] ?? ''}',
       practicePlan: _practicePlan(
         _asMap(data['coachFeedback'])?['practicePlan'] ?? data['practicePlan'],
       ),
     );
+  }
+
+  static String _feedbackText(Map<String, dynamic> data) {
+    final feedback = _asMap(data['coachFeedback']);
+    final detailed = '${feedback?['detailedComments'] ?? ''}'.trim();
+    if (detailed.isNotEmpty) return detailed;
+    final text = '${feedback?['feedbackText'] ?? data['feedbackText'] ?? ''}'.trim();
+    return text;
   }
 
   static String? _noteText(dynamic raw) {

@@ -79,7 +79,10 @@ class GolferProfileController extends ChangeNotifier {
     _practiceSessionsPerWeek = _practiceFromApi(
       data['practice_sessions_per_week'] ?? data['practiceSessionPerWeek'],
     );
-    _golfStandConnected = data['uses_golfimprove_stand'] == true;
+    _golfStandConnected = data['usesGolfImproveStand'] == true ||
+        data['uses_golfimprove_stand'] == true ||
+        '${data['usesGolfImproveStand'] ?? ''}'.toLowerCase() == 'true' ||
+        '${data['uses_golfimprove_stand'] ?? ''}'.toLowerCase() == 'true';
 
     final paywall = data['paywall'];
     final premium = data['hasPremiumAccess'] == true ||

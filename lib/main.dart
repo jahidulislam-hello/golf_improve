@@ -12,6 +12,7 @@ import 'helpers/routes.dart';
 import 'services/api_services.dart';
 import 'services/auth_service.dart';
 import 'services/device_http_overrides.dart';
+import 'services/paywall_gate.dart';
 
 void main() async {
   HttpOverrides.global = DeviceHttpOverrides();
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    ApiService.onPaymentRequired ??= PaywallGate.open;
     return ScreenUtilInit(
       designSize: const Size(393, 852),
       minTextAdapt: true,
