@@ -1,1 +1,401 @@
-//yyy
+definitions:
+  env_versions: &env_versions
+    flutter: stable
+    xcode: latest
+    cocoapods: default
+
+  ios_signing_config: &ios_signing_config
+    distribution_type: app_store
+    bundle_identifier: ui.neatboutique.jacobi
+
+  scripts:
+    - &check_maps_keys
+      name: Check Google Maps release keys
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        
+        android_key="${GOOGLE_MAPS_ANDROID_API_KEY:-${GOOGLE_MAPS_API_KEY:-}}"
+        ios_key="${GOOGLE_MAPS_IOS_API_KEY:-${GOOGLE_MAPS_API_KEY:-}}"
+        missing=0
+        if [[ -z "${android_key//[[:space:]]/}" || "$android_key" == YOUR_* ]]; then
+          echo "Missing GOOGLE_MAPS_ANDROID_API_KEY (or GOOGLE_MAPS_API_KEY fallback)."
+          missing=1
+        fi
+        if [[ -z "${ios_key//[[:space:]]/}" || "$ios_key" == YOUR_* ]]; then
+          echo "Missing GOOGLE_MAPS_IOS_API_KEY (or GOOGLE_MAPS_API_KEY fallback)."
+          missing=1
+        fi
+        if [[ "$missing" -ne 0 ]]; then
+          echo "Add the keys as Secret variables in the Codemagic 'HireHub Ja' group."
+          exit 1
+        fi
+        echo "Google Maps release keys are configured."
+
+    - &get_flutter_deps
+      name: Get Flutter packages
+      script: |
+        set -e
+        flutter pub get
+
+    - &analyze_project
+      name: Analyze project
+      script: |
+        set -e
+        # flutter analyze exits 1 on ANY issue, including info-level style
+        # notes (avoid_print, unnecessary_underscores, etc). Only let real
+        # errors/warnings fail the build.
+        flutter analyze --no-fatal-infos
+
+    - &install_pods
+      name: Install CocoaPods
+      script: |
+        set -e
+        find ios -name "Podfile" -execdir pod install \;
+
+    - &ios_code_signing
+      name: Set up iOS code signing
+      script: |
+        set -euo pipefail
+        # Codemagic already ran keychain initialize + add-certificates from
+        # ios_signing before this script. On macOS 15 the first `security
+        # import -f pkcs12` attempt often prints:
+        #   SecKeychainItemImport: Unable to decode the provided data.
+        # then retries with `-f openssl` and succeeds ("1 key imported").
+        # That stderr line alone is NOT a failure — verify the cert landed.
+        echo "Installed code signing certificates:"
+        keychain list-certificates
+        CERT_COUNT="$(keychain list-certificates | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')"
+        if [ "$CERT_COUNT" -lt 1 ]; then
+          echo "error: no code signing certificates in the keychain."
+          echo "In Codemagic → Team settings → Code signing identities,"
+          echo "re-upload the iOS Distribution .p12 with a NON-EMPTY password,"
+          echo "then set that password on the certificate entry."
+          exit 1
+        fi
+        xcode-project use-profiles
+
+    # Reads latest App Store / TestFlight version + build from ASC, then
+    # exports APP_BUILD_NAME / APP_BUILD_NUMBER for later steps.
+    # Do not use FLUTTER_BUILD_NAME / FLUTTER_BUILD_NUMBER as env vars:
+    # Flutter now injects those as dart-defines and rejects them in the
+    # environment ("used by the framework and cannot be set").
+    # Reuses an open version; bumps patch if the latest version is closed.
+    - &set_next_version_from_asc
+      name: Set next version from App Store Connect
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        
+        export BUNDLE_ID="${BUNDLE_ID:-ui.neatboutique.jacobi}"
+        
+        if [ -z "${APP_STORE_APPLE_ID:-}" ]; then
+          echo "Resolving App Store Apple ID from bundle id: $BUNDLE_ID"
+          APP_STORE_APPLE_ID="$(
+            app-store-connect apps list \
+              --bundle-id-identifier "$BUNDLE_ID" \
+              --json \
+            | python3 -c '
+        import json, sys
+        data = json.load(sys.stdin)
+        apps = data if isinstance(data, list) else data.get("data", data.get("apps", []))
+        if not apps:
+            sys.exit("No App Store Connect app found for bundle id")
+        print(apps[0]["id"] if isinstance(apps[0], dict) else apps[0])
+        '
+          )"
+          export APP_STORE_APPLE_ID
+        fi
+        
+        echo "App Store Apple ID: $APP_STORE_APPLE_ID"
+        
+        python3 <<'PY'
+        import json
+        import os
+        import re
+        import subprocess
+        from pathlib import Path
+        
+        app_id = os.environ["APP_STORE_APPLE_ID"]
+        cm_env = Path(os.environ["CM_ENV"])
+        
+        # ASC still accepts a new binary for these marketing-version states.
+        OPEN_STATES = {
+            "PREPARE_FOR_SUBMISSION",
+            "DEVELOPER_REJECTED",
+            "METADATA_REJECTED",
+            "REJECTED",
+            "INVALID_BINARY",
+        }
+        # These states cannot take another binary for the same versionString.
+        CLOSED_STATES = {
+            "READY_FOR_SALE",
+            "PENDING_APPLE_RELEASE",
+            "PENDING_DEVELOPER_RELEASE",
+            "PROCESSING_FOR_APP_STORE",
+            "WAITING_FOR_REVIEW",
+            "IN_REVIEW",
+            "PENDING_CONTRACT",
+            "REMOVED_FROM_SALE",
+            "REPLACED_WITH_NEW_VERSION",
+        }
+        
+        def run(cmd):
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+        
+        def parse_semver(version):
+            parts = [int(p) for p in re.findall(r"\d+", version or "0")]
+            while len(parts) < 3:
+                parts.append(0)
+            return tuple(parts[:3])
+        
+        def bump_patch(version):
+            major, minor, patch = parse_semver(version)
+            return f"{major}.{minor}.{patch + 1}"
+        
+        def parse_build(value):
+            if value is None:
+                return None
+            text = str(value).strip()
+            if re.fullmatch(r"\d+", text):
+                return int(text)
+            nums = re.findall(r"\d+", text)
+            return int(nums[-1]) if nums else None
+        
+        def load_json(text):
+            if not text:
+                return None
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                return None
+        
+        def extract_version_build(payload):
+            version = None
+            build = None
+            if isinstance(payload, dict):
+                version = (
+                    payload.get("version")
+                    or payload.get("versionString")
+                    or payload.get("version_string")
+                )
+                build = (
+                    payload.get("build")
+                    or payload.get("buildNumber")
+                    or payload.get("build_number")
+                )
+            elif isinstance(payload, (int, float, str)):
+                build = payload
+            return version, parse_build(build)
+        
+        versions = []  # (version_string, state_or_None)
+        builds = []
+        
+        # All App Store versions (needed to detect a closed later version).
+        code, out, err = run(
+            ["app-store-connect", "apps", "app-store-versions", app_id, "--json"]
+        )
+        data = load_json(out) if code == 0 else None
+        items = []
+        if isinstance(data, list):
+            items = data
+        elif isinstance(data, dict):
+            items = data.get("data", data.get("appStoreVersions", []))
+        for item in items:
+            attrs = item.get("attributes", item) if isinstance(item, dict) else {}
+            vs = attrs.get("versionString") or attrs.get("version_string")
+            state = attrs.get("appStoreState") or attrs.get("app_store_state")
+            if vs:
+                versions.append((str(vs), state))
+        
+        # Latest App Store + TestFlight build/version pairs.
+        for action in (
+            "get-latest-app-store-build-number",
+            "get-latest-testflight-build-number",
+        ):
+            code, out, err = run(
+                ["app-store-connect", action, app_id, "--include-version", "--json"]
+            )
+            if code != 0:
+                print(f"{action} unavailable: {err or out}")
+                continue
+            version, build = extract_version_build(load_json(out) or out)
+            if version:
+                versions.append((version, None))
+            if build is not None:
+                builds.append(build)
+        
+        # Fallback: pubspec.yaml version: x.y.z+build
+        pubspec = Path("pubspec.yaml").read_text(encoding="utf-8")
+        match = re.search(
+            r"^version:\s*([0-9]+(?:\.[0-9]+){0,2})(?:\+(\d+))?",
+            pubspec,
+            re.MULTILINE,
+        )
+        fallback_version = match.group(1) if match else "1.0.0"
+        fallback_build = int(match.group(2)) if match and match.group(2) else 0
+        if fallback_build:
+            builds.append(fallback_build)
+        
+        if versions:
+            latest_version = max((v for v, _ in versions), key=parse_semver)
+            latest_states = [s for v, s in versions if v == latest_version and s]
+            latest_state = latest_states[0] if latest_states else None
+        else:
+            latest_version, latest_state = fallback_version, None
+            latest_states = []
+        
+        # Reuse when ASC still accepts builds for that marketing version.
+        # Bump patch only when the latest version is known-closed.
+        # If state is unknown (API partial), reuse version and only bump build.
+        if any(state in OPEN_STATES for state in latest_states):
+            next_version = latest_version
+            reason = (
+                f"reusing open ASC version {latest_version} "
+                f"({', '.join(latest_states)})"
+            )
+        elif any(state in CLOSED_STATES for state in latest_states):
+            next_version = bump_patch(latest_version)
+            reason = (
+                f"latest ASC version {latest_version} "
+                f"({latest_state}) cannot take new builds; "
+                f"using {next_version}"
+            )
+        else:
+            next_version = latest_version
+            reason = (
+                f"ASC state unknown for {latest_version}; "
+                f"reusing version and bumping build only"
+            )
+        
+        next_build = (max(builds) if builds else 0) + 1
+        
+        # Keep pubspec.yaml in sync with the build that Codemagic ships.
+        pubspec_path = Path("pubspec.yaml")
+        pubspec_text = pubspec_path.read_text(encoding="utf-8")
+        pubspec_path.write_text(
+            re.sub(
+                r"^version:\s*.*$",
+                f"version: {next_version}+{next_build}",
+                pubspec_text,
+                count=1,
+                flags=re.MULTILINE,
+            ),
+            encoding="utf-8",
+        )
+        
+        with cm_env.open("a", encoding="utf-8") as env_file:
+            env_file.write(f"APP_BUILD_NAME={next_version}\n")
+            env_file.write(f"APP_BUILD_NUMBER={next_build}\n")
+            env_file.write(f"APP_STORE_APPLE_ID={app_id}\n")
+        
+        print(f"Latest version seen: {latest_version}")
+        print(f"Decision: {reason}")
+        print(f"Next Flutter version: {next_version}+{next_build}")
+        print(f"Updated pubspec.yaml → version: {next_version}+{next_build}")
+        PY
+
+workflows:
+  flutter-ci:
+    name: Flutter CI
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      <<: *env_versions
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.pub-cache
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: "*"
+          include: true
+    scripts:
+      - *get_flutter_deps
+      - *analyze_project
+
+  release:
+    name: Release (Android + iOS)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    integrations:
+      app_store_connect: loci
+    environment:
+      <<: *env_versions
+      ios_signing:
+        <<: *ios_signing_config
+      groups:
+        - HireHub Ja
+      # Optional: set this to skip auto-resolve from bundle id
+      # (App Store Connect → App → General → App Information → Apple ID)
+      vars:
+        BUNDLE_ID: ui.neatboutique.jacobi
+        # APP_STORE_APPLE_ID: "1234567890"
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.pub-cache
+        - $HOME/.gradle/caches
+        - $HOME/Library/Caches/CocoaPods
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - *check_maps_keys
+      - *get_flutter_deps
+      - *analyze_project
+      - *set_next_version_from_asc
+      - *install_pods
+      - *ios_code_signing
+      - name: Build Android App Bundle
+        script: |
+          set -e
+          echo "Building AAB with $APP_BUILD_NAME+$APP_BUILD_NUMBER"
+          DART_DEFINES=()
+          MAPS_KEY="${GOOGLE_MAPS_ANDROID_API_KEY:-${GOOGLE_MAPS_API_KEY:-}}"
+          if [ -z "$MAPS_KEY" ] || [[ "$MAPS_KEY" == YOUR_* ]]; then
+            echo "A valid Google Maps Android API key is required to build the app."
+            exit 1
+          fi
+          DART_DEFINES+=(--dart-define="GOOGLE_MAPS_API_KEY=$MAPS_KEY")
+          flutter build appbundle --release \
+            --build-name="$APP_BUILD_NAME" \
+            --build-number="$APP_BUILD_NUMBER" \
+            "${DART_DEFINES[@]}"
+      - name: Build iOS IPA
+        script: |
+          set -e
+          echo "Building IPA with $APP_BUILD_NAME+$APP_BUILD_NUMBER"
+          DART_DEFINES=()
+          MAPS_KEY="${GOOGLE_MAPS_IOS_API_KEY:-${GOOGLE_MAPS_API_KEY:-}}"
+          if [ -z "$MAPS_KEY" ] || [[ "$MAPS_KEY" == YOUR_* ]]; then
+            echo "A valid Google Maps iOS API key is required to build the app."
+            exit 1
+          fi
+          DART_DEFINES+=(--dart-define="GOOGLE_MAPS_API_KEY=$MAPS_KEY")
+          flutter build ipa --release \
+            --build-name="$APP_BUILD_NAME" \
+            --build-number="$APP_BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist \
+            "${DART_DEFINES[@]}"
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      # Uncomment once a Google Play integration + service account are set up
+      # in Codemagic (Team settings > Integrations > Google Play):
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+ 
