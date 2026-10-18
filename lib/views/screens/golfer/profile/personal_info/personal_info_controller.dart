@@ -189,17 +189,22 @@ class GolferPersonalInfoController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Opens the device gallery so the golfer can replace their profile photo.
+  /// Opens the system photo picker so the golfer can replace their profile photo.
+  ///
+  /// Android uses the Photo Picker (no READ_MEDIA_* permission). iOS still
+  /// needs a photos permission prompt before the gallery can open.
   Future<void> pickAvatarFromGallery() async {
     if (isPickingAvatar) return;
     isPickingAvatar = true;
     errorMessage = null;
     notifyListeners();
     try {
-      final allowed = await _ensureGalleryAccess();
-      if (!allowed) {
-        errorMessage = 'Allow photo access to update your profile picture.';
-        return;
+      if (Platform.isIOS) {
+        final allowed = await _ensureIosGalleryAccess();
+        if (!allowed) {
+          errorMessage = 'Allow photo access to update your profile picture.';
+          return;
+        }
       }
       final file = await ImagePicker().pickImage(
         source: ImageSource.gallery,
@@ -216,29 +221,11 @@ class GolferPersonalInfoController extends ChangeNotifier {
     }
   }
 
-  Future<bool> _ensureGalleryAccess() async {
-    if (Platform.isIOS) {
-      final status = await Permission.photos.request();
-      if (status.isGranted || status.isLimited) return true;
-      if (status.isPermanentlyDenied) await openAppSettings();
-      return false;
-    }
-    if (!Platform.isAndroid) return true;
-
-    final photos = await Permission.photos.status;
-    final storage = await Permission.storage.status;
-    if (photos.isGranted ||
-        photos.isLimited ||
-        storage.isGranted ||
-        storage.isLimited) {
-      return true;
-    }
-
-    final requestedPhotos = await Permission.photos.request();
-    if (requestedPhotos.isGranted || requestedPhotos.isLimited) return true;
-    await Permission.storage.request();
-    // The system photo picker can still open when a runtime grant is skipped.
-    return true;
+  Future<bool> _ensureIosGalleryAccess() async {
+    final status = await Permission.photos.request();
+    if (status.isGranted || status.isLimited) return true;
+    if (status.isPermanentlyDenied) await openAppSettings();
+    return false;
   }
 
   Future<bool> saveChanges() async {

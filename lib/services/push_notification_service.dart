@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/utils/api_constants.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Top-level handler required by Firebase for background / terminated messages.
 @pragma('vm:entry-point')
@@ -76,6 +77,15 @@ class PushNotificationService {
 
   static Future<void> _requestPermission(FirebaseMessaging messaging) async {
     if (kIsWeb) return;
+
+    // Android 13+ requires POST_NOTIFICATIONS at runtime (kept in manifest).
+    if (Platform.isAndroid) {
+      final status = await Permission.notification.status;
+      if (!status.isGranted) {
+        await Permission.notification.request();
+      }
+    }
+
     final settings = await messaging.requestPermission(
       alert: true,
       badge: true,
