@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "198802247100",
+    "firebase_url": "https://golfimprove-app-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "golfimprove-app",
+    "storage_bucket": "golfimprove-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:198802247100:android:1def7c11e0d1393eaaefb9",
+        "android_client_info": {
+          "package_name": "com.golfimprove.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "198802247100-vbebd5aaipupa97ol13fs6ig5b77hb61.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.golfimprove.app",
+            "certificate_hash": "6de3c2c9b6e5f130148859228130765f20436307"
+          }
+        },
+        {
+          "client_id": "198802247100-12ijve9cne7c0rg6ti1hotilrpqh8tpn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDh6QytPmMmR0cvmqkgfVc40Yp3arYtpqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "198802247100-12ijve9cne7c0rg6ti1hotilrpqh8tpn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "198802247100-rip0n8jf0cfq68riovhjfiardntlr0nh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "eu.golfimprove"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

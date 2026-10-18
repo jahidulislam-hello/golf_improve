@@ -17,7 +17,8 @@ class ApiService {
 
   ApiService({required this.sharedPreferences});
 
-  static const Duration _defaultTimeout = Duration(seconds: 45);
+  static const Duration _defaultTimeout = Duration(seconds: 30);
+  static const Duration authTimeout = Duration(seconds: 60);
   static const Duration _uploadTimeout = Duration(minutes: 3);
   static const Duration _analyzeTimeout = Duration(minutes: 3);
 
@@ -263,7 +264,9 @@ class ApiService {
         ApiService.onPaymentRequired?.call();
       }
       throw ApiError(
-        message: 'Something went wrong ($statusCode)',
+        message: statusCode == 502 || statusCode == 503 || statusCode == 504
+            ? 'Server is temporarily unavailable ($statusCode). Please try again in a moment.'
+            : 'Something went wrong ($statusCode)',
         statusCode: statusCode,
       );
     }
@@ -274,9 +277,11 @@ class ApiService {
     } catch (_) {
       debugPrint('ApiService non-JSON response ($statusCode): $rawBody');
       throw ApiError(
-        message: statusCode >= 500
-            ? 'Server error ($statusCode). Please try again.'
-            : 'Invalid server response ($statusCode).',
+        message: statusCode == 502 || statusCode == 503 || statusCode == 504
+            ? 'Server is temporarily unavailable ($statusCode). Please try again in a moment.'
+            : statusCode >= 500
+                ? 'Server error ($statusCode). Please try again.'
+                : 'Invalid server response ($statusCode).',
         statusCode: statusCode,
       );
     }
@@ -358,7 +363,9 @@ class ApiService {
     debugPrint('ApiService request failed: $error');
     if (error is TimeoutException) {
       return ApiError(
-        message: 'Request timed out. Check your connection and try again.',
+        message:
+            'Request timed out. The server did not respond in time — check '
+            'your internet, or try again in a moment.',
         statusCode: 0,
       );
     }

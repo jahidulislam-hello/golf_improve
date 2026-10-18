@@ -15,7 +15,8 @@ class DeviceHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(context)
-      ..connectionTimeout = const Duration(seconds: 30)
+      ..connectionTimeout = const Duration(seconds: 20)
+      ..idleTimeout = const Duration(seconds: 30)
       ..connectionFactory = _connect;
   }
 }

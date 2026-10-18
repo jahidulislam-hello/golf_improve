@@ -13,6 +13,7 @@ import 'services/api_services.dart';
 import 'services/auth_service.dart';
 import 'services/device_http_overrides.dart';
 import 'services/paywall_gate.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   HttpOverrides.global = DeviceHttpOverrides();
@@ -24,6 +25,8 @@ void main() async {
   final sharedPreferences = await SharedPreferences.getInstance();
   final apiService = ApiService(sharedPreferences: sharedPreferences);
   final authService = AuthService(apiService: apiService);
+
+  await PushNotificationService.initialize(apiService: apiService);
 
   runApp(
     ChangeNotifierProvider(

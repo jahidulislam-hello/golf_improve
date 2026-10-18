@@ -47,9 +47,33 @@ class SignInScreen extends StatelessWidget {
                 style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 28),
-              SecondaryButton.google(onPressed: () {}),
+              SecondaryButton.google(
+                onPressed: auth.isLoading
+                    ? null
+                    : () async {
+                        final success = await auth.signInWithGoogle();
+                        if (!context.mounted) return;
+                        if (!success) {
+                          _showAuthError(context, auth);
+                          return;
+                        }
+                        AppRoutes.goToHomeForRole(
+                          auth.selectedRole ?? UserRole.golfer,
+                        );
+                      },
+              ),
               const SizedBox(height: 14),
-              SecondaryButton.apple(onPressed: () {}),
+              SecondaryButton.apple(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Apple Sign-In is available on iPhone. On Android, use Google or email.',
+                      ),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 22),
               Row(
                 children: [
