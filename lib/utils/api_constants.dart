@@ -1,5 +1,5 @@
 class ApiConstants {
-  static const String baseUrl = 'https://golf.ssh.bd';
+  static const String baseUrl = 'https://api.golfimprove.eu';
   static const String apiUrl = '$baseUrl/api/v1';
 
   // SharedPreferences keys
@@ -30,6 +30,10 @@ class ApiConstants {
   static const String resendOTP = '$apiUrl/auth/resend-code';
   // static const String resendOTP = '$apiUrl/auth/resend-otp';
   static const String login = '$apiUrl/auth/login';
+  /// Mobile Google Sign-In: send Google `idToken` (and optional role / guestId).
+  static const String googleLogin = '$apiUrl/auth/google';
+  /// Mobile Apple Sign-In: send Apple identity token.
+  static const String appleLogin = '$apiUrl/auth/apple';
   static const String forgotPassword = '$apiUrl/auth/forgot-password';
   static const String forgotPasswordOTPVerify = '$apiUrl/auth/forgot-otp-verify';
   static const String resetPassword = '$apiUrl/auth/reset-password';
@@ -39,6 +43,8 @@ class ApiConstants {
   // Profile
   static const String getMyProfile = '$apiUrl/user/get-my-profile';
   static const String updateProfile = '$apiUrl/user/update-my-profile';
+  /// Register / refresh device push token after login.
+  static const String updateFcmToken = '$apiUrl/user/fcm-token';
   static const String requestEmailChange = '$apiUrl/user/request-email-change';
   static const String verifyEmailChange = '$apiUrl/user/verify-email-change';
   static const String downloadMyData = '$apiUrl/user/download-my-data';

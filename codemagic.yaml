@@ -6,7 +6,7 @@ definitions:
 
   ios_signing_config: &ios_signing_config
     distribution_type: app_store
-    bundle_identifier: ui.neatboutique.jacobi
+    bundle_identifier: eu.golfimprove
 
   scripts:
     - &check_maps_keys
@@ -87,7 +87,7 @@ definitions:
         #!/usr/bin/env bash
         set -euo pipefail
         
-        export BUNDLE_ID="${BUNDLE_ID:-ui.neatboutique.jacobi}"
+        export BUNDLE_ID="${BUNDLE_ID:-eu.golfimprove}"
         
         if [ -z "${APP_STORE_APPLE_ID:-}" ]; then
           echo "Resolving App Store Apple ID from bundle id: $BUNDLE_ID"
@@ -333,7 +333,7 @@ workflows:
       # Optional: set this to skip auto-resolve from bundle id
       # (App Store Connect → App → General → App Information → Apple ID)
       vars:
-        BUNDLE_ID: ui.neatboutique.jacobi
+        BUNDLE_ID: eu.golfimprove
         # APP_STORE_APPLE_ID: "1234567890"
     cache:
       cache_paths:

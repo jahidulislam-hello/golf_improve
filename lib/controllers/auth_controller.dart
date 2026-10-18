@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/auth_service.dart';
+import 'package:golf_training_app/services/google_auth_service.dart';
+import 'package:golf_training_app/services/push_notification_service.dart';
 import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
 
 enum OtpFlow { signUp, forgotPassword }
 
 /// One controller class for the whole auth + onboarding flow.
 class AuthController extends ChangeNotifier {
-  AuthController({required AuthService authService}) : _authService = authService;
+  AuthController({
+    required AuthService authService,
+    GoogleAuthService? googleAuthService,
+  })  : _authService = authService,
+        _googleAuthService = googleAuthService ?? GoogleAuthService();
 
   final AuthService _authService;
+  final GoogleAuthService _googleAuthService;
 
   // ---------------------------------------------------------------------
   // Selected role (golfer / coach) — set on role selection screen
@@ -142,7 +150,74 @@ class AuthController extends ChangeNotifier {
         selectedRole = apiRole;
       }
       await _authService.ensureRestorableSession(role: apiRole);
+      await _syncFcmAfterAuth();
     });
+  }
+
+  /// Native Google account picker → `POST /auth/google` with idToken + FCM.
+  Future<bool> signInWithGoogle() async {
+    clearError();
+    _setLoading(true);
+    try {
+      final google = await _googleAuthService.signIn();
+      // Never block Google login on a slow/hanging FCM registration.
+      final fcmToken = await PushNotificationService.getToken().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
+      final response = await _authService.loginWithGoogle(
+        idToken: google.idToken,
+        role: selectedRole ?? UserRole.golfer,
+        fullName: google.displayName,
+        fcmToken: fcmToken,
+      );
+      await _authService.persistAuthResponse(response);
+      try {
+        await _authService.mergeStoredGuestAfterLogin(response);
+      } catch (_) {}
+
+      final apiRole = _authService.roleFromResponse(response);
+      if (apiRole != null) {
+        selectedRole = apiRole;
+      } else {
+        selectedRole ??= UserRole.golfer;
+      }
+      await _authService.ensureRestorableSession(role: selectedRole);
+      await PushNotificationService.syncTokenToServer(fcmToken);
+      _setLoading(false);
+      return true;
+    } on GoogleSignInCanceled {
+      _setLoading(false);
+      return false;
+    } on PlatformException catch (e) {
+      _setLoading(false);
+      if (e.code == 'sign_in_canceled' || e.code == 'canceled') {
+        return false;
+      }
+      if (e.code == 'channel-error') {
+        _setError(
+          'Google Sign-In needs a full rebuild. Uninstall the app, then run '
+          'flutter clean && flutter run',
+        );
+      } else {
+        _setError(e.message ?? 'Google Sign-In failed.');
+      }
+      return false;
+    } on ApiError catch (e) {
+      _setLoading(false);
+      _setError(e.message);
+      return false;
+    } catch (e) {
+      _setLoading(false);
+      _setError(e.toString().replaceFirst('Exception: ', ''));
+      return false;
+    }
+  }
+
+  Future<void> _syncFcmAfterAuth() async {
+    try {
+      await PushNotificationService.syncTokenToServer();
+    } catch (_) {}
   }
 
   // ---------------------------------------------------------------------
@@ -265,6 +340,7 @@ class AuthController extends ChangeNotifier {
         selectedRole = apiRole;
       }
       await _authService.ensureRestorableSession(role: apiRole);
+      await _syncFcmAfterAuth();
     });
   }
 

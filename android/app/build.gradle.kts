@@ -3,10 +3,22 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
+}
+
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val uploadKeystoreFile = rootProject.file("upload-keystore.jks")
+val hasUploadKeystore = keystorePropertiesFile.exists() && uploadKeystoreFile.exists()
+if (hasUploadKeystore) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
-    namespace = "com.example.golf_training_app"
+    namespace = "com.golfimprove.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,10 +32,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.golf_training_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "com.golfimprove.app"
         // google_mlkit_pose_detection needs a modern Android API level
         minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
@@ -31,11 +40,29 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasUploadKeystore) {
+            create("upload") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = uploadKeystoreFile
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+        // Sign debug with upload keystore so SHA-1 matches Firebase
+        // (6D:E3:C2:C9...) and Google Sign-In works (fixes ApiException: 10).
+        getByName("debug") {
+            if (hasUploadKeystore) {
+                signingConfig = signingConfigs.getByName("upload")
+            }
+        }
+        getByName("release") {
+            if (hasUploadKeystore) {
+                signingConfig = signingConfigs.getByName("upload")
+            }
         }
     }
 }

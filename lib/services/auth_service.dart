@@ -97,7 +97,11 @@ class AuthService {
     if (resolvedGuestId != null && resolvedGuestId.isNotEmpty) {
       body['guestId'] = resolvedGuestId;
     }
-    return _api.post(ApiConstants.register, body: body);
+    return _api.post(
+      ApiConstants.register,
+      body: body,
+      timeout: ApiService.authTimeout,
+    );
   }
 
   Future<dynamic> verifySignUpOtp({
@@ -130,6 +134,41 @@ class AuthService {
         'email': email,
         'password': password,
       },
+    );
+  }
+
+  /// Mobile Google Sign-In: `POST /auth/google` with Google ID token.
+  Future<dynamic> loginWithGoogle({
+    required String idToken,
+    UserRole? role,
+    String? fullName,
+    String? fcmToken,
+  }) {
+    final body = <String, dynamic>{
+      'idToken': idToken,
+    };
+    if (role != null) {
+      body['role'] = role.apiValue;
+    }
+    final trimmedName = fullName?.trim() ?? '';
+    if (trimmedName.isNotEmpty) {
+      body['fullName'] = trimmedName;
+    }
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      body['fcmToken'] = fcmToken;
+    }
+    return _api.post(
+      ApiConstants.googleLogin,
+      body: body,
+      timeout: ApiService.authTimeout,
+    );
+  }
+
+  /// `PATCH /user/fcm-token` — register device push token for the logged-in user.
+  Future<dynamic> updateFcmToken({required String fcmToken}) {
+    return _api.patch(
+      ApiConstants.updateFcmToken,
+      body: {'fcmToken': fcmToken},
     );
   }
 

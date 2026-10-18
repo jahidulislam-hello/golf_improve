@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/helpers/routes.dart';
 import 'package:golf_training_app/views/screens/auth/screens/sign_up_otp_verification_screen.dart';
+import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
 import 'package:provider/provider.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/golf_logo.dart';
@@ -44,9 +46,33 @@ class SignUpScreen extends StatelessWidget {
                 style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 28),
-              SecondaryButton.google(onPressed: () {}),
+              SecondaryButton.google(
+                onPressed: auth.isLoading
+                    ? null
+                    : () async {
+                        final success = await auth.signInWithGoogle();
+                        if (!context.mounted) return;
+                        if (!success) {
+                          _showAuthError(context, auth);
+                          return;
+                        }
+                        AppRoutes.goToHomeForRole(
+                          auth.selectedRole ?? UserRole.golfer,
+                        );
+                      },
+              ),
               const SizedBox(height: 14),
-              SecondaryButton.apple(onPressed: () {}),
+              SecondaryButton.apple(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Apple Sign-In is available on iPhone. On Android, use Google or email.',
+                      ),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 22),
               Row(
                 children: [
