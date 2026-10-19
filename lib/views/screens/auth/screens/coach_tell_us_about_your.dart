@@ -5,11 +5,9 @@ import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/helpers/routes.dart';
 import 'package:provider/provider.dart';
-
 import '../widgets/age_picker_sheet.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/golf_logo.dart';
-import '../widgets/pill_selector.dart';
 import '../widgets/primary_button.dart';
 
 void _showAuthError(BuildContext context, AuthController auth) {

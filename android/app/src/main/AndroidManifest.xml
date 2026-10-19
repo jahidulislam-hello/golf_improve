@@ -5,8 +5,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <!-- camera plugin merges WRITE_EXTERNAL_STORAGE, which implies READ_EXTERNAL_STORAGE.
-         Strip both. Gallery/photos use the Android Photo Picker (image_picker) — no READ_MEDIA_*. -->
+    <!-- Strip storage permissions merged by the camera plugin. Gallery uses Photo Picker. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         tools:node="remove"/>

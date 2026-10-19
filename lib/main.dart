@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,6 +21,7 @@ import 'services/push_notification_service.dart';
 void main() async {
   HttpOverrides.global = DeviceHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
+  _forceAndroidPhotoPicker();
   await SystemChrome.setPreferredOrientations(
     [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],
   );
@@ -34,6 +38,16 @@ void main() async {
       child: const MyApp(),
     ),
   );
+}
+
+/// Use the system Photo Picker on Android so the app never needs
+/// READ_MEDIA_IMAGES / READ_MEDIA_VIDEO (Play policy).
+void _forceAndroidPhotoPicker() {
+  if (kIsWeb) return;
+  final impl = ImagePickerPlatform.instance;
+  if (impl is ImagePickerAndroid) {
+    impl.useAndroidPhotoPicker = true;
+  }
 }
 
 class MyApp extends StatelessWidget {
