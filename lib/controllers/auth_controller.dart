@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/apple_auth_service.dart';
 import 'package:golf_training_app/services/auth_service.dart';
 import 'package:golf_training_app/services/google_auth_service.dart';
 import 'package:golf_training_app/services/push_notification_service.dart';
@@ -13,11 +14,14 @@ class AuthController extends ChangeNotifier {
   AuthController({
     required AuthService authService,
     GoogleAuthService? googleAuthService,
+    AppleAuthService? appleAuthService,
   })  : _authService = authService,
-        _googleAuthService = googleAuthService ?? GoogleAuthService();
+        _googleAuthService = googleAuthService ?? GoogleAuthService(),
+        _appleAuthService = appleAuthService ?? AppleAuthService();
 
   final AuthService _authService;
   final GoogleAuthService _googleAuthService;
+  final AppleAuthService _appleAuthService;
 
   // ---------------------------------------------------------------------
   // Selected role (golfer / coach) — set on role selection screen
@@ -202,6 +206,60 @@ class AuthController extends ChangeNotifier {
       } else {
         _setError(e.message ?? 'Google Sign-In failed.');
       }
+      return false;
+    } on ApiError catch (e) {
+      _setLoading(false);
+      _setError(e.message);
+      return false;
+    } catch (e) {
+      _setLoading(false);
+      _setError(e.toString().replaceFirst('Exception: ', ''));
+      return false;
+    }
+  }
+
+  /// Native Apple sheet → `POST /auth/apple` (sign-in and first-time sign-up).
+  Future<bool> signInWithApple() async {
+    clearError();
+    _setLoading(true);
+    try {
+      final apple = await _appleAuthService.signIn();
+      final fcmToken = await PushNotificationService.getToken().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
+      final response = await _authService.loginWithApple(
+        identityToken: apple.identityToken,
+        authorizationCode: apple.authorizationCode,
+        role: selectedRole ?? UserRole.golfer,
+        fullName: apple.fullName,
+        email: apple.email,
+        fcmToken: fcmToken,
+      );
+      await _authService.persistAuthResponse(response);
+      try {
+        await _authService.mergeStoredGuestAfterLogin(response);
+      } catch (_) {}
+
+      final apiRole = _authService.roleFromResponse(response);
+      if (apiRole != null) {
+        selectedRole = apiRole;
+      } else {
+        selectedRole ??= UserRole.golfer;
+      }
+      await _authService.ensureRestorableSession(role: selectedRole);
+      await PushNotificationService.syncTokenToServer(fcmToken);
+      _setLoading(false);
+      return true;
+    } on AppleSignInCanceled {
+      _setLoading(false);
+      return false;
+    } on PlatformException catch (e) {
+      _setLoading(false);
+      if (e.code == 'sign_in_canceled' || e.code == 'canceled') {
+        return false;
+      }
+      _setError(e.message ?? 'Apple Sign-In failed.');
       return false;
     } on ApiError catch (e) {
       _setLoading(false);

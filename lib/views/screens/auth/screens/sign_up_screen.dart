@@ -63,15 +63,20 @@ class SignUpScreen extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               SecondaryButton.apple(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Apple Sign-In is available on iPhone. On Android, use Google or email.',
-                      ),
-                    ),
-                  );
-                },
+                onPressed: auth.isLoading
+                    ? null
+                    : () async {
+                        final success = await auth.signInWithApple();
+                        if (!context.mounted) return;
+                        if (!success) {
+                          _showAuthError(context, auth);
+                          return;
+                        }
+                        // Apple creates/logs in the account in one step (no OTP).
+                        AppRoutes.goToHomeForRole(
+                          auth.selectedRole ?? UserRole.golfer,
+                        );
+                      },
               ),
               const SizedBox(height: 22),
               Row(

@@ -31,7 +31,8 @@ class CameraCaptureScreen extends StatefulWidget {
   State<CameraCaptureScreen> createState() => _CameraCaptureScreenState();
 }
 
-class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
+class _CameraCaptureScreenState extends State<CameraCaptureScreen>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   List<CameraDescription> _cameras = [];
   int _cameraIndex = 0;
@@ -42,6 +43,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
 
   bool _isStreaming = false;
   bool _isRecording = false;
+  bool _permissionPromptInFlight = false;
   Duration _elapsed = Duration.zero;
   Timer? _recordTimer;
   Stopwatch? _recordStopwatch;
@@ -77,7 +79,18 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _bootstrap();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // User may have enabled Camera/Mic in Settings — retry automatically.
+    if (_permissionError != null &&
+        (_controller == null || !(_controller?.value.isInitialized ?? false))) {
+      _initCamera();
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -179,17 +192,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   }
 
   Future<void> _initCamera() async {
-    final camStatus = await Permission.camera.request();
-    final micStatus = await Permission.microphone.request();
-
-    if (!camStatus.isGranted || !micStatus.isGranted) {
-      setState(() {
-        _permissionError =
-            'Camera and microphone access are required to record your swing. '
-            'Enable them in Settings to continue.';
-      });
-      return;
-    }
+    final allowed = await _ensureCapturePermissions();
+    if (!allowed) return;
 
     try {
       _cameras = await availableCameras();
@@ -210,6 +214,55 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     } catch (e) {
       setState(() => _permissionError = 'Could not start the camera: $e');
     }
+  }
+
+  /// Shows the iOS/Android Allow dialogs first. Only suggests Settings after
+  /// the user has denied (or permanently denied) camera / microphone.
+  Future<bool> _ensureCapturePermissions() async {
+    if (_permissionPromptInFlight) return false;
+    _permissionPromptInFlight = true;
+    try {
+      // Ask one at a time so iOS can present each system Allow sheet.
+      var cam = await Permission.camera.status;
+      if (!cam.isGranted && !cam.isPermanentlyDenied) {
+        cam = await Permission.camera.request();
+      }
+
+      var mic = await Permission.microphone.status;
+      if (!mic.isGranted && !mic.isPermanentlyDenied) {
+        mic = await Permission.microphone.request();
+      }
+
+      if (cam.isGranted && mic.isGranted) {
+        if (mounted) setState(() => _permissionError = null);
+        return true;
+      }
+
+      final lockedOut = cam.isPermanentlyDenied || mic.isPermanentlyDenied;
+      if (!mounted) return false;
+      setState(() {
+        _permissionError = lockedOut
+            ? 'Camera and microphone were blocked. Open Settings → GolfImprove, '
+                'enable Camera and Microphone, then return and tap Try Again.'
+            : 'Camera and microphone access are required to record your swing. '
+                'Tap Try Again and choose Allow on the system popup.';
+      });
+      return false;
+    } finally {
+      _permissionPromptInFlight = false;
+    }
+  }
+
+  Future<void> _retryCapturePermissions() async {
+    setState(() => _permissionError = null);
+    final cam = await Permission.camera.status;
+    final mic = await Permission.microphone.status;
+    // Only jump to Settings when iOS will no longer show the Allow sheet.
+    if (cam.isPermanentlyDenied || mic.isPermanentlyDenied) {
+      await openAppSettings();
+      return;
+    }
+    await _initCamera();
   }
 
   CameraDescription? _findCamera({
@@ -659,6 +712,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _recordTimer?.cancel();
     _stopImageStream();
     _controller?.dispose();
@@ -692,7 +746,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
       backgroundColor: AppColors.primaryNavy,
       body: SafeArea(
         child: _permissionError != null
-            ? _PermissionError(message: _permissionError!)
+            ? _PermissionError(
+                message: _permissionError!,
+                onRetry: _retryCapturePermissions,
+              )
             : _controller == null || !_controller!.value.isInitialized
             ? const Center(
                 child: CircularProgressIndicator(
@@ -814,7 +871,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
 
 class _PermissionError extends StatelessWidget {
   final String message;
-  const _PermissionError({required this.message});
+  final VoidCallback onRetry;
+  const _PermissionError({
+    required this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -832,7 +893,11 @@ class _PermissionError extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           TextButton(
-            onPressed: () => openAppSettings(),
+            onPressed: onRetry,
+            child: const Text('Try Again'),
+          ),
+          TextButton(
+            onPressed: openAppSettings,
             child: const Text('Open Settings'),
           ),
         ],

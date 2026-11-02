@@ -164,6 +164,43 @@ class AuthService {
     );
   }
 
+  /// Mobile Apple Sign-In: `POST /auth/apple` with Apple identity token.
+  Future<dynamic> loginWithApple({
+    required String identityToken,
+    String? authorizationCode,
+    UserRole? role,
+    String? fullName,
+    String? email,
+    String? fcmToken,
+  }) {
+    final body = <String, dynamic>{
+      'identityToken': identityToken,
+    };
+    final code = authorizationCode?.trim() ?? '';
+    if (code.isNotEmpty) {
+      body['authorizationCode'] = code;
+    }
+    if (role != null) {
+      body['role'] = role.apiValue;
+    }
+    final trimmedName = fullName?.trim() ?? '';
+    if (trimmedName.isNotEmpty) {
+      body['fullName'] = trimmedName;
+    }
+    final trimmedEmail = email?.trim() ?? '';
+    if (trimmedEmail.isNotEmpty) {
+      body['email'] = trimmedEmail;
+    }
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      body['fcmToken'] = fcmToken;
+    }
+    return _api.post(
+      ApiConstants.appleLogin,
+      body: body,
+      timeout: ApiService.authTimeout,
+    );
+  }
+
   /// `PATCH /user/fcm-token` — register device push token for the logged-in user.
   Future<dynamic> updateFcmToken({required String fcmToken}) {
     return _api.patch(
