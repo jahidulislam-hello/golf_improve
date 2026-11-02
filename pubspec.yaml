@@ -5,7 +5,7 @@ description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
-version: 1.0.0+6
+version: 1.0.0+7
 
 environment:
   sdk: ^3.11.4
@@ -24,6 +24,9 @@ dependencies:
   flutter_spinkit:
   pin_code_fields:
   image_picker:
+  # Direct deps so main.dart can force Android Photo Picker (no READ_MEDIA_*).
+  image_picker_android:
+  image_picker_platform_interface:
   internet_connection_checker:
   connectivity_plus:
   fluttertoast:

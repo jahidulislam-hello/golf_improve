@@ -15,6 +15,7 @@ class CaptureSession {
     this.previewWidth = 1920,
     this.previewHeight = 1080,
     this.deviceModel,
+    this.isStillImage = false,
   });
 
   final String videoPath;
@@ -29,6 +30,9 @@ class CaptureSession {
   final int previewWidth;
   final int previewHeight;
   final String? deviceModel;
+
+  /// Gallery photo pose check (not a swing video upload).
+  final bool isStillImage;
 
   double get effectiveTrimEnd => trimEnd ?? durationSeconds;
 
@@ -55,6 +59,7 @@ class CaptureSession {
       previewWidth: previewWidth,
       previewHeight: previewHeight,
       deviceModel: deviceModel,
+      isStillImage: isStillImage,
     );
   }
 }
