@@ -30,7 +30,7 @@ class ReviewSwingScreen extends StatefulWidget {
 }
 
 class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _initialized = false;
   bool _saving = false;
   bool _discarded = false;
@@ -38,15 +38,24 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
   String? _queuedKey;
   final DateTime _recordedAt = DateTime.now();
 
+  bool get _isStillImage => widget.session.isStillImage;
+
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.file(File(widget.session.videoPath))
-      ..initialize().then((_) {
-        if (!mounted) return;
-        setState(() => _initialized = true);
-      });
-    _controller.addListener(() {
+    if (_isStillImage) {
+      // Gallery photos open here for AI pose review — no video player / upload.
+      _initialized = true;
+      return;
+    }
+    final controller =
+        VideoPlayerController.file(File(widget.session.videoPath));
+    _controller = controller;
+    controller.initialize().then((_) {
+      if (!mounted) return;
+      setState(() => _initialized = true);
+    });
+    controller.addListener(() {
       if (mounted) setState(() {});
     });
     _saveInBackground();
@@ -54,40 +63,48 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   void _setSpeed(double speed) {
+    final controller = _controller;
+    if (controller == null) return;
     setState(() => _speed = speed);
-    _controller.setPlaybackSpeed(speed);
+    controller.setPlaybackSpeed(speed);
   }
 
   void _togglePlay() {
+    final controller = _controller;
+    if (controller == null) return;
     setState(() {
-      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+      controller.value.isPlaying ? controller.pause() : controller.play();
     });
   }
 
   void _seekBy(Duration delta) {
-    final target = _controller.value.position + delta;
+    final controller = _controller;
+    if (controller == null) return;
+    final target = controller.value.position + delta;
     final clamped = target < Duration.zero
         ? Duration.zero
-        : (target > _controller.value.duration
-            ? _controller.value.duration
+        : (target > controller.value.duration
+            ? controller.value.duration
             : target);
-    _controller.seekTo(clamped);
+    controller.seekTo(clamped);
   }
 
   void _seekFraction(double fraction) {
-    if (!_initialized) return;
-    final duration = _controller.value.duration;
-    _controller.seekTo(duration * fraction.clamp(0.0, 1.0));
+    final controller = _controller;
+    if (!_initialized || controller == null) return;
+    final duration = controller.value.duration;
+    controller.seekTo(duration * fraction.clamp(0.0, 1.0));
   }
 
   CaptureSession _trimmedSession() {
-    final playerSec = _initialized
-        ? _controller.value.duration.inMilliseconds / 1000.0
+    final controller = _controller;
+    final playerSec = _initialized && controller != null
+        ? controller.value.duration.inMilliseconds / 1000.0
         : widget.session.durationSeconds;
     final duration = playerSec > 0 ? playerSec : widget.session.durationSeconds;
     var start = 0.0;
@@ -110,11 +127,13 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
       previewWidth: widget.session.previewWidth,
       previewHeight: widget.session.previewHeight,
       deviceModel: widget.session.deviceModel,
+      isStillImage: widget.session.isStillImage,
     ).sanitized();
   }
 
   /// Copies the clip, stores trim metadata, and syncs only when online.
   Future<void> _saveInBackground() async {
+    if (_isStillImage) return;
     if (_saving) return;
     setState(() => _saving = true);
     File? copy;
@@ -230,8 +249,9 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
   }
 
   Future<void> _openFullscreen() async {
-    if (!_initialized) return;
-    await _controller.pause();
+    final controller = _controller;
+    if (!_initialized || controller == null || _isStillImage) return;
+    await controller.pause();
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -312,15 +332,21 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
   }
 
   double get _progress {
-    if (!_initialized) return 0;
-    final duration = _controller.value.duration.inMilliseconds;
+    final controller = _controller;
+    if (!_initialized || controller == null) return 0;
+    final duration = controller.value.duration.inMilliseconds;
     if (duration <= 0) return 0;
-    return (_controller.value.position.inMilliseconds / duration)
+    return (controller.value.position.inMilliseconds / duration)
         .clamp(0.0, 1.0);
   }
 
+  bool get _poseRecognized =>
+      widget.session.poseSamples.isNotEmpty &&
+      widget.session.poseSamples.first.landmarks.length >= 8;
+
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
     return Scaffold(
       backgroundColor: AppColors.surfaceWhite,
       appBar: AppBar(
@@ -331,7 +357,10 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
           child: _RoundBackButton(onTap: () => Navigator.of(context).pop()),
         ),
         leadingWidth: 56,
-        title: const Text('Review Swing', style: AppTextStyles.appBarTitle),
+        title: Text(
+          _isStillImage ? 'Review Photo' : 'Review Swing',
+          style: AppTextStyles.appBarTitle,
+        ),
         centerTitle: false,
         actions: [
           if (_saving)
@@ -349,6 +378,16 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (_isStillImage)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  _poseRecognized
+                      ? 'AI pose recognized in this photo.'
+                      : 'AI could not find a clear full-body pose in this photo.',
+                  style: AppTextStyles.caption,
+                ),
+              ),
             AspectRatio(
               aspectRatio: 16 / 10,
               child: Container(
@@ -356,13 +395,25 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (_initialized)
+                    if (_isStillImage)
+                      Image.file(
+                        File(widget.session.videoPath),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white54,
+                            size: 48,
+                          ),
+                        ),
+                      )
+                    else if (_initialized && controller != null)
                       FittedBox(
                         fit: BoxFit.contain,
                         child: SizedBox(
-                          width: _controller.value.size.width,
-                          height: _controller.value.size.height,
-                          child: VideoPlayer(_controller),
+                          width: controller.value.size.width,
+                          height: controller.value.size.height,
+                          child: VideoPlayer(controller),
                         ),
                       )
                     else
@@ -370,63 +421,67 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                         child:
                             CircularProgressIndicator(color: Colors.white),
                       ),
-                    Positioned(
-                      right: 12,
-                      bottom: 12,
-                      child: Material(
-                        color: Colors.black54,
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: _initialized ? _openFullscreen : null,
-                          child: const SizedBox(
-                            width: 40,
-                            height: 40,
-                            child: Icon(
-                              Icons.fullscreen,
-                              color: Colors.white,
-                              size: 22,
+                    if (!_isStillImage)
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        child: Material(
+                          color: Colors.black54,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _initialized ? _openFullscreen : null,
+                            child: const SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: Icon(
+                                Icons.fullscreen,
+                                color: Colors.white,
+                                size: 22,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: _VideoProgressBar(
-                progress: _progress,
-                onSeek: _seekFraction,
+            if (!_isStillImage)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _VideoProgressBar(
+                  progress: _progress,
+                  onSeek: _seekFraction,
+                ),
               ),
-            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _ScrubberCard(
-                      controller: _controller,
-                      initialized: _initialized,
-                      onPlay: _togglePlay,
-                      onRewind: () =>
-                          _seekBy(const Duration(milliseconds: -33)),
-                      onForward: () =>
-                          _seekBy(const Duration(milliseconds: 33)),
-                      speed: _speed,
-                      onSpeedChanged: _setSpeed,
-                    ),
-                    const SizedBox(height: 16),
-                    _ReviewActions(
-                      onDraw: _openFullscreen,
-                      onCompare: _compare,
-                      onNote: _addNote,
-                      onShare: _shareWithCoach,
-                    ),
-                    const SizedBox(height: 12),
+                    if (!_isStillImage && controller != null) ...[
+                      _ScrubberCard(
+                        controller: controller,
+                        initialized: _initialized,
+                        onPlay: _togglePlay,
+                        onRewind: () =>
+                            _seekBy(const Duration(milliseconds: -33)),
+                        onForward: () =>
+                            _seekBy(const Duration(milliseconds: 33)),
+                        speed: _speed,
+                        onSpeedChanged: _setSpeed,
+                      ),
+                      const SizedBox(height: 16),
+                      _ReviewActions(
+                        onDraw: _openFullscreen,
+                        onCompare: _compare,
+                        onNote: _addNote,
+                        onShare: _shareWithCoach,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
@@ -438,32 +493,41 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                             borderRadius: AppRadii.buttonBorderRadius,
                           ),
                         ),
-                        onPressed: _talkWithCoach,
-                        child: const Text(
-                          'Talk with AI Golf Coach',
+                        onPressed: _isStillImage
+                            ? () => Navigator.of(context).pop()
+                            : _talkWithCoach,
+                        child: Text(
+                          _isStillImage
+                              ? 'Done'
+                              : 'Talk with AI Golf Coach',
                           style: AppTextStyles.buttonLabel,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.destructiveRed,
-                          side:
-                              const BorderSide(color: AppColors.borderLightGray),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: AppRadii.buttonBorderRadius,
+                    if (!_isStillImage) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.destructiveRed,
+                            side: const BorderSide(
+                              color: AppColors.borderLightGray,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: AppRadii.buttonBorderRadius,
+                            ),
+                          ),
+                          onPressed: _confirmDiscard,
+                          icon: const Icon(Icons.close),
+                          label: Text(
+                            'Discard Clip',
+                            style: AppTextStyles.buttonLabel
+                                .copyWith(color: AppColors.destructiveRed),
                           ),
                         ),
-                        onPressed: _confirmDiscard,
-                        icon: const Icon(Icons.close),
-                        label: Text('Discard Clip',
-                            style: AppTextStyles.buttonLabel
-                                .copyWith(color: AppColors.destructiveRed)),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

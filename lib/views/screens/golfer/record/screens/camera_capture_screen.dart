@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:golf_training_app/core/app_capture_colors.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_radii.dart';
@@ -239,8 +240,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
 
     final controller = CameraController(
       description,
-      ResolutionPreset.high,
+      // medium keeps pose FPS usable and avoids the large-object GC thrash
+      // seen with high/max presets while streaming into ML Kit.
+      ResolutionPreset.medium,
       enableAudio: true,
+      // Required by ML Kit: nv21 (Android) / bgra8888 (iOS).
       imageFormatGroup: Platform.isAndroid
           ? ImageFormatGroup.nv21
           : ImageFormatGroup.bgra8888,
@@ -249,6 +253,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     _controller = controller;
     if (!mounted) return;
     setState(() {});
+    await _poseService.warmUp();
     await _startPoseStream();
   }
 
@@ -257,7 +262,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     if (controller == null ||
         !controller.value.isInitialized ||
         _isRecording ||
-        _isStreaming) {
+        _isStreaming ||
+        controller.value.isStreamingImages) {
       return;
     }
 
@@ -291,7 +297,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   }
 
   Future<void> _onCameraImage(CameraImage image) async {
-    if (!mounted || _isRecording || _poseService.isUnavailable) return;
+    // Run AI pose on preview frames and on frames streamed while recording.
+    if (!mounted || _poseService.isUnavailable) return;
     final controller = _controller;
     if (controller == null) return;
 
@@ -318,10 +325,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
         ? _smoothJoints(result.joints)
         : _smoothedJoints;
 
-    // Keep a rolling window of recent samples for telemetry.
+    // Keep a rolling window of recent samples for swing telemetry / upload.
     _poseSamples.add(result.sample);
-    if (_poseSamples.length > 120) {
-      _poseSamples.removeRange(0, _poseSamples.length - 120);
+    if (_poseSamples.length > 180) {
+      _poseSamples.removeRange(0, _poseSamples.length - 180);
     }
 
     setState(() {
@@ -363,13 +370,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   }
 
   int _deviceOrientationDegrees() {
-    switch (_controller?.value.deviceOrientation.name) {
-      case 'landscapeLeft':
+    switch (_controller?.value.deviceOrientation) {
+      case DeviceOrientation.landscapeLeft:
         return 90;
-      case 'portraitDown':
+      case DeviceOrientation.portraitDown:
         return 180;
-      case 'landscapeRight':
+      case DeviceOrientation.landscapeRight:
         return 270;
+      case DeviceOrientation.portraitUp:
       default:
         return 0;
     }
@@ -413,62 +421,81 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   Future<void> _pickFromGallery() async {
     if (_isRecording) return;
 
-    final picked = await showModalBottomSheet<_PickedGalleryType>(
-      context: context,
-      backgroundColor: AppColors.surfaceWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.video_library_outlined),
-                title: const Text('Choose Video'),
-                subtitle: const Text('Upload a swing clip from your gallery'),
-                onTap: () =>
-                    Navigator.of(context).pop(_PickedGalleryType.video),
-              ),
-              ListTile(
-                leading: const Icon(Icons.image_outlined),
-                title: const Text('Choose Image'),
-                subtitle: const Text('Open photos from your gallery'),
-                onTap: () =>
-                    Navigator.of(context).pop(_PickedGalleryType.image),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (picked == null || !mounted) return;
+    // Pause live stream so the system picker + AI are not fighting for memory.
+    await _stopImageStream();
 
     try {
-      if (picked == _PickedGalleryType.video) {
-        final file = await _imagePicker.pickVideo(source: ImageSource.gallery);
-        if (file == null || !mounted) return;
-        await _openPickedVideo(file);
-        return;
-      }
-
-      final file = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (file == null || !mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Selected image: ${file.name}. Swing upload currently supports video clips.',
-          ),
-        ),
+      // One system picker for photo or video — no dead-end "video only" sheet.
+      final file = await _imagePicker.pickMedia(
+        imageQuality: 90,
+        maxWidth: 1920,
       );
+      if (file == null || !mounted) return;
+
+      if (_isStillImagePath(file.path, file.mimeType)) {
+        await _openPickedImage(file);
+      } else {
+        await _openPickedVideo(file);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not open gallery media: $e')),
       );
+    } finally {
+      if (mounted && !_isRecording) {
+        await _startPoseStream();
+      }
     }
+  }
+
+  bool _isStillImagePath(String path, String? mimeType) {
+    final mime = (mimeType ?? '').toLowerCase();
+    if (mime.startsWith('image/')) return true;
+    if (mime.startsWith('video/')) return false;
+    final lower = path.toLowerCase();
+    const imageExts = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.webp',
+      '.heic',
+      '.heif',
+      '.bmp',
+      '.gif',
+    ];
+    return imageExts.any(lower.endsWith);
+  }
+
+  Future<void> _openPickedImage(XFile file) async {
+    final pose = await _poseService.processImageFile(file.path);
+    if (!mounted) return;
+
+    final allowedClubs = _categories.map((c) => c.name).toList();
+    final clubName = CaptureFieldNormalizer.clubType(
+      _selectedCategory?.name ?? 'Driver',
+      allowedClubs: allowedClubs,
+    );
+    final samples = pose == null ? const <PoseSample>[] : [pose.sample];
+    final session = CaptureSession(
+      videoPath: file.path,
+      clubType: clubName,
+      cameraAngle: CaptureFieldNormalizer.cameraAngle(_selectedAngle),
+      recordingMode: CaptureFieldNormalizer.recordingMode(_selectedMode),
+      handedness: CaptureFieldNormalizer.handedness(_handedness),
+      durationSeconds: 1,
+      trimStart: 0,
+      trimEnd: 1,
+      poseSamples: samples,
+      previewWidth: pose?.imageWidth ?? _previewWidth,
+      previewHeight: pose?.imageHeight ?? _previewHeight,
+      deviceModel: Platform.isIOS ? 'iOS' : 'Android',
+      isStillImage: true,
+    ).sanitized(allowedClubs: allowedClubs);
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ReviewSwingScreen(session: session)),
+    );
   }
 
   Future<void> _openPickedVideo(XFile file) async {
@@ -517,10 +544,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
       _recordTimer?.cancel();
       _recordStopwatch?.stop();
       final file = await controller.stopVideoRecording();
+      // stopVideoRecording also stops the frame stream used for AI.
+      _isStreaming = false;
       final durationSec = (elapsedMs / 1000.0).clamp(1.0, 600.0);
       setState(() => _isRecording = false);
 
-      // Resume pose stream for next take.
+      // Resume live AI pose for the next take.
       await _startPoseStream();
 
       if (!mounted) return;
@@ -549,10 +578,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
         MaterialPageRoute(builder: (_) => ReviewSwingScreen(session: session)),
       );
     } else {
+      // Standalone preview stream must stop before starting record+stream.
       await _stopImageStream();
-      // Keep preview pose samples for upload telemetry (stream stops while recording).
+      _poseSamples.clear();
       await controller.prepareForVideoRecording();
-      await controller.startVideoRecording();
+      try {
+        // Stream frames into ML Kit while the swing is being recorded.
+        await controller.startVideoRecording(onAvailable: _onCameraImage);
+        _isStreaming = true;
+      } catch (e) {
+        debugPrint(
+          'Recording with AI frame stream failed, recording without stream: $e',
+        );
+        await controller.startVideoRecording();
+        _isStreaming = false;
+      }
       _recordStopwatch = Stopwatch()..start();
       setState(() {
         _isRecording = true;
@@ -1166,4 +1206,3 @@ class _CaptureModeTabs extends StatelessWidget {
   }
 }
 
-enum _PickedGalleryType { video, image }

@@ -9,7 +9,7 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import '../models/capture_session.dart';
 import '../widgets/capture_overlays.dart';
 
-/// Live pose detection for the AI Camera preview (stopped while recording).
+/// Live pose detection for the AI Camera (preview + recording frame stream).
 ///
 /// If the native ML Kit plugin is missing (hot-reload after `pub add`, or
 /// incomplete rebuild), [isUnavailable] becomes true and callers should stop
@@ -26,11 +26,26 @@ class PoseDetectorService {
   bool get isUnavailable => _unavailable;
   bool get isReady => !_unavailable && !_disposed;
 
+  /// Creates the native detector early so the first preview frames are analysed.
+  Future<void> warmUp() async {
+    if (_disposed || _unavailable) return;
+    try {
+      _ensureDetector;
+    } on MissingPluginException catch (e) {
+      _markUnavailable(e);
+    } catch (e) {
+      if (_isMissingPlugin(e)) {
+        _markUnavailable(e);
+      }
+    }
+  }
+
   PoseDetector get _ensureDetector {
     return _detector ??= PoseDetector(
       options: PoseDetectorOptions(
+        // Stream + base model is the ML Kit-recommended live path on phones.
         mode: PoseDetectionMode.stream,
-        model: PoseDetectionModel.accurate,
+        model: PoseDetectionModel.base,
       ),
     );
   }
@@ -52,56 +67,11 @@ class PoseDetectorService {
       );
       if (input == null) return null;
 
-      final poses = await _ensureDetector.processImage(input);
-      if (poses.isEmpty) return null;
-
-      final pose = poses.first;
-      final landmarks = <String, PoseLandmarkPoint>{};
-      void put(String key, PoseLandmarkType type) {
-        final lm = pose.landmarks[type];
-        if (lm == null) return;
-        landmarks[key] = PoseLandmarkPoint(
-          x: lm.x,
-          y: lm.y,
-          confidence: lm.likelihood.clamp(0.0, 1.0),
-        );
-      }
-
-      put('nose', PoseLandmarkType.nose);
-      put('left_shoulder', PoseLandmarkType.leftShoulder);
-      put('right_shoulder', PoseLandmarkType.rightShoulder);
-      put('left_elbow', PoseLandmarkType.leftElbow);
-      put('right_elbow', PoseLandmarkType.rightElbow);
-      put('left_wrist', PoseLandmarkType.leftWrist);
-      put('right_wrist', PoseLandmarkType.rightWrist);
-      put('left_hip', PoseLandmarkType.leftHip);
-      put('right_hip', PoseLandmarkType.rightHip);
-      put('left_knee', PoseLandmarkType.leftKnee);
-      put('right_knee', PoseLandmarkType.rightKnee);
-      put('left_ankle', PoseLandmarkType.leftAnkle);
-      put('right_ankle', PoseLandmarkType.rightAnkle);
-
-      final avgConfidence = landmarks.isEmpty
-          ? 0.0
-          : landmarks.values.map((e) => e.confidence).reduce((a, b) => a + b) /
-                landmarks.length;
-
-      final sample = PoseSample(
-        timestampMs: timestampMs,
-        landmarks: landmarks,
-        confidence: avgConfidence,
-      );
-
-      final joints = _toOverlayJoints(
-        landmarks,
-        imageSize: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: input.metadata!.rotation,
-      );
-      return PoseFrameResult(
-        sample: sample,
-        joints: joints,
+      return await _detect(
+        input,
         imageWidth: image.width,
         imageHeight: image.height,
+        timestampMs: timestampMs,
       );
     } on MissingPluginException catch (e) {
       _markUnavailable(e);
@@ -116,6 +86,122 @@ class PoseDetectorService {
     } finally {
       _busy = false;
     }
+  }
+
+  /// Runs pose detection on a still photo from the gallery / disk.
+  Future<PoseFrameResult?> processImageFile(
+    String path, {
+    int? timestampMs,
+  }) async {
+    if (_disposed || _unavailable) return null;
+    if (_busy) {
+      // Wait briefly so a live-stream frame can finish.
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      if (_busy) return null;
+    }
+    _busy = true;
+    try {
+      await warmUp();
+      if (_unavailable) return null;
+      final input = InputImage.fromFilePath(path);
+      return await _detect(
+        input,
+        imageWidth: 0,
+        imageHeight: 0,
+        timestampMs: timestampMs ?? DateTime.now().millisecondsSinceEpoch,
+      );
+    } on MissingPluginException catch (e) {
+      _markUnavailable(e);
+      return null;
+    } catch (e, st) {
+      if (_isMissingPlugin(e)) {
+        _markUnavailable(e);
+        return null;
+      }
+      debugPrint('PoseDetectorService file error: $e\n$st');
+      return null;
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<PoseFrameResult?> _detect(
+    InputImage input, {
+    required int imageWidth,
+    required int imageHeight,
+    required int timestampMs,
+  }) async {
+    final poses = await _ensureDetector.processImage(input);
+    if (poses.isEmpty) return null;
+
+    final pose = poses.first;
+    final landmarks = <String, PoseLandmarkPoint>{};
+    void put(String key, PoseLandmarkType type) {
+      final lm = pose.landmarks[type];
+      if (lm == null) return;
+      landmarks[key] = PoseLandmarkPoint(
+        x: lm.x,
+        y: lm.y,
+        confidence: lm.likelihood.clamp(0.0, 1.0),
+      );
+    }
+
+    put('nose', PoseLandmarkType.nose);
+    put('left_shoulder', PoseLandmarkType.leftShoulder);
+    put('right_shoulder', PoseLandmarkType.rightShoulder);
+    put('left_elbow', PoseLandmarkType.leftElbow);
+    put('right_elbow', PoseLandmarkType.rightElbow);
+    put('left_wrist', PoseLandmarkType.leftWrist);
+    put('right_wrist', PoseLandmarkType.rightWrist);
+    put('left_hip', PoseLandmarkType.leftHip);
+    put('right_hip', PoseLandmarkType.rightHip);
+    put('left_knee', PoseLandmarkType.leftKnee);
+    put('right_knee', PoseLandmarkType.rightKnee);
+    put('left_ankle', PoseLandmarkType.leftAnkle);
+    put('right_ankle', PoseLandmarkType.rightAnkle);
+
+    if (landmarks.isEmpty) return null;
+
+    final avgConfidence =
+        landmarks.values.map((e) => e.confidence).reduce((a, b) => a + b) /
+            landmarks.length;
+
+    final sample = PoseSample(
+      timestampMs: timestampMs,
+      landmarks: landmarks,
+      confidence: avgConfidence,
+    );
+
+    final meta = input.metadata;
+    final width = imageWidth > 0
+        ? imageWidth
+        : (meta?.size.width.toInt() ?? _estimateWidth(landmarks));
+    final height = imageHeight > 0
+        ? imageHeight
+        : (meta?.size.height.toInt() ?? _estimateHeight(landmarks));
+    final rotation = meta?.rotation ?? InputImageRotation.rotation0deg;
+
+    final joints = _toOverlayJoints(
+      landmarks,
+      imageSize: Size(width.toDouble(), height.toDouble()),
+      rotation: rotation,
+    );
+    return PoseFrameResult(
+      sample: sample,
+      joints: joints,
+      imageWidth: width,
+      imageHeight: height,
+    );
+  }
+
+  int _estimateWidth(Map<String, PoseLandmarkPoint> landmarks) {
+    final xs = landmarks.values.map((e) => e.x);
+    return math.max(1, xs.reduce(math.max).ceil());
+  }
+
+  int _estimateHeight(Map<String, PoseLandmarkPoint> landmarks) {
+    final ys = landmarks.values.map((e) => e.y);
+    return math.max(1, ys.reduce(math.max).ceil());
   }
 
   void _markUnavailable(Object e) {
@@ -232,23 +318,42 @@ class PoseDetectorService {
       camera: camera,
       deviceOrientationDegrees: deviceOrientationDegrees,
     );
-    if (rotation == null) return null;
+    if (rotation == null || image.planes.isEmpty) return null;
 
-    final Uint8List bytes;
-    final InputImageFormat format;
-    if (Platform.isAndroid) {
-      if (image.planes.isEmpty) return null;
-      bytes = image.planes.first.bytes;
-      format = InputImageFormat.nv21;
-    } else {
-      final allBytes = WriteBuffer();
-      for (final Plane plane in image.planes) {
-        allBytes.putUint8List(plane.bytes);
+    final rawFormat = InputImageFormatValue.fromRawValue(image.format.raw);
+
+    if (Platform.isIOS) {
+      if (rawFormat != InputImageFormat.bgra8888 || image.planes.length != 1) {
+        return null;
       }
-      bytes = allBytes.done().buffer.asUint8List();
-      final parsed = InputImageFormatValue.fromRawValue(image.format.raw);
-      if (parsed == null) return null;
-      format = parsed;
+      final plane = image.planes.first;
+      return InputImage.fromBytes(
+        bytes: plane.bytes,
+        metadata: InputImageMetadata(
+          size: Size(image.width.toDouble(), image.height.toDouble()),
+          rotation: rotation,
+          format: InputImageFormat.bgra8888,
+          bytesPerRow: plane.bytesPerRow,
+        ),
+      );
+    }
+
+    // Android: prefer true NV21 single-plane buffers. CameraX sometimes still
+    // delivers YUV_420_888 (3 planes) — convert those so pose can run.
+    final Uint8List bytes;
+    final int bytesPerRow;
+    if (rawFormat == InputImageFormat.nv21 && image.planes.length == 1) {
+      bytes = image.planes.first.bytes;
+      bytesPerRow = image.planes.first.bytesPerRow;
+    } else if (image.planes.length == 1) {
+      // Some devices report an unexpected format but still give NV21 bytes.
+      bytes = image.planes.first.bytes;
+      bytesPerRow = image.planes.first.bytesPerRow;
+    } else if (image.planes.length >= 3) {
+      bytes = _yuv420ToNv21(image);
+      bytesPerRow = image.width;
+    } else {
+      return null;
     }
 
     return InputImage.fromBytes(
@@ -256,10 +361,44 @@ class PoseDetectorService {
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
         rotation: rotation,
-        format: format,
-        bytesPerRow: image.planes.first.bytesPerRow,
+        format: InputImageFormat.nv21,
+        bytesPerRow: bytesPerRow,
       ),
     );
+  }
+
+  /// Converts Android YUV_420_888 camera frames into NV21 for ML Kit.
+  Uint8List _yuv420ToNv21(CameraImage image) {
+    final width = image.width;
+    final height = image.height;
+    final yPlane = image.planes[0];
+    final uPlane = image.planes[1];
+    final vPlane = image.planes[2];
+
+    final ySize = width * height;
+    final nv21 = Uint8List(ySize + ySize ~/ 2);
+
+    final yRowStride = yPlane.bytesPerRow;
+    final yBytes = yPlane.bytes;
+    var out = 0;
+    for (var row = 0; row < height; row++) {
+      final start = row * yRowStride;
+      nv21.setRange(out, out + width, yBytes, start);
+      out += width;
+    }
+
+    final uvRowStride = uPlane.bytesPerRow;
+    final uvPixelStride = uPlane.bytesPerPixel ?? 1;
+    final uBytes = uPlane.bytes;
+    final vBytes = vPlane.bytes;
+    for (var row = 0; row < height ~/ 2; row++) {
+      for (var col = 0; col < width ~/ 2; col++) {
+        final uvIndex = row * uvRowStride + col * uvPixelStride;
+        nv21[out++] = vBytes[uvIndex];
+        nv21[out++] = uBytes[uvIndex];
+      }
+    }
+    return nv21;
   }
 
   InputImageRotation? _rotation({

@@ -5,13 +5,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <!-- Strip storage permissions merged by the camera plugin. Gallery uses Photo Picker. -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        tools:node="remove"/>
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        tools:node="remove"/>
+    <!-- Gallery/video pick uses the system Photo Picker (see main.dart).
+         Strip broad media/storage permissions so Play policy stays satisfied
+         even if a plugin tries to merge them. -->
+
+
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <application
