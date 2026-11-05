@@ -43,6 +43,11 @@
 	<string>GolfImprove needs microphone access while recording swing videos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>GolfImprove needs photo library access so you can update your profile picture.</string>
+	<!-- Google Sign-In (also passed in Dart; plist keeps native SDK happy). -->
+	<key>GIDClientID</key>
+	<string>198802247100-rip0n8jf0cfq68riovhjfiardntlr0nh.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>198802247100-12ijve9cne7c0rg6ti1hotilrpqh8tpn.apps.googleusercontent.com</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
