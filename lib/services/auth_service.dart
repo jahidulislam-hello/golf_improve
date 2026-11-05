@@ -143,6 +143,7 @@ class AuthService {
     UserRole? role,
     String? fullName,
     String? fcmToken,
+    String? guestId,
   }) {
     final body = <String, dynamic>{
       'idToken': idToken,
@@ -156,6 +157,12 @@ class AuthService {
     }
     if (fcmToken != null && fcmToken.isNotEmpty) {
       body['fcmToken'] = fcmToken;
+    }
+    final resolvedGuestId = (guestId != null && guestId.isNotEmpty)
+        ? guestId
+        : _api.getGuestId();
+    if (resolvedGuestId != null && resolvedGuestId.isNotEmpty) {
+      body['guestId'] = resolvedGuestId;
     }
     return _api.post(
       ApiConstants.googleLogin,
@@ -172,6 +179,7 @@ class AuthService {
     String? fullName,
     String? email,
     String? fcmToken,
+    String? guestId,
   }) {
     final body = <String, dynamic>{
       'identityToken': identityToken,
@@ -193,6 +201,12 @@ class AuthService {
     }
     if (fcmToken != null && fcmToken.isNotEmpty) {
       body['fcmToken'] = fcmToken;
+    }
+    final resolvedGuestId = (guestId != null && guestId.isNotEmpty)
+        ? guestId
+        : _api.getGuestId();
+    if (resolvedGuestId != null && resolvedGuestId.isNotEmpty) {
+      body['guestId'] = resolvedGuestId;
     }
     return _api.post(
       ApiConstants.appleLogin,
