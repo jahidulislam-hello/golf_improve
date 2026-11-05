@@ -24,23 +24,40 @@ class GoogleAuthService {
   static Future<void>? _initFuture;
 
   Future<GoogleSignIn> _client() async {
-    _initFuture ??= GoogleSignIn.instance
-        .initialize(
-          clientId: (!kIsWeb && Platform.isIOS) ? iosClientId : null,
-          serverClientId: serverClientId,
-        )
-        .catchError((Object e) {
+    _initFuture ??= _initialize();
+    try {
+      await _initFuture;
+    } catch (_) {
       _initFuture = null; // allow a retry on the next attempt
-      throw e;
-    });
-    await _initFuture;
+      rethrow;
+    }
     return GoogleSignIn.instance;
+  }
+
+  Future<void> _initialize() {
+    return GoogleSignIn.instance.initialize(
+      clientId: (!kIsWeb && Platform.isIOS) ? iosClientId : null,
+      serverClientId: serverClientId,
+    );
   }
 
   /// Opens the Google account picker and returns the ID token for the API.
   Future<GoogleSignInResult> signIn() async {
     try {
       final client = await _client();
+
+      if (!client.supportsAuthenticate()) {
+        throw StateError(
+          'Google Sign-In is not available on this platform build. '
+          'Use email sign-in, or rebuild the app.',
+        );
+      }
+
+      // google_sign_in 7.x: call signOut before a fresh interactive authenticate.
+      try {
+        await client.signOut();
+      } catch (_) {}
+
       final account = await client.authenticate(
         scopeHint: const <String>['email', 'profile'],
       );
@@ -59,6 +76,8 @@ class GoogleAuthService {
         displayName: account.displayName,
         photoUrl: account.photoUrl,
       );
+    } on GoogleSignInCanceled {
+      rethrow;
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled ||
           e.code == GoogleSignInExceptionCode.interrupted) {
@@ -70,11 +89,10 @@ class GoogleAuthService {
           message.contains('ApiException: 10') ||
           message.contains('DEVELOPER_ERROR')) {
         throw StateError(
-          'Google Sign-In config error. In Firebase → '
-          'Project settings → Your apps → com.golfimprove.app, add BOTH SHA-1s: '
-          'Debug D0:BB:F6:61:D5:12:08:7C:FA:71:19:AE:9D:C5:36:05:F1:74:6F:51  '
-          'Release 6D:E3:C2:C9:B6:E5:F1:30:14:88:59:22:81:30:76:5F:20:43:63:07  '
-          'Then re-download google-services.json and wait a few minutes.'
+          'Google Sign-In config error. Confirm package '
+          'com.golfimprove.app uses upload keystore SHA-1 '
+          '6D:E3:C2:C9:B6:E5:F1:30:14:88:59:22:81:30:76:5F:20:43:63:07 '
+          'in Firebase, then re-download google-services.json.'
           '${message.isNotEmpty ? ' ($message)' : ''}',
         );
       }

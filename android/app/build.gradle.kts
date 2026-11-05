@@ -52,9 +52,14 @@ android {
     }
 
     buildTypes {
-        // Sign debug with upload keystore so SHA-1 matches Firebase
+        // Sign debug/profile with upload keystore so SHA-1 matches Firebase
         // (6D:E3:C2:C9...) and Google Sign-In works (fixes ApiException: 10).
         getByName("debug") {
+            if (hasUploadKeystore) {
+                signingConfig = signingConfigs.getByName("upload")
+            }
+        }
+        getByName("profile") {
             if (hasUploadKeystore) {
                 signingConfig = signingConfigs.getByName("upload")
             }
