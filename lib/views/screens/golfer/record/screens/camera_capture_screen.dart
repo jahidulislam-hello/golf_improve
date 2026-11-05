@@ -368,7 +368,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       return;
     }
 
-    if (!mounted || result == null) return;
+    if (!mounted) return;
+
+    if (result == null) {
+      // No person in frame: clear the skeleton instead of leaving the last
+      // one on screen. A few frames of grace avoids flicker.
+      if (_poseService.framesWithoutPerson >= 3 &&
+          (_autoDetectReady || _joints.isNotEmpty)) {
+        _smoothedJoints = const [];
+        setState(() {
+          _autoDetectReady = false;
+          _joints = const [];
+        });
+      }
+      return;
+    }
 
     _previewWidth = result.imageWidth;
     _previewHeight = result.imageHeight;

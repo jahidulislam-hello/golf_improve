@@ -2,12 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSCameraUsageDescription</key>
-	<string>GolfImprove needs camera access to record and analyse your golf swing.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>GolfImprove needs microphone access while recording swing videos.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>GolfImprove needs photo library access so you can update your profile picture.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -43,6 +37,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>GolfImprove needs camera access to record and analyse your golf swing.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>GolfImprove needs microphone access while recording swing videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GolfImprove needs photo library access so you can update your profile picture.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

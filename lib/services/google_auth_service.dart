@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-/// Native Google Sign-In (google_sign_in 6.x — matches backend docs).
+/// Native Google Sign-In (google_sign_in 7.x).
 ///
 /// [serverClientId] must be the **Web** OAuth client ID from Firebase
 /// (client_type 3 in google-services.json).
@@ -20,22 +20,32 @@ class GoogleAuthService {
   final String serverClientId;
   final String iosClientId;
 
-  GoogleSignIn get _client => GoogleSignIn(
-        clientId: (!kIsWeb && Platform.isIOS) ? iosClientId : null,
-        serverClientId: serverClientId,
-        scopes: const <String>['email', 'profile'],
-      );
+  /// `GoogleSignIn.instance.initialize` must run exactly once per app run.
+  static Future<void>? _initFuture;
+
+  Future<GoogleSignIn> _client() async {
+    _initFuture ??= GoogleSignIn.instance
+        .initialize(
+          clientId: (!kIsWeb && Platform.isIOS) ? iosClientId : null,
+          serverClientId: serverClientId,
+        )
+        .catchError((Object e) {
+      _initFuture = null; // allow a retry on the next attempt
+      throw e;
+    });
+    await _initFuture;
+    return GoogleSignIn.instance;
+  }
 
   /// Opens the Google account picker and returns the ID token for the API.
   Future<GoogleSignInResult> signIn() async {
     try {
-      final account = await _client.signIn();
-      if (account == null) {
-        throw const GoogleSignInCanceled();
-      }
+      final client = await _client();
+      final account = await client.authenticate(
+        scopeHint: const <String>['email', 'profile'],
+      );
 
-      final auth = await account.authentication;
-      final idToken = auth.idToken;
+      final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         throw StateError(
           'Google did not return an ID token. Check that the Web client ID '
@@ -49,27 +59,33 @@ class GoogleAuthService {
         displayName: account.displayName,
         photoUrl: account.photoUrl,
       );
-    } on PlatformException catch (e) {
-      if (e.code == 'sign_in_canceled' || e.code == 'canceled') {
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled ||
+          e.code == GoogleSignInExceptionCode.interrupted) {
         throw const GoogleSignInCanceled();
       }
+      final message = e.description ?? '';
+      if (e.code == GoogleSignInExceptionCode.clientConfigurationError ||
+          e.code == GoogleSignInExceptionCode.providerConfigurationError ||
+          message.contains('ApiException: 10') ||
+          message.contains('DEVELOPER_ERROR')) {
+        throw StateError(
+          'Google Sign-In config error. In Firebase → '
+          'Project settings → Your apps → com.golfimprove.app, add BOTH SHA-1s: '
+          'Debug D0:BB:F6:61:D5:12:08:7C:FA:71:19:AE:9D:C5:36:05:F1:74:6F:51  '
+          'Release 6D:E3:C2:C9:B6:E5:F1:30:14:88:59:22:81:30:76:5F:20:43:63:07  '
+          'Then re-download google-services.json and wait a few minutes.'
+          '${message.isNotEmpty ? ' ($message)' : ''}',
+        );
+      }
+      throw StateError(
+        message.isNotEmpty ? message : 'Google Sign-In failed (${e.code.name}).',
+      );
+    } on PlatformException catch (e) {
       if (e.code == 'channel-error') {
         throw StateError(
           'Google Sign-In plugin is not ready. Uninstall the app, then run: '
           'flutter clean && flutter run',
-        );
-      }
-      // ApiException: 10 = DEVELOPER_ERROR (package name / SHA-1 mismatch)
-      final message = e.message ?? '';
-      if (message.contains('ApiException: 10') ||
-          message.contains('DEVELOPER_ERROR') ||
-          e.code == '10') {
-        throw StateError(
-          'Google Sign-In config error (ApiException 10). In Firebase → '
-          'Project settings → Your apps → com.golfimprove.app, add BOTH SHA-1s: '
-          'Debug D0:BB:F6:61:D5:12:08:7C:FA:71:19:AE:9D:C5:36:05:F1:74:6F:51  '
-          'Release 6D:E3:C2:C9:B6:E5:F1:30:14:88:59:22:81:30:76:5F:20:43:63:07  '
-          'Then re-download google-services.json and wait a few minutes.',
         );
       }
       rethrow;
@@ -77,7 +93,8 @@ class GoogleAuthService {
   }
 
   Future<void> signOut() async {
-    await _client.signOut();
+    final client = await _client();
+    await client.signOut();
   }
 }
 

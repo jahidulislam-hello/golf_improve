@@ -23,7 +23,12 @@ class PoseDetectorService {
   bool _unavailable = false;
   bool _loggedUnavailable = false;
 
+  int _framesWithoutPerson = 0;
+
   bool get isUnavailable => _unavailable;
+
+  /// Consecutive analysed frames where no real person was found.
+  int get framesWithoutPerson => _framesWithoutPerson;
   bool get isReady => !_unavailable && !_disposed;
 
   /// Creates the native detector early so the first preview frames are analysed.
@@ -131,6 +136,22 @@ class PoseDetectorService {
     required int imageHeight,
     required int timestampMs,
   }) async {
+    final result = await _detectPerson(
+      input,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      timestampMs: timestampMs,
+    );
+    _framesWithoutPerson = result == null ? _framesWithoutPerson + 1 : 0;
+    return result;
+  }
+
+  Future<PoseFrameResult?> _detectPerson(
+    InputImage input, {
+    required int imageWidth,
+    required int imageHeight,
+    required int timestampMs,
+  }) async {
     final poses = await _ensureDetector.processImage(input);
     if (poses.isEmpty) return null;
 
@@ -162,6 +183,10 @@ class PoseDetectorService {
 
     if (landmarks.isEmpty) return null;
 
+    // ML Kit always returns a full skeleton, even for chairs, bags or walls.
+    // Only accept frames that really look like a person.
+    if (!_looksHuman(landmarks)) return null;
+
     final avgConfidence =
         landmarks.values.map((e) => e.confidence).reduce((a, b) => a + b) /
             landmarks.length;
@@ -192,6 +217,74 @@ class PoseDetectorService {
       imageWidth: width,
       imageHeight: height,
     );
+  }
+
+  static const double _minLandmarkConfidence = 0.5;
+  static const int _minConfidentLandmarks = 8;
+
+  /// Rejects poses ML Kit "hallucinates" on non-human objects.
+  ///
+  /// Requires a confident torso (both shoulders + both hips), a confident head
+  /// or enough limbs, and human-like body proportions. Uses distances only, so
+  /// it works for any image rotation.
+  bool _looksHuman(Map<String, PoseLandmarkPoint> landmarks) {
+    PoseLandmarkPoint? confident(String key) {
+      final p = landmarks[key];
+      if (p == null || p.confidence < _minLandmarkConfidence) return null;
+      return p;
+    }
+
+    final confidentCount = landmarks.values
+        .where((p) => p.confidence >= _minLandmarkConfidence)
+        .length;
+    if (confidentCount < _minConfidentLandmarks) return false;
+
+    final ls = confident('left_shoulder');
+    final rs = confident('right_shoulder');
+    final lh = confident('left_hip');
+    final rh = confident('right_hip');
+    if (ls == null || rs == null || lh == null || rh == null) return false;
+
+    double dist(double ax, double ay, double bx, double by) {
+      final dx = ax - bx;
+      final dy = ay - by;
+      return math.sqrt(dx * dx + dy * dy);
+    }
+
+    final shoulderMidX = (ls.x + rs.x) / 2;
+    final shoulderMidY = (ls.y + rs.y) / 2;
+    final hipMidX = (lh.x + rh.x) / 2;
+    final hipMidY = (lh.y + rh.y) / 2;
+
+    final shoulderWidth = dist(ls.x, ls.y, rs.x, rs.y);
+    final hipWidth = dist(lh.x, lh.y, rh.x, rh.y);
+    final torso = dist(shoulderMidX, shoulderMidY, hipMidX, hipMidY);
+    if (torso < 1) return false;
+
+    // Side-on (down-the-line) views squash shoulder width, so only cap the top.
+    if (shoulderWidth / torso > 1.6) return false;
+    if (hipWidth / torso > 1.4) return false;
+
+    // Head must sit near the shoulders, not somewhere random in the frame.
+    final nose = confident('nose');
+    if (nose != null) {
+      final headToShoulders =
+          dist(nose.x, nose.y, shoulderMidX, shoulderMidY);
+      if (headToShoulders > torso * 1.2) return false;
+    }
+
+    // Upper arm / thigh lengths must be roughly in proportion to the torso.
+    bool boneOk(String a, String b, double maxRatio) {
+      final pa = confident(a);
+      final pb = confident(b);
+      if (pa == null || pb == null) return true;
+      return dist(pa.x, pa.y, pb.x, pb.y) <= torso * maxRatio;
+    }
+
+    return boneOk('left_shoulder', 'left_elbow', 1.2) &&
+        boneOk('right_shoulder', 'right_elbow', 1.2) &&
+        boneOk('left_hip', 'left_knee', 1.5) &&
+        boneOk('right_hip', 'right_knee', 1.5);
   }
 
   int _estimateWidth(Map<String, PoseLandmarkPoint> landmarks) {
