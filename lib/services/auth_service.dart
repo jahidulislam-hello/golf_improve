@@ -182,49 +182,107 @@ class AuthService {
   }
 
   /// Mobile Apple Sign-In: `POST /auth/apple` with Apple identity token.
+  ///
+  /// Sends [clientId] (JWT `aud`, normally `eu.golfimprove`) so the API can
+  /// verify against the native App ID. If identity-token verification fails
+  /// with 401, retries using [authorizationCode] exchange only.
   Future<dynamic> loginWithApple({
     required String identityToken,
     String? authorizationCode,
+    String? clientId,
+    String? userIdentifier,
     UserRole? role,
     String? fullName,
     String? email,
     String? fcmToken,
     String? guestId,
-  }) {
-    final body = <String, dynamic>{
-      'identityToken': identityToken,
-    };
+  }) async {
+    final resolvedClientId =
+        (clientId != null && clientId.trim().isNotEmpty)
+            ? clientId.trim()
+            : 'eu.golfimprove';
     final code = authorizationCode?.trim() ?? '';
-    if (code.isNotEmpty) {
-      body['authorizationCode'] = code;
+
+    Map<String, dynamic> buildBody({
+      required bool includeIdentityToken,
+      required bool includeAuthorizationCode,
+    }) {
+      final body = <String, dynamic>{
+        'clientId': resolvedClientId,
+        'client_id': resolvedClientId,
+        'bundleId': resolvedClientId,
+      };
+      if (includeIdentityToken && identityToken.isNotEmpty) {
+        body['identityToken'] = identityToken;
+      }
+      if (includeAuthorizationCode && code.isNotEmpty) {
+        body['authorizationCode'] = code;
+        body['code'] = code;
+      }
+      final trimmedUserId = userIdentifier?.trim() ?? '';
+      if (trimmedUserId.isNotEmpty) {
+        body['userIdentifier'] = trimmedUserId;
+        body['user'] = trimmedUserId;
+      }
+      if (role != null) {
+        body['role'] = role.apiValue;
+      }
+      final trimmedName = fullName?.trim() ?? '';
+      if (trimmedName.isNotEmpty) {
+        body['fullName'] = trimmedName;
+        body['name'] = trimmedName;
+      }
+      final trimmedEmail = email?.trim() ?? '';
+      if (trimmedEmail.isNotEmpty) {
+        body['email'] = trimmedEmail;
+      }
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        body['fcmToken'] = fcmToken;
+      }
+      final resolvedGuestId = (guestId != null && guestId.isNotEmpty)
+          ? guestId
+          : _api.getGuestId();
+      if (resolvedGuestId != null && resolvedGuestId.isNotEmpty) {
+        body['guestId'] = resolvedGuestId;
+      }
+      return body;
     }
-    if (role != null) {
-      body['role'] = role.apiValue;
+
+    Future<dynamic> post(Map<String, dynamic> body) {
+      return _api.post(
+        ApiConstants.appleLogin,
+        body: body,
+        headers: _api.publicJsonHeaders(),
+        timeout: ApiService.authTimeout,
+      );
     }
-    final trimmedName = fullName?.trim() ?? '';
-    if (trimmedName.isNotEmpty) {
-      body['fullName'] = trimmedName;
-      body['name'] = trimmedName;
+
+    // 1) identityToken + clientId (native JWT aud = App ID eu.golfimprove)
+    // 2) authorizationCode-only fallback (server exchanges with Apple)
+    try {
+      return await post(
+        buildBody(
+          includeIdentityToken: true,
+          includeAuthorizationCode: false,
+        ),
+      );
+    } on ApiError catch (e) {
+      final message = e.message.toLowerCase();
+      final shouldRetryWithCode = code.isNotEmpty &&
+          (e.statusCode == 401 || e.statusCode == 400) &&
+          (message.contains('identity token') ||
+              message.contains('apple identity') ||
+              message.contains('invalid') ||
+              message.contains('expired'));
+      if (!shouldRetryWithCode) rethrow;
+
+      return post(
+        buildBody(
+          includeIdentityToken: false,
+          includeAuthorizationCode: true,
+        ),
+      );
     }
-    final trimmedEmail = email?.trim() ?? '';
-    if (trimmedEmail.isNotEmpty) {
-      body['email'] = trimmedEmail;
-    }
-    if (fcmToken != null && fcmToken.isNotEmpty) {
-      body['fcmToken'] = fcmToken;
-    }
-    final resolvedGuestId = (guestId != null && guestId.isNotEmpty)
-        ? guestId
-        : _api.getGuestId();
-    if (resolvedGuestId != null && resolvedGuestId.isNotEmpty) {
-      body['guestId'] = resolvedGuestId;
-    }
-    return _api.post(
-      ApiConstants.appleLogin,
-      body: body,
-      headers: _api.publicJsonHeaders(),
-      timeout: ApiService.authTimeout,
-    );
   }
 
   /// `PATCH /user/fcm-token` — register device push token for the logged-in user.
