@@ -400,6 +400,12 @@ class ApiService {
     };
   }
 
+  /// Public auth endpoints (login / Google / Apple / register) must not send a
+  /// stale guest or old Bearer token — that can make the API reject the call.
+  Map<String, String> publicJsonHeaders() => const {
+        'Content-Type': 'application/json',
+      };
+
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,

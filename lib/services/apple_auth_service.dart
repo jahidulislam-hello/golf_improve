@@ -4,10 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 /// Native Sign in with Apple → identity token for `POST /auth/apple`.
+///
+/// Native Apple sheet works on iOS/macOS. Android needs a configured Apple
+/// Services ID + HTTPS redirect (not set up for this app), so Android is
+/// treated as unavailable.
 class AppleAuthService {
   /// Returns whether this device can show the Apple sheet.
   Future<bool> isAvailable() async {
     if (kIsWeb) return false;
+    if (!(Platform.isIOS || Platform.isMacOS)) return false;
     try {
       return await SignInWithApple.isAvailable();
     } catch (_) {
@@ -21,12 +26,17 @@ class AppleAuthService {
       throw StateError('Apple Sign-In is not supported on web in this app.');
     }
 
+    if (!(Platform.isIOS || Platform.isMacOS)) {
+      throw StateError(
+        'Apple Sign-In is available on iPhone/iPad. On Android, use Google or email.',
+      );
+    }
+
     final available = await isAvailable();
     if (!available) {
       throw StateError(
-        Platform.isAndroid
-            ? 'Apple Sign-In is not available on this Android device. Use Google or email.'
-            : 'Apple Sign-In is not available on this device.',
+        'Apple Sign-In is not available on this device. '
+        'Confirm Sign in with Apple is enabled for eu.golfimprove in Apple Developer.',
       );
     }
 
@@ -63,7 +73,9 @@ class AppleAuthService {
       if (e.code == AuthorizationErrorCode.canceled) {
         throw const AppleSignInCanceled();
       }
-      throw StateError(e.message);
+      throw StateError(
+        e.message.isNotEmpty ? e.message : 'Apple Sign-In failed (${e.code}).',
+      );
     }
   }
 }

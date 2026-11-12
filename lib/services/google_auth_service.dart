@@ -89,10 +89,9 @@ class GoogleAuthService {
           message.contains('ApiException: 10') ||
           message.contains('DEVELOPER_ERROR')) {
         throw StateError(
-          'Google Sign-In config error. Confirm package '
-          'com.golfimprove.app uses upload keystore SHA-1 '
-          '6D:E3:C2:C9:B6:E5:F1:30:14:88:59:22:81:30:76:5F:20:43:63:07 '
-          'in Firebase, then re-download google-services.json.'
+          'Google Sign-In config error. On Android, the app must be signed with '
+          'SHA-1 6D:E3:C2:C9:... (upload keystore). On iOS, bundle id must be '
+          'eu.golfimprove and match GoogleService-Info.plist.'
           '${message.isNotEmpty ? ' ($message)' : ''}',
         );
       }

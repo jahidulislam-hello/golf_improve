@@ -158,9 +158,13 @@ class AuthController extends ChangeNotifier {
     });
   }
 
+  /// True when the signed-in account still needs ProfileSetUp / CoachProfileSetUp.
+  bool get needsProfileSetup => _authService.needsProfileSetup();
+
   /// Native Google account picker → `POST /auth/google` with idToken + FCM.
   Future<bool> signInWithGoogle() async {
     clearError();
+    selectedRole ??= UserRole.golfer;
     _setLoading(true);
     try {
       final google = await _googleAuthService.signIn();
@@ -221,6 +225,7 @@ class AuthController extends ChangeNotifier {
   /// Native Apple sheet → `POST /auth/apple` (sign-in and first-time sign-up).
   Future<bool> signInWithApple() async {
     clearError();
+    selectedRole ??= UserRole.golfer;
     _setLoading(true);
     try {
       final apple = await _appleAuthService.signIn();

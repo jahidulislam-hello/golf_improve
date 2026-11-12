@@ -51,51 +51,55 @@ class _GolferNavbarState extends State<GolferNavbar> {
                 ),
                 child: SafeArea(
                   top: false,
+                  minimum: const EdgeInsets.only(bottom: 6),
                   child: SizedBox(
-                    height: 80,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildNavItem(
-                            title: "Home",
-                            activeImage: "assets/icons/act_home.png",
-                            passiveImage: "assets/icons/home.png",
-                            index: 0,
+                    height: 84,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildNavItem(
+                              title: "Home",
+                              activeImage: "assets/icons/act_home.png",
+                              passiveImage: "assets/icons/home.png",
+                              index: 0,
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: _buildNavItem(
-                            title: "Library",
-                            activeImage: "assets/icons/act_library.png",
-                            passiveImage: "assets/icons/library.png",
-                            index: 1,
+                          Expanded(
+                            child: _buildNavItem(
+                              title: "Library",
+                              activeImage: "assets/icons/act_library.png",
+                              passiveImage: "assets/icons/library.png",
+                              index: 1,
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: _buildNavItem(
-                            title: "Record",
-                            activeImage: "assets/icons/record.png",
-                            passiveImage: "assets/icons/record.png",
-                            index: 2,
+                          Expanded(
+                            child: _buildNavItem(
+                              title: "Record",
+                              activeImage: "assets/icons/record.png",
+                              passiveImage: "assets/icons/record.png",
+                              index: 2,
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: _buildNavItem(
-                            title: "Progress",
-                            activeImage: "assets/icons/act_progress.png",
-                            passiveImage: "assets/icons/progress.png",
-                            index: 3,
+                          Expanded(
+                            child: _buildNavItem(
+                              title: "Progress",
+                              activeImage: "assets/icons/act_progress.png",
+                              passiveImage: "assets/icons/progress.png",
+                              index: 3,
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: _buildNavItem(
-                            title: "Profile",
-                            activeImage: "assets/icons/act_profile.png",
-                            passiveImage: "assets/icons/profile.png",
-                            index: 4,
+                          Expanded(
+                            child: _buildNavItem(
+                              title: "Profile",
+                              activeImage: "assets/icons/act_profile.png",
+                              passiveImage: "assets/icons/profile.png",
+                              index: 4,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -121,13 +125,12 @@ class _GolferNavbarState extends State<GolferNavbar> {
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
             /// Top Indicator
             AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
               width: 38,
-              height: 5,
+              height: 4,
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xff15253D)
@@ -135,26 +138,23 @@ class _GolferNavbarState extends State<GolferNavbar> {
                 borderRadius: BorderRadius.circular(50),
               ),
             ),
-
-            const SizedBox(height: 10),
-
+            const SizedBox(height: 8),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
               child: Image.asset(
                 isSelected ? activeImage : passiveImage,
                 key: ValueKey(isSelected),
-                width: 28,
-                height: 28,
+                width: 26,
+                height: 26,
               ),
             ),
-
             const SizedBox(height: 6),
-
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 250),
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
+                height: 1.2,
                 color: isSelected
                     ? const Color(0xff15253D)
                     : const Color(0xff99A6BB),
