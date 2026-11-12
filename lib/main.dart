@@ -62,7 +62,7 @@ class MyApp extends StatelessWidget {
       splitScreenMode: true,
       builder: (_, child) {
         return GetMaterialApp(
-          title: 'GolfImprove',
+          title: 'Golf Improve',
           debugShowCheckedModeBanner: false,
           navigatorKey: Get.key,
           theme: ThemeData(

@@ -25,7 +25,12 @@ class AuthService {
   Future<void> clearSession() => _api.clearUserData();
 
   Future<dynamic> createGuestSession() {
-    return _api.post(ApiConstants.guestSession, body: <String, dynamic>{});
+    return _api.post(
+      ApiConstants.guestSession,
+      body: <String, dynamic>{},
+      headers: _api.publicJsonHeaders(),
+      timeout: ApiService.authTimeout,
+    );
   }
 
   /// Remembers the anonymous user id so register/login can merge swings.
@@ -100,6 +105,7 @@ class AuthService {
     return _api.post(
       ApiConstants.register,
       body: body,
+      headers: _api.publicJsonHeaders(),
       timeout: ApiService.authTimeout,
     );
   }
@@ -134,6 +140,8 @@ class AuthService {
         'email': email,
         'password': password,
       },
+      headers: _api.publicJsonHeaders(),
+      timeout: ApiService.authTimeout,
     );
   }
 
@@ -154,6 +162,7 @@ class AuthService {
     final trimmedName = fullName?.trim() ?? '';
     if (trimmedName.isNotEmpty) {
       body['fullName'] = trimmedName;
+      body['name'] = trimmedName;
     }
     if (fcmToken != null && fcmToken.isNotEmpty) {
       body['fcmToken'] = fcmToken;
@@ -167,6 +176,7 @@ class AuthService {
     return _api.post(
       ApiConstants.googleLogin,
       body: body,
+      headers: _api.publicJsonHeaders(),
       timeout: ApiService.authTimeout,
     );
   }
@@ -194,6 +204,7 @@ class AuthService {
     final trimmedName = fullName?.trim() ?? '';
     if (trimmedName.isNotEmpty) {
       body['fullName'] = trimmedName;
+      body['name'] = trimmedName;
     }
     final trimmedEmail = email?.trim() ?? '';
     if (trimmedEmail.isNotEmpty) {
@@ -211,6 +222,7 @@ class AuthService {
     return _api.post(
       ApiConstants.appleLogin,
       body: body,
+      headers: _api.publicJsonHeaders(),
       timeout: ApiService.authTimeout,
     );
   }
@@ -426,6 +438,24 @@ class AuthService {
     return UserRoleApi.fromApiValue(
       _readString(userCandidate, ['role', 'userType']),
     );
+  }
+
+  /// True when social/email auth succeeded but profile setup fields are missing.
+  bool needsProfileSetup() {
+    final user = _api.getUserData();
+    if (user == null) return true;
+    if (user['isGuest'] == true) return false;
+
+    final age = user['age'];
+    final gender = (user['gender']?.toString() ?? '').trim();
+    final handicap = user['handicap'] ?? user['handicapIndex'];
+    final hasSetupSignal = age != null ||
+        gender.isNotEmpty ||
+        handicap != null ||
+        user['profileCompleted'] == true ||
+        user['isProfileComplete'] == true ||
+        user['onboardingCompleted'] == true;
+    return !hasSetupSignal;
   }
 
   Map<String, dynamic>? _asMap(dynamic value) {

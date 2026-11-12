@@ -44,14 +44,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
+      // Bottom inset is handled by GolferNavbar — avoid double SafeArea gap.
       body: SafeArea(
+        bottom: false,
         child: ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
             return CustomScrollView(
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   sliver: SliverToBoxAdapter(
                     child: DashboardHeader(
                       greeting: 'Good morning',
@@ -65,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.only(top: 20),
+                  padding: const EdgeInsets.only(top: 24),
                   sliver: SliverToBoxAdapter(
                     child: HeroCarousel(
                       banners: _controller.heroBanners,
@@ -80,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 if (_controller.stats.isNotEmpty)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                     sliver: SliverToBoxAdapter(
                       child: StatCardRow(stats: _controller.stats),
                     ),
@@ -88,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (_controller.activeSession != null ||
                     _controller.hasCoachFeedback)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
                     sliver: SliverToBoxAdapter(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onActionTap: () =>
                                   _controller.onViewTimelineTap(context),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             ActiveSessionCard(
                               session: _controller.activeSession!,
                               onTap: () =>
@@ -109,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                           if (_controller.hasCoachFeedback) ...[
                             if (_controller.activeSession != null)
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 14),
                             CoachFeedbackCard(
                               feedback: _controller.coachFeedback,
                               onTap: () =>
@@ -122,13 +124,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 if (_controller.quickActions.isNotEmpty)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
                     sliver: SliverToBoxAdapter(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SectionHeader(title: 'Quick Actions'),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           QuickActionGrid(
                             actions: _controller.quickActions,
                             onActionTap: (action) =>
@@ -140,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 if (_controller.recentActivities.isNotEmpty)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
                     sliver: SliverToBoxAdapter(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,39 +153,42 @@ class _HomeScreenState extends State<HomeScreen> {
                             onActionTap: () =>
                                 _controller.onSeeAllActivityTap(context),
                           ),
-                        const SizedBox(height: 4),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceWhite,
-                            borderRadius: AppRadii.cardBorderRadius,
-                            border: AppRadii.cardBorder,
-                          ),
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
-                          child: Column(
-                            children: List.generate(
-                              _controller.recentActivities.length,
-                              (index) {
-                                final activity =
-                                    _controller.recentActivities[index];
-                                final isLast =
-                                    index ==
-                                    _controller.recentActivities.length - 1;
-                                return RecentActivityTile(
-                                  activity: activity,
-                                  showDivider: !isLast,
-                                  onTap: () => _controller.onActivityItemTap(
-                                    context,
-                                    activity,
-                                  ),
-                                );
-                              },
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceWhite,
+                              borderRadius: AppRadii.cardBorderRadius,
+                              border: AppRadii.cardBorder,
+                            ),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: List.generate(
+                                _controller.recentActivities.length,
+                                (index) {
+                                  final activity =
+                                      _controller.recentActivities[index];
+                                  final isLast = index ==
+                                      _controller.recentActivities.length - 1;
+                                  return RecentActivityTile(
+                                    activity: activity,
+                                    showDivider: !isLast,
+                                    onTap: () => _controller.onActivityItemTap(
+                                      context,
+                                      activity,
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
+                // Clearance above the golfer bottom navbar.
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 28),
                 ),
               ],
             );

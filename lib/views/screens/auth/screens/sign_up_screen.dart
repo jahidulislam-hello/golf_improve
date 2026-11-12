@@ -2,23 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:golf_training_app/controllers/auth_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
-import 'package:golf_training_app/helpers/routes.dart';
 import 'package:golf_training_app/views/screens/auth/screens/sign_up_otp_verification_screen.dart';
-import 'package:golf_training_app/views/screens/onboarding/role_selection/role_selection_controller.dart';
+import 'package:golf_training_app/views/screens/auth/widgets/social_auth_actions.dart';
 import 'package:provider/provider.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/golf_logo.dart';
 import '../widgets/primary_button.dart';
-import '../widgets/secondary_button.dart';
 import 'sign_in_screen.dart';
-
-void _showAuthError(BuildContext context, AuthController auth) {
-  final message = auth.errorMessage;
-  if (message == null || message.isEmpty) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message)),
-  );
-}
 
 class SignUpScreen extends StatelessWidget {
   const SignUpScreen({super.key});
@@ -46,37 +36,9 @@ class SignUpScreen extends StatelessWidget {
                 style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 28),
-              SecondaryButton.google(
-                onPressed: auth.isLoading
-                    ? null
-                    : () async {
-                        final success = await auth.signInWithGoogle();
-                        if (!context.mounted) return;
-                        if (!success) {
-                          _showAuthError(context, auth);
-                          return;
-                        }
-                        AppRoutes.goToHomeForRole(
-                          auth.selectedRole ?? UserRole.golfer,
-                        );
-                      },
-              ),
-              const SizedBox(height: 14),
-              SecondaryButton.apple(
-                onPressed: auth.isLoading
-                    ? null
-                    : () async {
-                        final success = await auth.signInWithApple();
-                        if (!context.mounted) return;
-                        if (!success) {
-                          _showAuthError(context, auth);
-                          return;
-                        }
-                        // Apple creates/logs in the account in one step (no OTP).
-                        AppRoutes.goToHomeForRole(
-                          auth.selectedRole ?? UserRole.golfer,
-                        );
-                      },
+              SocialAuthButtons(
+                auth: auth,
+                afterSuccessPreferProfileSetup: true,
               ),
               const SizedBox(height: 22),
               Row(
@@ -120,7 +82,7 @@ class SignUpScreen extends StatelessWidget {
                   final success = await auth.signUp();
                   if (!context.mounted) return;
                   if (!success) {
-                    _showAuthError(context, auth);
+                    showAuthErrorSnackBar(context, auth);
                     return;
                   }
 
