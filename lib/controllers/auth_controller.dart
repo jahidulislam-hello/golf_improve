@@ -229,17 +229,19 @@ class AuthController extends ChangeNotifier {
     _setLoading(true);
     try {
       final apple = await _appleAuthService.signIn();
-      final fcmToken = await PushNotificationService.getToken().timeout(
+      // Do not wait on FCM before submitting the short-lived Apple code/token.
+      final fcmFuture = PushNotificationService.getToken().timeout(
         const Duration(seconds: 5),
         onTimeout: () => null,
       );
       final response = await _authService.loginWithApple(
         identityToken: apple.identityToken,
         authorizationCode: apple.authorizationCode,
+        clientId: apple.clientId,
+        userIdentifier: apple.userIdentifier,
         role: selectedRole ?? UserRole.golfer,
         fullName: apple.fullName,
         email: apple.email,
-        fcmToken: fcmToken,
       );
       await _authService.persistAuthResponse(response);
       try {
@@ -253,6 +255,7 @@ class AuthController extends ChangeNotifier {
         selectedRole ??= UserRole.golfer;
       }
       await _authService.ensureRestorableSession(role: selectedRole);
+      final fcmToken = await fcmFuture;
       await PushNotificationService.syncTokenToServer(fcmToken);
       _setLoading(false);
       return true;
@@ -268,7 +271,19 @@ class AuthController extends ChangeNotifier {
       return false;
     } on ApiError catch (e) {
       _setLoading(false);
-      _setError(e.message);
+      final message = e.message.toLowerCase();
+      if (e.statusCode == 401 &&
+          (message.contains('identity token') ||
+              message.contains('apple') ||
+              message.contains('code'))) {
+        _setError(
+          'Apple Sign-In was rejected by the server. Ask the backend team to '
+          'set APPLE_CLIENT_ID to eu.golfimprove (iOS App ID) or accept both '
+          'the App ID and Services ID audiences. (${e.message})',
+        );
+      } else {
+        _setError(e.message);
+      }
       return false;
     } catch (e) {
       _setLoading(false);
