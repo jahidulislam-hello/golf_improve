@@ -222,7 +222,6 @@ class AuthService {
       final trimmedUserId = userIdentifier?.trim() ?? '';
       if (trimmedUserId.isNotEmpty) {
         body['userIdentifier'] = trimmedUserId;
-        body['user'] = trimmedUserId;
       }
       if (role != null) {
         body['role'] = role.apiValue;
@@ -235,6 +234,23 @@ class AuthService {
       final trimmedEmail = email?.trim() ?? '';
       if (trimmedEmail.isNotEmpty) {
         body['email'] = trimmedEmail;
+      }
+      // API schema expects `user` as an object (not a string user id).
+      if (trimmedName.isNotEmpty || trimmedEmail.isNotEmpty) {
+        final nameParts = trimmedName.split(RegExp(r'\s+'));
+        final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+        final lastName = nameParts.length > 1
+            ? nameParts.sublist(1).join(' ')
+            : '';
+        body['user'] = <String, dynamic>{
+          if (trimmedEmail.isNotEmpty) 'email': trimmedEmail,
+          if (trimmedName.isNotEmpty) 'fullName': trimmedName,
+          if (firstName.isNotEmpty || lastName.isNotEmpty)
+            'name': <String, dynamic>{
+              if (firstName.isNotEmpty) 'firstName': firstName,
+              if (lastName.isNotEmpty) 'lastName': lastName,
+            },
+        };
       }
       if (fcmToken != null && fcmToken.isNotEmpty) {
         body['fcmToken'] = fcmToken;
@@ -268,12 +284,12 @@ class AuthService {
       );
     } on ApiError catch (e) {
       final message = e.message.toLowerCase();
+      // Only fall back for Apple token verification failures — not schema errors.
       final shouldRetryWithCode = code.isNotEmpty &&
-          (e.statusCode == 401 || e.statusCode == 400) &&
+          e.statusCode == 401 &&
           (message.contains('identity token') ||
               message.contains('apple identity') ||
-              message.contains('invalid') ||
-              message.contains('expired'));
+              message.contains('expired apple'));
       if (!shouldRetryWithCode) rethrow;
 
       return post(
