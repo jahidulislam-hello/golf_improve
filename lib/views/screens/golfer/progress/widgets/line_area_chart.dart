@@ -14,6 +14,8 @@ class LineAreaChart extends StatelessWidget {
     this.height = 130,
     this.dotAtEndOnly = false,
     this.showAllDots = false,
+    this.zeroBaseline = false,
+    this.showValueLabels = false,
   });
 
   final List<double> values;
@@ -27,6 +29,13 @@ class LineAreaChart extends StatelessWidget {
 
   /// Draw a dot at every data point (Weekly Swings card).
   final bool showAllDots;
+
+  /// Scale from 0 instead of the series minimum, so different metrics are
+  /// drawn at their real size (Weekly card).
+  final bool zeroBaseline;
+
+  /// Print each point's value above its dot.
+  final bool showValueLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +53,8 @@ class LineAreaChart extends StatelessWidget {
                 fillTopColor: fillTopColor,
                 dotAtEndOnly: dotAtEndOnly,
                 showAllDots: showAllDots,
+                zeroBaseline: zeroBaseline,
+                showValueLabels: showValueLabels,
               ),
               child: const SizedBox.expand(),
             ),
@@ -79,6 +90,8 @@ class _LineAreaPainter extends CustomPainter {
     required this.fillTopColor,
     required this.dotAtEndOnly,
     required this.showAllDots,
+    required this.zeroBaseline,
+    required this.showValueLabels,
   });
 
   final List<double> values;
@@ -86,18 +99,21 @@ class _LineAreaPainter extends CustomPainter {
   final Color fillTopColor;
   final bool dotAtEndOnly;
   final bool showAllDots;
+  final bool zeroBaseline;
+  final bool showValueLabels;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
     final series = values.length == 1 ? [values.first, values.first] : values;
 
-    final minV = series.reduce((a, b) => a < b ? a : b);
+    final seriesMin = series.reduce((a, b) => a < b ? a : b);
+    final minV = zeroBaseline && seriesMin > 0 ? 0.0 : seriesMin;
     final maxV = series.reduce((a, b) => a > b ? a : b);
     final range = (maxV - minV).abs() < 0.0001 ? 1 : (maxV - minV);
 
     // Leave a little headroom so dots/peaks aren't clipped.
-    const topPad = 12.0;
+    final topPad = showValueLabels ? 22.0 : 12.0;
     const bottomPad = 6.0;
     final usableHeight = size.height - topPad - bottomPad;
 
@@ -138,11 +154,49 @@ class _LineAreaPainter extends CustomPainter {
         _drawDot(canvas, p, lineColor, radius: 4);
       }
     }
+
+    if (showValueLabels && values.length == points.length) {
+      for (var i = 0; i < points.length; i++) {
+        final v = values[i];
+        final text = v == v.roundToDouble()
+            ? v.toInt().toString()
+            : v.toStringAsFixed(1);
+        final tp = TextPainter(
+          text: TextSpan(
+            text: text,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: v > 0 ? lineColor : const Color(0xFF94A3B8),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final dx = (points[i].dx - tp.width / 2).clamp(
+          0.0,
+          size.width - tp.width,
+        );
+        tp.paint(canvas, Offset(dx, points[i].dy - tp.height - 7));
+      }
+    }
   }
 
-  void _drawDot(Canvas canvas, Offset center, Color color, {double radius = 5}) {
+  void _drawDot(
+    Canvas canvas,
+    Offset center,
+    Color color, {
+    double radius = 5,
+  }) {
     canvas.drawCircle(center, radius, Paint()..color = Colors.white);
-    canvas.drawCircle(center, radius, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 2.5);
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
     canvas.drawCircle(center, radius - 2.2, Paint()..color = color);
   }
 
@@ -161,6 +215,8 @@ class _LineAreaPainter extends CustomPainter {
   bool shouldRepaint(covariant _LineAreaPainter oldDelegate) {
     return !listEquals(oldDelegate.values, values) ||
         oldDelegate.lineColor != lineColor ||
+        oldDelegate.zeroBaseline != zeroBaseline ||
+        oldDelegate.showValueLabels != showValueLabels ||
         oldDelegate.fillTopColor != fillTopColor;
   }
 }

@@ -26,6 +26,12 @@ class GolferService {
     return Map<String, dynamic>.from(response as Map);
   }
 
+  /// GET `/meta/compare-six-weeks` — this week vs the same week 6 weeks ago.
+  Future<Map<String, dynamic>> getCompareSixWeeks() async {
+    final response = await _api.get(ApiConstants.compareSixWeeks);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
   Future<Map<String, dynamic>> updateHandicap(num handicap) async {
     try {
       final response = await _api.put(
@@ -527,6 +533,18 @@ class GolferService {
     }
   }
 
+  /// Unread badge count for the Home bell.
+  Future<int> getUnreadNotificationCount() async {
+    final response = await _api.get(ApiConstants.notificationsUnreadCount);
+    final data = response is Map ? response['data'] : null;
+    final count = data is Map ? data['unreadCount'] : null;
+    return count is num ? count.toInt() : 0;
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _api.patch(ApiConstants.notificationsMarkAllRead, body: const {});
+  }
+
   Future<Map<String, dynamic>> getNotifications({
     int page = 1,
     int limit = 10,
@@ -571,6 +589,92 @@ class GolferService {
     final uri = Uri.parse(ApiConstants.mySwings).replace(queryParameters: query);
     final response = await _api.get(uri.toString());
     return Map<String, dynamic>.from(response as Map);
+  }
+
+  /// Every swing of the golfer as shown in the Swing Library: analyses from
+  /// `/swing-library/my-library` first (they open the full analysis), then
+  /// recorded swings from `/swing/my-swings` that have no analysis yet
+  /// (tagged `hasAnalysis: false`). Each recording appears once.
+  ///
+  /// Library, Compare and Progress all use this, so a swing id picked on one
+  /// screen is always found on the others.
+  Future<List<Map<String, dynamic>>> getAllMySwingRecords() async {
+    final collected = <Map<String, dynamic>>[];
+    Object? libraryError;
+    try {
+      final library = await getMyLibrary(limit: 100);
+      collected.addAll(_recordMaps(library['data']));
+    } catch (e) {
+      libraryError = e;
+    }
+
+    final seen = <String>{
+      for (final item in collected) ..._recordIdentityKeys(item),
+    };
+    try {
+      for (var page = 1; page <= 5; page++) {
+        final response = await getMySwings(
+          page: page,
+          limit: 50,
+          sort: '-createdAt',
+        );
+        for (final item in _recordMaps(response['data'])) {
+          final keys = _recordIdentityKeys(item);
+          if (keys.any(seen.contains)) continue;
+          seen.addAll(keys);
+          collected.add({...item, 'hasAnalysis': false});
+        }
+        final meta = response['meta'];
+        final rawTotal = meta is Map ? meta['totalPage'] : null;
+        final totalPage = rawTotal is num ? rawTotal.toInt() : 1;
+        if (page >= totalPage || totalPage == 0) break;
+      }
+    } on ApiError catch (error) {
+      final notAvailable = error.statusCode == 404 || error.statusCode == 405;
+      if (!notAvailable && collected.isEmpty) rethrow;
+    }
+    if (collected.isEmpty && libraryError != null) throw libraryError;
+    return collected;
+  }
+
+  static List<Map<String, dynamic>> _recordMaps(dynamic data) {
+    List<dynamic> list = const [];
+    if (data is List) {
+      list = data;
+    } else if (data is Map) {
+      for (final key in ['results', 'swings', 'items', 'docs', 'data']) {
+        final value = data[key];
+        if (value is List) {
+          list = value;
+          break;
+        }
+      }
+    }
+    return list
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  /// Keys that identify the same recording across both endpoints
+  /// (swing id, linked swing id, video file).
+  static Set<String> _recordIdentityKeys(Map<String, dynamic> item) {
+    String? idOf(dynamic raw) {
+      if (raw is Map) raw = raw['_id'] ?? raw['id'];
+      final value = raw?.toString().trim() ?? '';
+      return value.isEmpty ? null : value;
+    }
+
+    final keys = <String>{};
+    final swingId = idOf(item['swingId']) ?? idOf(item['swing']);
+    if (swingId != null) keys.add('id:$swingId');
+    final id = idOf(item['_id']) ?? idOf(item['id']);
+    if (id != null) keys.add('id:$id');
+    final analysisId = idOf(item['analysisId']);
+    if (analysisId != null) keys.add('id:$analysisId');
+    final video = (item['videoUrl'] ?? '').toString().split('?').first.trim();
+    if (video.isNotEmpty) keys.add('video:$video');
+    return keys;
   }
 
   Future<Map<String, dynamic>> getMyLibrary({

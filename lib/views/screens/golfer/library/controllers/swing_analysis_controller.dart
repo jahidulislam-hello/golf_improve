@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/services/api_services.dart';
@@ -72,6 +74,22 @@ class SwingAnalysisController extends ChangeNotifier {
   String? feedbackSessionInfo;
   String? feedbackReceivedLabel;
 
+  /// `false` when the swing was saved but its AI analysis is not ready yet.
+  /// The server then returns only the video (`isAnalysisReady: false`).
+  bool isAnalysisReady = true;
+
+  /// `processing` while the analysis is being prepared, `not_ready` when none
+  /// will be produced (e.g. analysis failed or the clip was too short).
+  String analysisStatus = 'ready';
+  String analysisMessage = '';
+
+  bool get isAnalysisProcessing => !isAnalysisReady && analysisStatus == 'processing';
+
+  Timer? _pollTimer;
+  int _pollAttempts = 0;
+  static const int _maxPollAttempts = 24; // ~2 minutes at 5s intervals.
+  bool _isDisposed = false;
+
   bool get hasProFeedback =>
       (proQuote != null && proQuote!.trim().isNotEmpty);
 
@@ -115,8 +133,32 @@ class SwingAnalysisController extends ChangeNotifier {
       if (!showLoader) rethrow;
     } finally {
       isLoading = false;
-      notifyListeners();
+      if (!_isDisposed) notifyListeners();
+      _schedulePollIfProcessing(id);
     }
+  }
+
+  /// While the server is still preparing the analysis, check again every few
+  /// seconds so the result appears without the user leaving the screen.
+  void _schedulePollIfProcessing(String id) {
+    _pollTimer?.cancel();
+    if (_isDisposed || !isAnalysisProcessing) {
+      _pollAttempts = 0;
+      return;
+    }
+    if (_pollAttempts >= _maxPollAttempts) return;
+    _pollAttempts++;
+    _pollTimer = Timer(const Duration(seconds: 5), () {
+      if (_isDisposed) return;
+      load(id, showLoader: false).catchError((_) {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   void _applyData(Map<String, dynamic> data) {
@@ -139,6 +181,18 @@ class SwingAnalysisController extends ChangeNotifier {
         _readString(data, 'cameraAngle') ??
         '';
     overallScore = _asInt(library['overallScore'] ?? data['overallScore']);
+    final readyFlag = library['isAnalysisReady'] ?? data['isAnalysisReady'];
+    final status = (_readString(library, 'analysisStatus') ??
+            _readString(data, 'analysisStatus') ??
+            '')
+        .toLowerCase();
+    isAnalysisReady = readyFlag is bool
+        ? readyFlag
+        : !(status == 'processing' || status == 'not_ready');
+    analysisStatus = isAnalysisReady ? 'ready' : (status.isEmpty ? 'not_ready' : status);
+    analysisMessage = _readString(library, 'analysisMessage') ??
+        _readString(data, 'analysisMessage') ??
+        '';
     isSharedWithCoach = library['isSharedWithCoach'] == true ||
         data['isSharedWithCoach'] == true ||
         _asMap(data['shareDetails']) != null;

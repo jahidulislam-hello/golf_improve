@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
@@ -22,9 +24,20 @@ class SwingLibraryScreen extends StatefulWidget {
 class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
   final SwingLibraryController controller = SwingLibraryController();
   final TextEditingController _searchController = TextEditingController();
+  Worker? _tabWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabWorker = GolferNavbarController.onTabShown(
+      GolferNavbarController.libraryTab,
+      () => controller.load(showLoader: false).catchError((_) {}),
+    );
+  }
 
   @override
   void dispose() {
+    _tabWorker?.dispose();
     _searchController.dispose();
     controller.dispose();
     super.dispose();
@@ -238,6 +251,13 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
                       ),
                     ),
                   ),
+                  if (controller.compareMode) ...[
+                    const SizedBox(height: 12),
+                    _CompareHint(
+                      text: controller.compareHint,
+                      selected: controller.compareSelectedCount,
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   if (controller.isFiltering)
                     const Padding(
@@ -355,6 +375,52 @@ class _LocalSwingScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CompareHint extends StatelessWidget {
+  const _CompareHint({required this.text, required this.selected});
+
+  final String text;
+  final int selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.accentBlueBg,
+        borderRadius: AppRadii.cardBorderRadius,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.compare_arrows_rounded,
+            size: 20,
+            color: AppColors.ctaBrightBlue,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTextStyles.type13.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$selected/2',
+            style: AppTextStyles.type13.copyWith(
+              color: AppColors.ctaBrightBlue,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

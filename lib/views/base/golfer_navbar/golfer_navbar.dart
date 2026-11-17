@@ -19,15 +19,40 @@ class _GolferNavbarState extends State<GolferNavbar> {
 
   static const int _recordTabIndex = 2;
 
-  late final List<Widget> pages = [
-    const HomeScreen(),
-    const SwingLibraryScreen(),
-    CameraCaptureScreen(
-      onClose: () => controller.changeIndex(0),
-    ),
-    const ProgressScreen(),
-    const GolferProfileScreen(),
-  ];
+  /// Home, Library, Progress and Profile stay alive once opened, so switching
+  /// tabs is instant and keeps scroll position and loaded data. Each screen
+  /// refreshes silently when its tab is shown again.
+  late final Map<int, Widget> _keptAlive = {
+    0: const HomeScreen(),
+    1: const SwingLibraryScreen(),
+    3: const ProgressScreen(),
+    4: const GolferProfileScreen(),
+  };
+
+  /// Tabs opened at least once (built lazily on first visit).
+  final Set<int> _visited = {0};
+
+  Widget _buildBody(int current) {
+    _visited.add(current);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        for (final entry in _keptAlive.entries)
+          if (_visited.contains(entry.key))
+            Offstage(
+              offstage: entry.key != current,
+              child: TickerMode(
+                enabled: entry.key == current,
+                child: entry.value,
+              ),
+            ),
+        // The camera is only mounted while its tab is open so it never runs
+        // (or holds the camera/mic) in the background.
+        if (current == _recordTabIndex)
+          CameraCaptureScreen(onClose: () => controller.changeIndex(0)),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,11 +62,7 @@ class _GolferNavbarState extends State<GolferNavbar> {
       return Scaffold(
         backgroundColor: Colors.white,
         extendBody: false,
-        // Keep tabs alive so closing analysis/report does not remount an empty Home.
-        body: IndexedStack(
-          index: controller.currentIndex.value,
-          children: pages,
-        ),
+        body: _buildBody(controller.currentIndex.value),
         bottomNavigationBar: isRecordTab
             ? null
             : Container(
