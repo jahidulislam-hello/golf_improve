@@ -3,6 +3,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/models.dart';
 
 /// Controller for Screen 2 — Swing Analysis (AI Golf Coach summary).
@@ -83,15 +84,34 @@ class SwingAnalysisController extends ChangeNotifier {
 
     try {
       final service = await _service();
-      final response = await service.getSwingLibraryById(id);
-      final data = _asMap(response['data']);
+      Map<String, dynamic>? data;
+      try {
+        final response = await service.getSwingLibraryById(id);
+        data = _asMap(response['data']);
+      } on ApiError catch (error) {
+        // Raw swing ids are not library analysis ids — try analyze then re-fetch.
+        if (error.statusCode == 404) {
+          try {
+            await service.analyzeSwingVideo(id);
+            final response = await service.getSwingLibraryById(id);
+            data = _asMap(response['data']);
+          } catch (_) {
+            errorMessage =
+                'Analysis is not ready for this swing yet. Pull to refresh the library shortly.';
+            if (!showLoader) rethrow;
+            return;
+          }
+        } else {
+          rethrow;
+        }
+      }
       if (data != null) {
         _applyData(data);
       }
       hasLoaded = true;
       errorMessage = null;
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = e is ApiError ? e.message : e.toString();
       if (!showLoader) rethrow;
     } finally {
       isLoading = false;

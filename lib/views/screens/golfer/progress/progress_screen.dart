@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/progress/progress_controller.dart';
@@ -43,24 +44,31 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              decoration: const BoxDecoration(
-                color: AppColors.surfaceWhite,
-                border: Border(
-                  bottom: BorderSide(color: AppColors.borderLightGray),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: AppColors.backgroundOffWhite,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundOffWhite,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                decoration: const BoxDecoration(
+                  color: AppColors.backgroundOffWhite,
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.borderLightGray),
+                  ),
                 ),
+                child: const Text('My Progress', style: AppTextStyles.screenTitle),
               ),
-              child: const Text('My Progress', style: AppTextStyles.screenTitle),
-            ),
-            Expanded(child: _buildBody()),
-          ],
+              Expanded(child: _buildBody()),
+            ],
+          ),
         ),
       ),
     );
@@ -135,7 +143,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   icon: Icons.timer_outlined,
                   iconColor: AppColors.accentGreen,
                   iconBackground: AppColors.insightPositiveIconBg,
-                  value: '${_controller.totalPracticeMinutes}',
+                  value: '${_controller.minutesThisWeek}',
                   label: 'Minutes Practised',
                 ),
               ),

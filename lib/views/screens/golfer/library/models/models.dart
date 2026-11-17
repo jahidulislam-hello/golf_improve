@@ -19,6 +19,10 @@ class LibraryFilterOption {
 /// A single swing recording shown in the Swing Library grid.
 class SwingVideo {
   final String id;
+  /// Library/analysis document id for `/swing-library/find/:id`.
+  final String analysisId;
+  /// Underlying swing recording id when this row came from `/swing/my-swings`.
+  final String swingId;
   final String club;
   final String angle;
   final String thumbnailUrl;
@@ -31,9 +35,12 @@ class SwingVideo {
   final String sessionId;
   final String localId;
   final bool isLocal;
+  final bool hasAnalysis;
 
   const SwingVideo({
     required this.id,
+    this.analysisId = '',
+    this.swingId = '',
     required this.club,
     required this.angle,
     this.thumbnailUrl = '',
@@ -46,7 +53,12 @@ class SwingVideo {
     this.sessionId = '',
     this.localId = '',
     this.isLocal = false,
+    this.hasAnalysis = true,
   });
+
+  /// Prefer library analysis id when opening Swing Analysis.
+  String get openId =>
+      analysisId.isNotEmpty ? analysisId : (id.isNotEmpty ? id : swingId);
 
   /// Back-compat alias used by older mock widgets.
   String get thumbnailAsset => thumbnailUrl;
@@ -100,10 +112,17 @@ class SwingVideo {
   }
 
   bool sameCompareGroup(SwingVideo other) {
-    return clubFamily(club) == clubFamily(other.club) &&
-        angleFamily(angle) == angleFamily(other.angle) &&
-        angleFamily(angle) != 'side' &&
+    if (angleFamily(angle) == 'side' || angleFamily(other.angle) == 'side') {
+      return false;
+    }
+    // Prefer same club + angle; allow same club with any face/dtl so a
+    // second selection is still possible when the library is small.
+    final sameClub = clubFamily(club) == clubFamily(other.club) &&
         clubFamily(club).isNotEmpty;
+    if (!sameClub) return false;
+    final a = angleFamily(angle);
+    final b = angleFamily(other.angle);
+    return a == b || a.isEmpty || b.isEmpty;
   }
 
   factory SwingVideo.fromJson(Map<String, dynamic> json) {
@@ -111,8 +130,27 @@ class SwingVideo {
     final remoteVideo = (json['videoUrl'] ?? '').toString();
     final isLocal = json['isLocal'] == true ||
         (remoteVideo.isEmpty && localPath.isNotEmpty);
+    final rootId = (json['_id'] ?? json['id'] ?? json['local_id'] ?? '').toString();
+    final nestedSwing = json['swing'];
+    final nestedSwingId = nestedSwing is Map
+        ? (nestedSwing['_id'] ?? nestedSwing['id'] ?? '').toString()
+        : '';
+    // my-swings rows pass hasAnalysis:false; library rows keep the analysis id.
+    final forcedNoAnalysis = json['hasAnalysis'] == false;
+    final analysisId = forcedNoAnalysis
+        ? ''
+        : (json['analysisId'] ??
+                json['swingLibraryId'] ??
+                json['libraryId'] ??
+                rootId)
+            .toString();
+    final swingId = (json['swingId'] ?? json['swing_id'] ?? nestedSwingId)
+        .toString();
+    final hasAnalysis = !forcedNoAnalysis;
     return SwingVideo(
-      id: (json['_id'] ?? json['id'] ?? json['local_id'] ?? '').toString(),
+      id: analysisId.isNotEmpty ? analysisId : rootId,
+      analysisId: analysisId,
+      swingId: swingId.isNotEmpty ? swingId : (hasAnalysis ? '' : rootId),
       club: (json['clubType'] ?? json['club'] ?? 'Driver').toString(),
       angle: (json['cameraAngle'] ?? json['angle'] ?? 'Face On').toString(),
       thumbnailUrl: (json['thumbnailUrl'] ?? '').toString(),
@@ -126,12 +164,15 @@ class SwingVideo {
           .toString(),
       localId: (json['local_id'] ?? json['localId'] ?? '').toString(),
       isLocal: isLocal,
+      hasAnalysis: hasAnalysis || isLocal,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
+      'analysisId': analysisId,
+      'swingId': swingId,
       'clubType': club,
       'cameraAngle': angle,
       'thumbnailUrl': thumbnailUrl,
@@ -143,6 +184,7 @@ class SwingVideo {
       'client_session_id': sessionId,
       'local_id': localId,
       'isLocal': isLocal,
+      'hasAnalysis': hasAnalysis,
     };
   }
 }

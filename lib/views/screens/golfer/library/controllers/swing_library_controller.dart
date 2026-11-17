@@ -22,7 +22,6 @@ class SwingLibraryController extends ChangeNotifier {
     LibraryFilterOption(label: 'Driver', value: 'Driver'),
     LibraryFilterOption(label: 'Irons', value: 'Irons'),
     LibraryFilterOption(label: 'Wedges', value: 'Wedges'),
-    LibraryFilterOption(label: 'Putter', value: 'Putter'),
   ];
 
   static const angleChoices = <LibraryFilterOption>[
@@ -83,19 +82,19 @@ class SwingLibraryController extends ChangeNotifier {
     final id = compareAId;
     if (id == null) return null;
     for (final swing in swings) {
-      if (swing.id == id) return swing;
+      if (swing.openId == id || swing.id == id) return swing;
     }
     return null;
   }
 
   bool isCompareSelected(SwingVideo swing) =>
-      swing.id == compareAId || swing.id == compareBId;
+      swing.openId == compareAId || swing.openId == compareBId;
 
   bool isCompareDimmed(SwingVideo swing) {
     if (!compareMode) return false;
     final anchor = compareAnchor;
-    if (anchor == null || swing.id == anchor.id) return false;
-    if (swing.id == compareBId) return false;
+    if (anchor == null || swing.openId == anchor.openId) return false;
+    if (swing.openId == compareBId) return false;
     return swing.isLocal || !anchor.sameCompareGroup(swing);
   }
 
@@ -124,16 +123,17 @@ class SwingLibraryController extends ChangeNotifier {
 
   /// Returns a message when the swing cannot be added to the comparison.
   String? toggleCompareSelection(SwingVideo swing) {
-    if (swing.isLocal || swing.id.isEmpty) {
+    if (swing.isLocal || swing.openId.isEmpty) {
       return 'This swing can be compared after it syncs.';
     }
-    if (swing.id == compareAId) {
+    final pickId = swing.openId;
+    if (pickId == compareAId) {
       compareAId = compareBId;
       compareBId = null;
       notifyListeners();
       return null;
     }
-    if (swing.id == compareBId) {
+    if (pickId == compareBId) {
       compareBId = null;
       notifyListeners();
       return null;
@@ -142,10 +142,13 @@ class SwingLibraryController extends ChangeNotifier {
     if (anchor != null && !anchor.sameCompareGroup(swing)) {
       return 'Select another ${anchor.club} ${anchor.angleLabel} swing.';
     }
-    if (anchor == null) {
-      compareAId = swing.id;
+    if (compareAId != null && compareBId != null) {
+      // Allow replacing B so a second pick always works once A is set.
+      compareBId = pickId;
+    } else if (anchor == null) {
+      compareAId = pickId;
     } else {
-      compareBId = swing.id;
+      compareBId = pickId;
     }
     notifyListeners();
     return null;
@@ -212,30 +215,60 @@ class SwingLibraryController extends ChangeNotifier {
   }
 
   Future<List<SwingVideo>> _fetchRemote(GolferService service) async {
-    final collected = <Map<String, dynamic>>[];
+    // Prefer swing-library (analysis) rows — my-swings ids are not findable via
+    // `/swing-library/find/:id` and caused "Analysis not found".
+    final libraryMaps = <Map<String, dynamic>>[];
     try {
-      for (var page = 1; page <= 5; page++) {
+      final library = await service.getMyLibrary(limit: 100);
+      libraryMaps.addAll(_maps(_asResultList(library['data'])));
+    } catch (_) {}
+
+    final swingMaps = <Map<String, dynamic>>[];
+    try {
+      for (var page = 1; page <= 3; page++) {
         final response = await service.getMySwings(
           page: page,
           limit: 50,
           sort: '-createdAt',
         );
-        collected.addAll(_maps(_asResultList(response['data'])));
+        swingMaps.addAll(_maps(_asResultList(response['data'])));
         final meta = _asMap(response['meta']);
         final totalPage = meta == null ? 1 : _asInt(meta['totalPage']);
         if (page >= totalPage || totalPage == 0) break;
       }
     } on ApiError catch (error) {
-      if (error.statusCode != 404 && error.statusCode != 405) rethrow;
+      if (error.statusCode != 404 && error.statusCode != 405) {
+        if (libraryMaps.isEmpty) rethrow;
+      }
     }
 
-    try {
-      final library = await service.getMyLibrary(limit: 100);
-      collected.addAll(_maps(_asResultList(library['data'])));
-    } catch (_) {
-      if (collected.isEmpty) rethrow;
+    if (libraryMaps.isEmpty && swingMaps.isEmpty) {
+      return const [];
     }
-    return collected.map(SwingVideo.fromJson).toList();
+
+    final library = libraryMaps.map(SwingVideo.fromJson).toList();
+    final bySwingId = <String, SwingVideo>{};
+    final byId = <String, SwingVideo>{};
+    for (final item in library) {
+      byId[item.id] = item;
+      if (item.swingId.isNotEmpty) bySwingId[item.swingId] = item;
+      if (item.analysisId.isNotEmpty) byId[item.analysisId] = item;
+    }
+
+    for (final raw in swingMaps) {
+      final swing = SwingVideo.fromJson({
+        ...raw,
+        'hasAnalysis': false,
+      });
+      if (swing.id.isEmpty) continue;
+      if (byId.containsKey(swing.id) || bySwingId.containsKey(swing.id)) {
+        continue;
+      }
+      // Keep unanalyzed swings visible, but openId stays the swing id.
+      byId[swing.id] = swing;
+    }
+
+    return byId.values.toList();
   }
 
   Future<List<SwingVideo>> _localSwings(SharedPreferences prefs) async {

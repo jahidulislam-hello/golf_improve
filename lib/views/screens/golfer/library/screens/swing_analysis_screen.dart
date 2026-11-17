@@ -5,7 +5,6 @@ import '../controllers/share_coach_controller.dart';
 import '../controllers/swing_analysis_controller.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/video_preview.dart';
-import 'ai_golf_coach_screen.dart';
 import 'share_with_coach_screen.dart';
 import 'review_swing_screen.dart';
 import 'package:golf_training_app/core/app_radii.dart';
@@ -50,18 +49,6 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
         builder: (_) => ReviewSwingScreen(
           videoUrl: controller.videoUrl,
           thumbnailUrl: controller.thumbnailUrl,
-        ),
-      ),
-    );
-  }
-
-  void _openAiChat() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AiGolfCoachScreen(
-          swingId: controller.id,
-          conversation: controller.aiConversation,
-          suggestedQuestions: controller.suggestedQuestions,
         ),
       ),
     );
@@ -212,17 +199,13 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              PrimaryButton(
-                label: 'AI Golf Coach',
-                icon: Icons.psychology,
-                onTap: _openAiChat,
-              ),
-              const SizedBox(height: 16),
-              const WarningBanner(
-                text:
-                    'AI suggestions are experimental. Always review results with your golf coach before making technique changes.',
-              ),
-              const SizedBox(height: 16),
+              // AI Golf Coach hidden for launch — not reliable with profile context yet.
+              if (controller.insights.isNotEmpty)
+                const WarningBanner(
+                  text:
+                      'AI suggestions are experimental. Always review results with your golf coach before making technique changes.',
+                ),
+              if (controller.insights.isNotEmpty) const SizedBox(height: 16),
               ...controller.insights.map(
                 (i) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),

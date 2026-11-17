@@ -13,6 +13,7 @@ import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.da
 import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_controller.dart';
 import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/library/screens/swing_analysis_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/notification/notification_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Central controller for the Home / Dashboard screen.
@@ -58,7 +59,8 @@ class HomeController extends ChangeNotifier {
       ctaLabel: 'Start Recording',
     ),
     HeroBannerModel(
-      imageAsset: 'assets/images/golf_03.png',
+      // Replaced AI-looking golf_03 (club across shoulders) for launch.
+      imageAsset: 'assets/images/golf_02.png',
       eyebrow: 'STAY ON TRACK',
       title: 'Get feedback\nfrom your coach.',
       ctaLabel: 'Start Recording',
@@ -392,7 +394,9 @@ class HomeController extends ChangeNotifier {
   // ---------------------------------------------------------------------
 
   void onNotificationTap(BuildContext context) {
-    _toast(context, 'Opening notifications');
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const NotificationScreen()),
+    );
   }
 
   void onProfileTap(BuildContext context) {
@@ -402,6 +406,10 @@ class HomeController extends ChangeNotifier {
   }
 
   void onStartRecordingTap(BuildContext context) {
+    if (Get.isRegistered<GolferNavbarController>()) {
+      Get.find<GolferNavbarController>().changeIndex(2);
+      return;
+    }
     _toast(context, 'Starting a new recording…');
   }
 

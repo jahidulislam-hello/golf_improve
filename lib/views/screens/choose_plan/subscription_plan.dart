@@ -166,15 +166,86 @@ List<String> _featureLabels(dynamic raw) {
   final labels = <String>[];
   for (final item in raw) {
     if (item is String && item.trim().isNotEmpty) {
-      labels.add(item.trim());
+      labels.add(_fixFeatureTypo(item.trim()));
       continue;
     }
     if (item is! Map) continue;
     if (item['included'] == false) continue;
     final label = '${item['label'] ?? item['name'] ?? item['title'] ?? ''}'.trim();
-    if (label.isNotEmpty) labels.add(label);
+    if (label.isNotEmpty) labels.add(_fixFeatureTypo(label));
   }
   return labels;
+}
+
+String _fixFeatureTypo(String label) {
+  return label
+      .replaceAll(RegExp(r'very\s+demand\s+full', caseSensitive: false), 'very demanding')
+      .replaceAll(RegExp(r'demand\s+full', caseSensitive: false), 'demanding');
+}
+
+/// Launch display overrides when the API still returns old €14.99 / mixed currency.
+SubscriptionPlan normalizeLaunchPlan(SubscriptionPlan plan) {
+  final name = plan.name.toLowerCase();
+  final type = plan.planType.toLowerCase();
+  final isStand = type.contains('stand') ||
+      name.contains('stand') ||
+      name.contains('free trial');
+  final isStandard = type.contains('standard') ||
+      type.contains('premium') ||
+      name.contains('standard') ||
+      name.contains('premium') ||
+      name.contains('no stand');
+
+  var price = plan.price;
+  var currency = plan.currency.toUpperCase() == 'USD' || plan.currency.isEmpty
+      ? 'EUR'
+      : plan.currency.toUpperCase();
+  if (currency != 'EUR') currency = 'EUR';
+
+  if (isStand) {
+    price = 20;
+  } else if (isStandard) {
+    price = 30;
+  } else if ((price - 14.99).abs() < 0.02) {
+    // Ambiguous legacy plan — treat cheapest launch card as Stand.
+    price = plan.isBestValue ? 20 : 30;
+  }
+
+  // Keep one consistent trial length in the UI (avoid "7 days" vs "3-day").
+  final trialDays = plan.trialDays > 0 ? 3 : 0;
+
+  return SubscriptionPlan(
+    id: plan.id,
+    name: isStand
+        ? (plan.name.toLowerCase().contains('stand')
+            ? plan.name
+            : 'Golfimprove Stand')
+        : (isStandard && !plan.name.toLowerCase().contains('standard')
+            ? 'Standard'
+            : plan.name),
+    planType: plan.planType,
+    description: _normalizeTrialCopy(plan.description, trialDays),
+    price: price,
+    currency: currency,
+    billingInterval: plan.billingInterval,
+    trialDays: trialDays,
+    features: plan.features.map(_fixFeatureTypo).toList(),
+    isBestValue: plan.isBestValue || isStand,
+  );
+}
+
+String _normalizeTrialCopy(String description, int trialDays) {
+  var text = description.trim();
+  if (trialDays <= 0) return text;
+  text = text.replaceAll(
+    RegExp(r'\b7[-\s]?days?\b', caseSensitive: false),
+    '$trialDays days',
+  );
+  text = text.replaceAll(
+    RegExp(r'\b7[-\s]?day\b', caseSensitive: false),
+    '$trialDays-day',
+  );
+  return text;
 }
 
 List<String> _stringList(dynamic raw) {

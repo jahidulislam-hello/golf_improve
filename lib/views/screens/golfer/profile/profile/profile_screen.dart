@@ -130,18 +130,19 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(100),
           child: Container(
-            width: 64,
-            height: 64,
+            width: 52,
+            height: 52,
             color: AppColors.cardBackground,
             child: controller.avatarUrl != null
                 ? Image.network(
                     controller.avatarUrl!,
-                    width: 64,
-                    height: 64,
+                    width: 52,
+                    height: 52,
                     fit: BoxFit.cover,
                   )
                 : const Icon(Icons.person, color: AppColors.textSecondary),
@@ -150,6 +151,7 @@ class _ProfileHeader extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(controller.name, style: AppTextStyles.profileName),
@@ -160,7 +162,6 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
         ),
-
       ],
     );
   }
@@ -257,9 +258,23 @@ class _GolfStandConnectedRow extends StatelessWidget {
             borderRadius: AppRadii.cardBorderRadius,
             border: AppRadii.cardBorder,
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Expanded(
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.accentBlueBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.sports_golf,
+                  color: AppColors.ctaBrightBlue,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,

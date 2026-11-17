@@ -40,6 +40,7 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       throw _toApiError(e);
+
     }
   }
 

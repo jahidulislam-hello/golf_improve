@@ -46,9 +46,19 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
       );
       return;
     }
+    if (!swing.hasAnalysis && swing.analysisId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Analysis is not ready for this swing yet. Try again after sync.',
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SwingAnalysisScreen(swingId: swing.id),
+        builder: (_) => SwingAnalysisScreen(swingId: swing.openId),
       ),
     );
   }
