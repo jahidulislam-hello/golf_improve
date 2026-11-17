@@ -54,7 +54,14 @@ class CoachFeedbackModel {
 }
 
 /// ===== Quick action grid =====
-enum QuickActionType { aiAnalysis, compareSwing, logbook, shareWithCoach, library }
+enum QuickActionType {
+  aiAnalysis,
+  compareSwing,
+  logbook,
+  shareWithCoach,
+  library,
+  aiCoach,
+}
 
 class QuickActionModel {
   final QuickActionType type;

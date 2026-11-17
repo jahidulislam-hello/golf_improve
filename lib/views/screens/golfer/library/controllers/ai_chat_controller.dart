@@ -4,12 +4,16 @@ import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 
-/// Controller for Screen 4 — AI Golf Coach chat.
-/// Seeds from find-API `aiConversation` / `suggestedQuestions`, and posts
-/// new questions to `/swing-library/ask/:id`.
+/// Controller for the AI Golf Coach chat (`POST /ai-coach/chat`).
+///
+/// * Opened from a swing: [swingId] is set and the chat is about that swing.
+/// * Opened on its own (Home, Record review): [swingId] is empty and the coach
+///   answers general questions. The server always adds the golfer's profile
+///   (age, handicap, goals, notes), so "how old am I?" works in both modes.
 class AiChatController extends ChangeNotifier {
   AiChatController({
     required this.swingId,
+    this.clubType,
     List<AiConversationEntry> conversation = const [],
     List<String> suggestedQuestions = const [],
   }) {
@@ -31,6 +35,22 @@ class AiChatController extends ChangeNotifier {
   String? recommendedDrill;
   List<Map<String, dynamic>> practicePlan = const [];
   String? clubType;
+
+  /// Server limit for `conversationHistory` items and message length.
+  static const int _maxHistory = 10;
+  static const int _maxContentLength = 2000;
+
+  /// Stable chat session for the general (no swing) coach.
+  static const String generalSessionId = 'general-coach';
+
+  bool get isGeneralChat => swingId.trim().isEmpty;
+
+  static const List<String> _generalSuggestions = [
+    'What is my current handicap?',
+    'Plan my practice for this week',
+    'Give me a drill for my driver',
+    'How can I lower my handicap?',
+  ];
   String? conversationId;
   bool planSaved = false;
   bool planShared = false;
@@ -61,9 +81,12 @@ class AiChatController extends ChangeNotifier {
     if (messages.isEmpty) {
       messages.add(
         ChatMessage(
-          text:
-              'Ask me anything about this swing. Pick a suggestion below or type your own question.',
+          text: isGeneralChat
+              ? 'Hi! I\'m your AI Golf Coach. I know your profile, handicap and '
+                  'practice history. Ask me anything about your game.'
+              : 'Ask me anything about this swing. Pick a suggestion below or type your own question.',
           isUser: false,
+          isGreeting: true,
         ),
       );
     }
@@ -72,6 +95,9 @@ class AiChatController extends ChangeNotifier {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
+    if (quickReplies.isEmpty) {
+      quickReplies = List.of(_generalSuggestions);
+    }
   }
 
   Future<void> selectQuickReply(String reply) async {
@@ -89,7 +115,7 @@ class AiChatController extends ChangeNotifier {
 
   Future<void> askQuestion(String question) async {
     final trimmed = question.trim();
-    if (trimmed.isEmpty || swingId.isEmpty) return;
+    if (trimmed.isEmpty) return;
 
     isSending = true;
     errorMessage = null;
@@ -98,19 +124,28 @@ class AiChatController extends ChangeNotifier {
 
     try {
       final service = await _service();
-      final history = messages
+      // Last few real exchanges only (server accepts at most 10 items).
+      final previous = messages
           .take(messages.length - 1)
+          .where((m) => !m.isGreeting && !m.isError && m.text.trim().isNotEmpty)
+          .toList();
+      final recent = previous.length > _maxHistory
+          ? previous.sublist(previous.length - _maxHistory)
+          : previous;
+      final history = recent
           .map(
-            (message) => {
+            (message) => <String, dynamic>{
               'role': message.isUser ? 'user' : 'assistant',
-              'content': message.text,
+              'content': message.text.length > _maxContentLength
+                  ? message.text.substring(0, _maxContentLength)
+                  : message.text,
             },
           )
           .toList();
-      final response = await service.askCoach(
-        swingId: swingId,
-        question: trimmed,
+      final response = await service.aiCoachChat(
+        message: trimmed,
         clubType: clubType,
+        sessionId: isGeneralChat ? generalSessionId : swingId,
         conversationHistory: history,
       );
       final parsed = _parseCoachReply(response);
@@ -140,13 +175,14 @@ class AiChatController extends ChangeNotifier {
       }
       messages.add(ChatMessage(text: buffer.toString().trim(), isUser: false));
     } catch (e) {
-      errorMessage = e.toString();
-      messages.add(
-        ChatMessage(
-          text: 'Sorry, I could not answer that right now. Please try again.',
-          isUser: false,
-        ),
-      );
+      final apiError = e is ApiError ? e : null;
+      errorMessage = apiError?.message ?? e.toString();
+      final reply = apiError?.statusCode == 402
+          ? 'The AI Golf Coach is part of the subscription. Choose a plan to keep chatting.'
+          : (apiError != null && apiError.message.trim().isNotEmpty
+              ? apiError.message
+              : 'Sorry, I could not answer that right now. Please try again.');
+      messages.add(ChatMessage(text: reply, isUser: false, isError: true));
     } finally {
       isSending = false;
       notifyListeners();

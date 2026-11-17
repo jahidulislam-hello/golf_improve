@@ -52,6 +52,16 @@ class WeeklySwingsCard extends StatelessWidget {
             lineColor: AppColors.ctaBrightBlue,
             fillTopColor: AppColors.chartFillTop,
             showAllDots: true,
+            zeroBaseline: true,
+            showValueLabels: true,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            controller.weeklyTotalLabel,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -77,7 +87,9 @@ class _MetricChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accentBlueBg : AppColors.backgroundOffWhite,
+          color: selected
+              ? AppColors.accentBlueBg
+              : AppColors.backgroundOffWhite,
           borderRadius: AppRadii.cardBorderRadius,
           border: selected ? null : AppRadii.cardBorder,
         ),

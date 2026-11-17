@@ -43,18 +43,22 @@ void _drawDashedPath(
   }
 }
 
-/// Screenshot 1 — before a swing is detected: faint 3x3 grid + a dashed
-/// "step here" silhouette. Face On uses a front silhouette; Down The Line
-/// uses a side-profile outline so the two angles are visually distinct.
+/// Before a swing is detected: faint 3x3 grid plus a framing guide.
+///
+/// * Face On — dashed "step here" guide (head circle, shoulder arch, stance box).
+/// * Down The Line — side-view outline of a golfer at address with club, ball,
+///   ground line and the swing-plane line, so the user can line up the camera
+///   behind the hands.
 class AlignmentGuidePainter extends CustomPainter {
-  final String cameraAngle;
+  const AlignmentGuidePainter({
+    this.downTheLine = false,
+    this.leftHanded = false,
+  });
 
-  const AlignmentGuidePainter({this.cameraAngle = 'Face On'});
+  final bool downTheLine;
 
-  bool get _isDownTheLine {
-    final n = cameraAngle.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
-    return n.contains('down') || n.contains('dtl') || n.contains('line');
-  }
+  /// Mirrors the Down The Line outline for left-handed golfers.
+  final bool leftHanded;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -70,24 +74,25 @@ class AlignmentGuidePainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
+    if (downTheLine) {
+      _paintDownTheLine(canvas, size);
+      return;
+    }
+
     final dashPaint = Paint()
       ..color = AppCaptureColors.guideDashed
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;
 
-    if (_isDownTheLine) {
-      _paintDownTheLine(canvas, size, dashPaint);
-    } else {
-      _paintFaceOn(canvas, size, dashPaint);
-    }
-  }
-
-  void _paintFaceOn(Canvas canvas, Size size, Paint dashPaint) {
     final cx = size.width / 2;
 
     // Upper "head + shoulders" arch guide.
     final headCenter = Offset(cx, size.height * 0.24);
-    canvas.drawCircle(headCenter, size.width * 0.12, dashPaint);
+    canvas.drawCircle(
+      headCenter,
+      size.width * 0.12,
+      dashPaint..style = PaintingStyle.stroke,
+    );
 
     final archPath = Path()
       ..moveTo(cx, size.height * 0.36)
@@ -135,55 +140,125 @@ class AlignmentGuidePainter extends CustomPainter {
     );
   }
 
-  /// Side-profile golfer facing target-line left — feet stacked, shaft plane.
-  void _paintDownTheLine(Canvas canvas, Size size, Paint dashPaint) {
-    final cx = size.width * 0.52;
-    final head = Offset(cx, size.height * 0.22);
-    canvas.drawCircle(head, size.width * 0.075, dashPaint);
+  /// Side view of a right-handed golfer at address, filmed from behind the
+  /// hands along the target line. Coordinates are fractions of a portrait box
+  /// so the figure keeps human proportions on any preview size.
+  void _paintDownTheLine(Canvas canvas, Size size) {
+    final boxH = size.height * 0.86;
+    final boxW = (boxH * 0.62).clamp(0.0, size.width * 0.92);
+    final left = (size.width - boxW) / 2;
+    final top = size.height * 0.07;
 
-    // Torso + stacked legs (side view).
-    final neck = Offset(cx, size.height * 0.30);
-    final hip = Offset(cx - size.width * 0.02, size.height * 0.52);
-    final knee = Offset(cx - size.width * 0.01, size.height * 0.68);
-    final ankle = Offset(cx + size.width * 0.01, size.height * 0.84);
-    final footToe = Offset(cx + size.width * 0.08, size.height * 0.86);
+    Offset p(double x, double y) {
+      final fx = leftHanded ? 1 - x : x;
+      return Offset(left + fx * boxW, top + y * boxH);
+    }
 
-    final body = Path()
-      ..moveTo(head.dx, head.dy + size.width * 0.075)
-      ..lineTo(neck.dx, neck.dy)
-      ..lineTo(hip.dx, hip.dy)
-      ..lineTo(knee.dx, knee.dy)
-      ..lineTo(ankle.dx, ankle.dy)
-      ..lineTo(footToe.dx, footToe.dy);
-    _drawDashedPath(canvas, body, dashPaint);
+    void curve(Path path, Offset c, Offset end) =>
+        path.quadraticBezierTo(c.dx, c.dy, end.dx, end.dy);
 
-    // Arms raised with club shaft on plane (behind/above head).
-    final trailHand = Offset(cx - size.width * 0.12, size.height * 0.16);
-    final leadHand = Offset(cx + size.width * 0.02, size.height * 0.18);
-    final clubTip = Offset(cx - size.width * 0.22, size.height * 0.08);
-    final arms = Path()
-      ..moveTo(neck.dx, neck.dy)
-      ..lineTo(trailHand.dx, trailHand.dy)
-      ..lineTo(clubTip.dx, clubTip.dy)
-      ..moveTo(neck.dx, neck.dy)
-      ..lineTo(leadHand.dx, leadHand.dy)
-      ..lineTo(trailHand.dx, trailHand.dy);
-    _drawDashedPath(canvas, arms, dashPaint);
+    final outline = Paint()
+      ..color = AppCaptureColors.guideDashed
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    // Target-line rail under the feet.
+    final guide = Paint()
+      ..color = AppCaptureColors.guideDashed.withValues(alpha: 0.75)
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+
+    // Head with cap peak pointing at the ball.
+    final head = p(0.60, 0.13);
+    final headR = boxW * 0.075;
+    final peakDir = leftHanded ? -1.0 : 1.0;
+    canvas.drawCircle(head, headR, outline);
+    canvas.drawLine(
+      Offset(head.dx + peakDir * headR * 0.7, head.dy - headR * 0.6),
+      Offset(head.dx + peakDir * headR * 1.6, head.dy - headR * 0.2),
+      outline,
+    );
+
+    // Torso bent forward from the hips: back line and chest line.
+    final torso = Path()..moveTo(p(0.53, 0.19).dx, p(0.53, 0.19).dy);
+    curve(torso, p(0.36, 0.28), p(0.24, 0.42));
+    curve(torso, p(0.16, 0.48), p(0.22, 0.54));
+    torso.moveTo(p(0.66, 0.20).dx, p(0.66, 0.20).dy);
+    curve(torso, p(0.66, 0.30), p(0.52, 0.41));
+    curve(torso, p(0.44, 0.46), p(0.43, 0.51));
+    canvas.drawPath(torso, outline);
+
+    // Arms hanging from the shoulders to the grip.
+    final hands = p(0.62, 0.52);
+    final arms = Path()..moveTo(p(0.56, 0.22).dx, p(0.56, 0.22).dy);
+    curve(arms, p(0.58, 0.38), hands);
+    arms.moveTo(p(0.63, 0.23).dx, p(0.63, 0.23).dy);
+    curve(arms, p(0.66, 0.38), hands);
+    canvas.drawPath(arms, outline);
+    canvas.drawCircle(hands, boxW * 0.028, outline);
+
+    // Legs: flexed knees, weight over the balls of the feet.
+    final legs = Path()..moveTo(p(0.22, 0.54).dx, p(0.22, 0.54).dy);
+    curve(legs, p(0.25, 0.63), p(0.33, 0.71));
+    legs.lineTo(p(0.27, 0.92).dx, p(0.27, 0.92).dy);
+    legs.moveTo(p(0.43, 0.51).dx, p(0.43, 0.51).dy);
+    curve(legs, p(0.45, 0.61), p(0.49, 0.70));
+    legs.lineTo(p(0.44, 0.92).dx, p(0.44, 0.92).dy);
+    legs.moveTo(p(0.32, 0.57).dx, p(0.32, 0.57).dy);
+    curve(legs, p(0.37, 0.64), p(0.41, 0.71));
+    legs.lineTo(p(0.36, 0.91).dx, p(0.36, 0.91).dy);
+    canvas.drawPath(legs, outline);
+
+    // Feet.
+    canvas.drawLine(p(0.23, 0.94), p(0.53, 0.94), outline);
+
+    // Club shaft from the grip to the ball, then the club head.
+    final clubHead = p(0.88, 0.935);
+    canvas.drawLine(hands, clubHead, outline);
+    canvas.drawLine(
+      p(0.86, 0.925),
+      p(0.93, 0.94),
+      Paint()
+        ..color = AppCaptureColors.guideDashed
+        ..strokeWidth = 3.4
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Ball.
+    canvas.drawCircle(p(0.97, 0.935), boxW * 0.022, outline);
+
+    // Ground line.
+    final groundY = p(0, 0.955).dy;
     _drawDashedLine(
       canvas,
-      Offset(size.width * 0.28, size.height * 0.88),
-      Offset(size.width * 0.78, size.height * 0.88),
-      dashPaint,
-      dashWidth: 8,
-      gapWidth: 6,
+      Offset(size.width * 0.06, groundY),
+      Offset(size.width * 0.94, groundY),
+      guide,
+    );
+
+    // Swing-plane line: ball through the hands, extended past the shoulders.
+    final ball = p(0.97, 0.935);
+    _drawDashedLine(canvas, ball, ball + (hands - ball) * 2.1, guide);
+
+    // Stance box around the lower body for camera framing.
+    _drawDashedPath(
+      canvas,
+      Path()
+        ..addRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromPoints(p(0.14, 0.45), p(0.56, 0.955)),
+            const Radius.circular(14),
+          ),
+        ),
+      guide,
     );
   }
 
   @override
   bool shouldRepaint(covariant AlignmentGuidePainter oldDelegate) =>
-      oldDelegate.cameraAngle != cameraAngle;
+      oldDelegate.downTheLine != downTheLine ||
+      oldDelegate.leftHanded != leftHanded;
 }
 
 /// A single normalized (0..1) joint position relative to the preview box.

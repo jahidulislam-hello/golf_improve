@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -121,6 +122,7 @@ class ProgressController extends ChangeNotifier {
   int totalSwings = 0;
   int totalPracticeMinutes = 0;
 
+  SixWeekComparison? sixWeekComparison;
   ProgressCompareSwing? compareRecent;
   ProgressCompareSwing? compareEarlier;
 
@@ -133,6 +135,17 @@ class ProgressController extends ChangeNotifier {
       case ProgressChartMetric.sessions:
         return weeklySessionSeries;
     }
+  }
+
+  /// "12 swings this week" / "34 minutes this week" / "3 sessions this week".
+  String get weeklyTotalLabel {
+    final total = activeWeeklySeries.fold<double>(0, (a, b) => a + b).round();
+    final noun = switch (chartMetric) {
+      ProgressChartMetric.swings => total == 1 ? 'swing' : 'swings',
+      ProgressChartMetric.minutes => total == 1 ? 'minute' : 'minutes',
+      ProgressChartMetric.sessions => total == 1 ? 'session' : 'sessions',
+    };
+    return '$total $noun this week';
   }
 
   String get weeklyChartTitle {
@@ -205,13 +218,20 @@ class ProgressController extends ChangeNotifier {
   }
 
   Future<void> loadProgress({bool showLoader = true}) async {
-    if (showLoader) {
+    final prefs = await SharedPreferences.getInstance();
+
+    // First open: paint the last known progress instantly, then refresh.
+    if (!hasLoaded && _restoreProgress(prefs)) {
+      hasLoaded = true;
+      isLoading = false;
+      notifyListeners();
+    }
+    if (showLoader && !hasLoaded) {
       isLoading = true;
       errorMessage = null;
       notifyListeners();
     }
 
-    final prefs = await SharedPreferences.getInstance();
     try {
       final service = GolferService(
         apiService: ApiService(sharedPreferences: prefs),
@@ -225,28 +245,50 @@ class ProgressController extends ChangeNotifier {
       hasLoaded = true;
       errorMessage = null;
     } catch (e) {
-      final restored = _restoreProgress(prefs);
-      if (restored) {
-        hasLoaded = true;
-        errorMessage = null;
-      } else {
-        errorMessage = e.toString();
+      if (!hasLoaded) {
+        errorMessage = e is ApiError ? e.message : e.toString();
         if (!showLoader) rethrow;
       }
     } finally {
-      compareRecent = null;
-      compareEarlier = null;
-      final pair = await _loadComparePair(prefs);
-      if (pair != null) {
-        compareRecent = pair.$1;
-        compareEarlier = pair.$2;
-      }
       isLoading = false;
       notifyListeners();
     }
+
+    // Secondary sections load after the main numbers are on screen.
+    unawaited(_loadComparisons(prefs));
+  }
+
+  /// This week vs 6 weeks ago (server stats) plus, when available, a pair of
+  /// same club/angle swings about six weeks apart for the video compare.
+  Future<void> _loadComparisons(SharedPreferences prefs) async {
+    final service = GolferService(
+      apiService: ApiService(sharedPreferences: prefs),
+    );
+    final results = await Future.wait<Object?>([
+      service
+          .getCompareSixWeeks()
+          .then<Object?>((r) => _asMap(r['data']))
+          .catchError((_) => null),
+      _loadComparePair(prefs).catchError((_) => null),
+    ]);
+    final stats = results[0];
+    if (stats is Map<String, dynamic>) {
+      sixWeekComparison = SixWeekComparison.fromJson(stats);
+    }
+    final pair = results[1];
+    if (pair is (ProgressCompareSwing, ProgressCompareSwing)) {
+      compareRecent = pair.$1;
+      compareEarlier = pair.$2;
+    } else {
+      compareRecent = null;
+      compareEarlier = null;
+    }
+    notifyListeners();
   }
 
   /// Called when the user taps "Update" inside the Handicap Index modal.
+  /// The new value shows immediately; the full progress refresh (chart,
+  /// history, comparisons) runs in the background.
   Future<bool> updateHandicapIndex(double newValue) async {
     isUpdatingHandicap = true;
     errorMessage = null;
@@ -262,14 +304,15 @@ class ProgressController extends ChangeNotifier {
       final service = await _service();
       final patchResponse = await service.updateHandicap(handicap);
 
-      try {
-        await loadProgress(showLoader: false);
-      } catch (_) {
-        _applyPatchFallback(patchResponse);
-      }
+      _handicapIndex = bounded;
+      improvement = _handicapIndex - _startingHandicap;
+      isHandicapImproved = improvement < 0;
+      lastUpdatedLabel = 'Today';
+      _applyPatchFallback(patchResponse);
+      unawaited(loadProgress(showLoader: false).catchError((_) {}));
       return true;
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = e is ApiError ? e.message : e.toString();
       return false;
     } finally {
       isUpdatingHandicap = false;
@@ -294,8 +337,7 @@ class ProgressController extends ChangeNotifier {
           thisWeek['lastWeekSessions'] ?? thisWeek['sessionsLastWeek'],
         );
       }
-      final weekMinutes = _asInt(thisWeek['minutesPracticed']);
-      if (weekMinutes > 0) minutesThisWeek = weekMinutes;
+      minutesThisWeek = _asInt(thisWeek['minutesPracticed']);
       final weekTarget = _asInt(thisWeek['targetSessions']);
       if (weekTarget > 0) weeklyTargetSessions = weekTarget;
     }
@@ -360,13 +402,13 @@ class ProgressController extends ChangeNotifier {
           .map((e) => _asMap(e))
           .whereType<Map<String, dynamic>>()
           .toList();
-      weeklySwingLabels =
-          points.map((e) => (e['day'] ?? '').toString()).toList();
+      weeklySwingLabels = points
+          .map((e) => (e['day'] ?? '').toString())
+          .toList();
       weeklySwingSeries = points
           .map((e) => _asDouble(e['swings'] ?? e['count']))
           .toList();
-      weeklyMinuteSeries =
-          points.map((e) => _asDouble(e['minutes'])).toList();
+      weeklyMinuteSeries = points.map((e) => _asDouble(e['minutes'])).toList();
       weeklySessionSeries = points.map((e) {
         if (e.containsKey('sessions')) return _asDouble(e['sessions']);
         return _asDouble(e['swings'] ?? e['count']) > 0 ? 1.0 : 0.0;
@@ -380,8 +422,9 @@ class ProgressController extends ChangeNotifier {
           .map((e) => _asMap(e))
           .whereType<Map<String, dynamic>>()
           .toList();
-      weeklySwingLabels =
-          points.map((e) => (e['day'] ?? '').toString()).toList();
+      weeklySwingLabels = points
+          .map((e) => (e['day'] ?? '').toString())
+          .toList();
       weeklySwingSeries = points.map((e) => _asDouble(e['count'])).toList();
       weeklySessionSeries = weeklySwingSeries
           .map((count) => count > 0 ? 1.0 : 0.0)
@@ -423,15 +466,9 @@ class ProgressController extends ChangeNotifier {
       final service = GolferService(
         apiService: ApiService(sharedPreferences: prefs),
       );
-      try {
-        final library = await service.getMyLibrary(limit: 100);
-        swings.addAll(_swingsFrom(library['data']));
-      } catch (_) {}
-      if (swings.length < 2) {
-        final response =
-            await service.getMySwings(limit: 100, sort: '-createdAt');
-        swings.addAll(_swingsFrom(response['data']));
-      }
+      // Same list as Library and Compare, so the pair's ids open everywhere.
+      final records = await service.getAllMySwingRecords();
+      swings.addAll(records.map(SwingVideo.fromJson));
     } catch (_) {}
 
     if (swings.length < 2) {
@@ -444,12 +481,12 @@ class ProgressController extends ChangeNotifier {
     final list = data is List
         ? data
         : (data is Map
-            ? (data['results'] ??
-                data['swings'] ??
-                data['items'] ??
-                data['docs'] ??
-                data['data'])
-            : null);
+              ? (data['results'] ??
+                    data['swings'] ??
+                    data['items'] ??
+                    data['docs'] ??
+                    data['data'])
+              : null);
     if (list is! List) return const [];
     return list
         .whereType<Map>()
@@ -489,14 +526,14 @@ class ProgressController extends ChangeNotifier {
     var bestGap = 1 << 30;
     for (final list in groups.values) {
       if (list.length < 2) continue;
-      list.sort(
-        (a, b) => b.recordedStamp!.compareTo(a.recordedStamp!),
-      );
+      list.sort((a, b) => b.recordedStamp!.compareTo(a.recordedStamp!));
       final recent = list.first;
       SwingVideo? earlier;
       var closest = 1 << 30;
       for (final other in list.skip(1)) {
-        final days = recent.recordedStamp!.difference(other.recordedStamp!).inDays;
+        final days = recent.recordedStamp!
+            .difference(other.recordedStamp!)
+            .inDays;
         if (days < 7) continue;
         final gap = (days - 42).abs();
         if (gap < closest) {
@@ -589,7 +626,8 @@ class ProgressController extends ChangeNotifier {
       improvement = handicap['improvement'] is num
           ? (handicap['improvement'] as num).toDouble()
           : _handicapIndex - _startingHandicap;
-      isHandicapImproved = handicap['isImproved'] == true ||
+      isHandicapImproved =
+          handicap['isImproved'] == true ||
           handicap['isImprovement'] == true ||
           improvement < 0;
       lastUpdatedLabel = _friendlyDate(_readString(handicap, 'lastUpdatedAt'));
@@ -597,7 +635,10 @@ class ProgressController extends ChangeNotifier {
 
     final historyEntry = _asMap(data['historyEntry']);
     if (historyEntry != null) {
-      final nextValues = [...handicapTrend, _asDouble(historyEntry['handicap'])];
+      final nextValues = [
+        ...handicapTrend,
+        _asDouble(historyEntry['handicap']),
+      ];
       final parsed = DateTime.tryParse('${historyEntry['createdAt'] ?? ''}');
       final nextLabels = [
         ...handicapTrendLabels,
@@ -656,5 +697,71 @@ class ProgressController extends ChangeNotifier {
     if (diff == 0) return 'Today';
     if (diff == 1) return 'Yesterday';
     return '${local.day}/${local.month}/${local.year}';
+  }
+}
+
+/// One metric in "Compare with 6 weeks ago".
+class ComparisonMetric {
+  const ComparisonMetric({
+    required this.current,
+    required this.previous,
+    required this.difference,
+  });
+
+  final num current;
+  final num previous;
+  final num difference;
+
+  factory ComparisonMetric.fromJson(dynamic raw) {
+    final map = raw is Map ? raw : const {};
+    num read(String key) => map[key] is num ? map[key] as num : 0;
+    return ComparisonMetric(
+      current: read('current'),
+      previous: read('previous'),
+      difference: read('difference'),
+    );
+  }
+}
+
+/// Server comparison of this week against the same week six weeks earlier.
+class SixWeekComparison {
+  const SixWeekComparison({
+    required this.hasPreviousData,
+    required this.swings,
+    required this.minutes,
+    required this.sessions,
+    required this.activeDays,
+    required this.handicapCurrent,
+    required this.handicapPrevious,
+    required this.handicapDifference,
+  });
+
+  final bool hasPreviousData;
+  final ComparisonMetric swings;
+  final ComparisonMetric minutes;
+  final ComparisonMetric sessions;
+  final ComparisonMetric activeDays;
+  final double? handicapCurrent;
+  final double? handicapPrevious;
+  final double? handicapDifference;
+
+  factory SixWeekComparison.fromJson(Map<String, dynamic> json) {
+    final change = json['change'] is Map
+        ? Map<String, dynamic>.from(json['change'] as Map)
+        : const <String, dynamic>{};
+    final handicap = change['handicap'] is Map
+        ? Map<String, dynamic>.from(change['handicap'] as Map)
+        : const <String, dynamic>{};
+    double? asDouble(dynamic v) => v is num ? v.toDouble() : null;
+    return SixWeekComparison(
+      hasPreviousData: json['hasPreviousData'] == true,
+      swings: ComparisonMetric.fromJson(change['swings']),
+      minutes: ComparisonMetric.fromJson(change['minutesPracticed']),
+      sessions: ComparisonMetric.fromJson(change['practiceSessions']),
+      activeDays: ComparisonMetric.fromJson(change['activeDays']),
+      handicapCurrent: asDouble(handicap['current']),
+      handicapPrevious: asDouble(handicap['previous']),
+      handicapDifference: asDouble(handicap['difference']),
+    );
   }
 }

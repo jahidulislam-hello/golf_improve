@@ -19,7 +19,9 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  static const Duration _splashDuration = Duration(seconds: 5);
+  /// Session restore is synchronous, so the splash only needs to be long
+  /// enough for the brand moment and to warm up Home's images.
+  static const Duration _splashDuration = Duration(milliseconds: 1400);
 
   @override
   void initState() {
@@ -33,6 +35,20 @@ class _SplashScreenState extends State<SplashScreen>
     Future.delayed(_splashDuration, () {
       if (mounted) widget.onFinished();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Decode Home's hero images while the splash is showing so the first
+    // Home frame paints without image pop-in.
+    for (final asset in const [
+      'assets/images/golf_01.png',
+      'assets/images/golf_02.png',
+      'assets/images/golf_03.png',
+    ]) {
+      precacheImage(AssetImage(asset), context).catchError((_) {});
+    }
   }
 
   @override

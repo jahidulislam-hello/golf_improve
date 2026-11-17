@@ -212,8 +212,19 @@ class ChatMessage {
   final bool isUser;
   final DateTime timestamp;
 
-  ChatMessage({required this.text, required this.isUser, DateTime? timestamp})
-      : timestamp = timestamp ?? DateTime.now();
+  /// Local welcome text — never sent to the server as history.
+  final bool isGreeting;
+
+  /// Local error reply — never sent to the server as history.
+  final bool isError;
+
+  ChatMessage({
+    required this.text,
+    required this.isUser,
+    DateTime? timestamp,
+    this.isGreeting = false,
+    this.isError = false,
+  }) : timestamp = timestamp ?? DateTime.now();
 }
 
 /// Prior AI Q&A pair from `aiConversation` on swing-library find.
