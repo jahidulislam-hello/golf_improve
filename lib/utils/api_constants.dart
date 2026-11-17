@@ -1,6 +1,6 @@
 class ApiConstants {
-  // static const String baseUrl = 'https://api.golfimprove.eu';
-  static const String baseUrl = 'https://golf.ssh.bd';
+  static const String baseUrl = 'https://api.golfimprove.eu';
+  // static const String baseUrl = 'https://golf.ssh.bd';
   static const String apiUrl = '$baseUrl/api/v1';
 
   // SharedPreferences keys
