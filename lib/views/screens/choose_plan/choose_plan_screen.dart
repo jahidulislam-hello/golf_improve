@@ -166,15 +166,20 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
   }
 
   String _subtitleFor(SubscriptionPlan plan, PromoQuote? quote) {
-    final description = plan.description;
     final trial = quote != null &&
             _controller.selectedPlan?.id == plan.id &&
             quote.trialDays > 0
         ? quote.trialDays
         : plan.trialDays;
-    final trialLine = trial > 0
-        ? '$trial-day free trial included'
-        : '';
+    // One consistent trial line — avoid mixing "7 days" in description with "3-day".
+    final trialLine = trial > 0 ? '$trial-day free trial included' : '';
+    final description = plan.description
+        .replaceAll(
+          RegExp(r'\b\d+[-\s]?day(s)?\s+free\s+trial\b', caseSensitive: false),
+          '',
+        )
+        .replaceAll(RegExp(r'\n{2,}'), '\n')
+        .trim();
     if (description.isEmpty) return trialLine;
     if (trialLine.isEmpty) return description;
     return '$description\n$trialLine';

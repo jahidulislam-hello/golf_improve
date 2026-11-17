@@ -9,6 +9,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/free_swing_quota.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -142,10 +143,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _recordingModes = classified.modes;
 
     // Keep only club-like categories (ignore angle/mode strings wrongly nested).
+    // Putter is not tracked — hide it from the picker.
     final clubCats = data.categories
         .where((c) => CaptureFieldNormalizer.looksLikeClubName(c.name))
+        .where((c) => !c.name.toLowerCase().contains('putt'))
         .toList();
-    _categories = clubCats.isNotEmpty ? clubCats : data.categories;
+    _categories = clubCats.isNotEmpty
+        ? clubCats
+        : data.categories
+            .where((c) => !c.name.toLowerCase().contains('putt'))
+            .toList();
 
     if (_categories.isNotEmpty) {
       _selectedCategory = _categories.first;
@@ -487,6 +494,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _pickFromGallery() async {
     if (_isRecording) return;
+    if (!await FreeSwingQuota.ensureCanRecord()) return;
 
     // Pause live stream so the system picker + AI are not fighting for memory.
     await _stopImageStream();
@@ -595,6 +603,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   Future<void> _toggleRecord() async {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
+
+    if (!_isRecording && !await FreeSwingQuota.ensureCanRecord()) return;
 
     if (_isRecording) {
       final elapsedMs =
@@ -832,7 +842,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                             joints: _joints,
                             isMirrored: _isUsingFrontCamera,
                           )
-                        : const AlignmentGuidePainter(),
+                        : AlignmentGuidePainter(cameraAngle: _selectedAngle),
                   ),
                   if (_autoDetectReady)
                     Positioned(
@@ -848,14 +858,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                       top: 64,
                       child: _AlignmentTipCard(),
                     ),
-                  Positioned(
-                    right: 12,
-                    top: _autoDetectReady ? 64 : 14,
-                    child: _SideIconRail(
-                      onFlip: _flipCamera,
-                      onMenu: _openClubPicker,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -868,7 +870,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           onRecord: _toggleRecord,
           onFlip: _flipCamera,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         _CaptureModeTabs(
           modes: _recordingModes,
           selected: _selectedMode,
@@ -1147,27 +1149,6 @@ class _AlignmentTipCard extends StatelessWidget {
   }
 }
 
-class _SideIconRail extends StatelessWidget {
-  final VoidCallback onFlip;
-  final VoidCallback onMenu;
-  const _SideIconRail({required this.onFlip, required this.onMenu});
-
-  @override
-  Widget build(BuildContext context) {
-    Widget btn(IconData icon, VoidCallback onTap) => Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: _RoundIconButton(icon: icon, onTap: onTap),
-    );
-    return Column(
-      children: [
-        btn(Icons.menu, onMenu),
-        btn(Icons.golf_course, onMenu),
-        btn(Icons.cameraswitch, onFlip),
-      ],
-    );
-  }
-}
-
 class _BottomControls extends StatelessWidget {
   final bool isRecording;
   final VoidCallback onGalleryTap;
@@ -1249,38 +1230,49 @@ class _CaptureModeTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Cluster Slow-Mo / Swing / Video so Swing sits under the centered shutter.
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: modes.map((mode) {
-        final isSelected = mode == selected;
-        return GestureDetector(
-          onTap: () => onSelect(mode),
-          child: Column(
-            children: [
-              Text(
-                labelFor(mode),
-                style: AppTextStyles.type13.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
-                  color: isSelected
-                      ? AppCaptureColors.captureTabActiveDot
-                      : AppCaptureColors.captureTabInactive,
-                ),
-              ),
-              const SizedBox(height: 4),
-              if (isSelected)
-                Container(
-                  width: 5,
-                  height: 5,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppCaptureColors.captureTabActiveDot,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < modes.length; i++) ...[
+          if (i > 0) const SizedBox(width: 28),
+          GestureDetector(
+            onTap: () => onSelect(modes[i]),
+            child: SizedBox(
+              width: 78,
+              child: Column(
+                children: [
+                  Text(
+                    labelFor(modes[i]),
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.type13.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: modes[i] == selected
+                          ? AppCaptureColors.captureTabActiveDot
+                          : AppCaptureColors.captureTabInactive,
+                    ),
                   ),
-                ),
-            ],
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 5,
+                    child: modes[i] == selected
+                        ? Container(
+                            width: 5,
+                            height: 5,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppCaptureColors.captureTabActiveDot,
+                            ),
+                          )
+                        : null,
+                  ),
+                ],
+              ),
+            ),
           ),
-        );
-      }).toList(),
+        ],
+      ],
     );
   }
 }

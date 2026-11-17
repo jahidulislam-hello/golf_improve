@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/free_swing_quota.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:golf_training_app/views/screens/choose_plan/subscription_plan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -72,11 +73,21 @@ class ChoosePlanController extends ChangeNotifier {
         if (parsed.isNotEmpty) launch = parsed.first;
       } catch (_) {}
       final response = await service.getPlans();
-      plans = parsePlans(response['data']);
+      plans = parsePlans(response['data']).map(normalizeLaunchPlan).toList();
       if (launch != null) {
-        plans.removeWhere((plan) => plan.id == launch!.id);
-        plans.insert(0, launch);
+        final normalizedLaunch = normalizeLaunchPlan(launch);
+        plans.removeWhere((plan) => plan.id == normalizedLaunch.id);
+        plans.insert(0, normalizedLaunch);
       }
+      // Prefer Stand (€20) then Standard (€30) when both exist.
+      plans.sort((a, b) {
+        final aStand = a.planType.toLowerCase().contains('stand') ||
+            a.name.toLowerCase().contains('stand');
+        final bStand = b.planType.toLowerCase().contains('stand') ||
+            b.name.toLowerCase().contains('stand');
+        if (aStand != bStand) return aStand ? -1 : 1;
+        return a.price.compareTo(b.price);
+      });
       if (selectedIndex >= plans.length) selectedIndex = 0;
       if (plans.isEmpty) {
         errorMessage = 'No subscription plans are available right now.';
@@ -176,10 +187,13 @@ class ChoosePlanController extends ChangeNotifier {
     try {
       final service = await _service();
       final response = await service.startTrial(planId: plan.id);
+      await FreeSwingQuota.markPremium();
       final message = '${response['message'] ?? ''}'.trim();
-      return message.isEmpty
-          ? 'Your ${plan.trialDays > 0 ? plan.trialDays : 3}-day free trial is active.'
-          : message;
+      if (message.isEmpty) {
+        final days = plan.trialDays > 0 ? plan.trialDays : 3;
+        return 'Your $days-day free trial is active.';
+      }
+      return message;
     } on ApiError catch (e) {
       _setPromoMessage(e.message, isError: true);
       return null;
@@ -226,6 +240,7 @@ class ChoosePlanController extends ChangeNotifier {
         code: code,
         planId: planId,
       );
+      await FreeSwingQuota.markPremium();
       final message = '${response['message'] ?? ''}'.trim();
       return message.isEmpty
           ? 'Promo code "$code" applied successfully!'

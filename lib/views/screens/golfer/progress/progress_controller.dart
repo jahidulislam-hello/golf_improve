@@ -315,6 +315,22 @@ class ProgressController extends ChangeNotifier {
       }
     }
 
+    // Sanitize inflated week minutes (API sometimes returns seconds or lifetime).
+    final totalsPreview = _asMap(data['totals']);
+    final lifetimeMinutes = totalsPreview == null
+        ? totalPracticeMinutes
+        : _asInt(totalsPreview['totalPracticeMinutes']);
+    if (lifetimeMinutes > 0 && minutesThisWeek > lifetimeMinutes) {
+      minutesThisWeek = lifetimeMinutes;
+    }
+    // Values that look like seconds for a short practice session.
+    if (minutesThisWeek > 180 && thisWeekSwings <= 5 && sessionsThisWeek <= 3) {
+      final asMinutes = (minutesThisWeek / 60).round();
+      if (asMinutes > 0 && asMinutes <= 120) {
+        minutesThisWeek = asMinutes;
+      }
+    }
+
     final handicap = _asMap(data['handicap']);
     if (handicap != null) {
       _handicapIndex = _asDouble(handicap['current']);
@@ -367,10 +383,21 @@ class ProgressController extends ChangeNotifier {
       weeklySwingLabels =
           points.map((e) => (e['day'] ?? '').toString()).toList();
       weeklySwingSeries = points.map((e) => _asDouble(e['count'])).toList();
-      weeklyMinuteSeries = List<double>.filled(points.length, 0);
       weeklySessionSeries = weeklySwingSeries
           .map((count) => count > 0 ? 1.0 : 0.0)
           .toList();
+
+      // Distribute this-week minutes across days with swings so Minutes tab works.
+      final swingTotal =
+          weeklySwingSeries.fold<double>(0, (sum, v) => sum + v);
+      if (swingTotal > 0 && minutesThisWeek > 0) {
+        weeklyMinuteSeries = weeklySwingSeries
+            .map((count) =>
+                count <= 0 ? 0.0 : (count / swingTotal) * minutesThisWeek)
+            .toList();
+      } else {
+        weeklyMinuteSeries = List<double>.filled(points.length, 0);
+      }
     }
   }
 
@@ -396,8 +423,15 @@ class ProgressController extends ChangeNotifier {
       final service = GolferService(
         apiService: ApiService(sharedPreferences: prefs),
       );
-      final response = await service.getMySwings(limit: 100, sort: '-createdAt');
-      swings.addAll(_swingsFrom(response['data']));
+      try {
+        final library = await service.getMyLibrary(limit: 100);
+        swings.addAll(_swingsFrom(library['data']));
+      } catch (_) {}
+      if (swings.length < 2) {
+        final response =
+            await service.getMySwings(limit: 100, sort: '-createdAt');
+        swings.addAll(_swingsFrom(response['data']));
+      }
     } catch (_) {}
 
     if (swings.length < 2) {

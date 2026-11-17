@@ -37,7 +37,11 @@ class _GolferNavbarState extends State<GolferNavbar> {
       return Scaffold(
         backgroundColor: Colors.white,
         extendBody: false,
-        body: pages[controller.currentIndex.value],
+        // Keep tabs alive so closing analysis/report does not remount an empty Home.
+        body: IndexedStack(
+          index: controller.currentIndex.value,
+          children: pages,
+        ),
         bottomNavigationBar: isRecordTab
             ? null
             : Container(

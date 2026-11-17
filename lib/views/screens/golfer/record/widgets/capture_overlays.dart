@@ -44,10 +44,17 @@ void _drawDashedPath(
 }
 
 /// Screenshot 1 — before a swing is detected: faint 3x3 grid + a dashed
-/// "step here" silhouette guide (upper arch for shoulders, lower box for
-/// stance) drawn over a plain dark viewfinder.
+/// "step here" silhouette. Face On uses a front silhouette; Down The Line
+/// uses a side-profile outline so the two angles are visually distinct.
 class AlignmentGuidePainter extends CustomPainter {
-  const AlignmentGuidePainter();
+  final String cameraAngle;
+
+  const AlignmentGuidePainter({this.cameraAngle = 'Face On'});
+
+  bool get _isDownTheLine {
+    final n = cameraAngle.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+    return n.contains('down') || n.contains('dtl') || n.contains('line');
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -68,15 +75,19 @@ class AlignmentGuidePainter extends CustomPainter {
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;
 
+    if (_isDownTheLine) {
+      _paintDownTheLine(canvas, size, dashPaint);
+    } else {
+      _paintFaceOn(canvas, size, dashPaint);
+    }
+  }
+
+  void _paintFaceOn(Canvas canvas, Size size, Paint dashPaint) {
     final cx = size.width / 2;
 
     // Upper "head + shoulders" arch guide.
     final headCenter = Offset(cx, size.height * 0.24);
-    canvas.drawCircle(
-      headCenter,
-      size.width * 0.12,
-      dashPaint..style = PaintingStyle.stroke,
-    );
+    canvas.drawCircle(headCenter, size.width * 0.12, dashPaint);
 
     final archPath = Path()
       ..moveTo(cx, size.height * 0.36)
@@ -124,8 +135,55 @@ class AlignmentGuidePainter extends CustomPainter {
     );
   }
 
+  /// Side-profile golfer facing target-line left — feet stacked, shaft plane.
+  void _paintDownTheLine(Canvas canvas, Size size, Paint dashPaint) {
+    final cx = size.width * 0.52;
+    final head = Offset(cx, size.height * 0.22);
+    canvas.drawCircle(head, size.width * 0.075, dashPaint);
+
+    // Torso + stacked legs (side view).
+    final neck = Offset(cx, size.height * 0.30);
+    final hip = Offset(cx - size.width * 0.02, size.height * 0.52);
+    final knee = Offset(cx - size.width * 0.01, size.height * 0.68);
+    final ankle = Offset(cx + size.width * 0.01, size.height * 0.84);
+    final footToe = Offset(cx + size.width * 0.08, size.height * 0.86);
+
+    final body = Path()
+      ..moveTo(head.dx, head.dy + size.width * 0.075)
+      ..lineTo(neck.dx, neck.dy)
+      ..lineTo(hip.dx, hip.dy)
+      ..lineTo(knee.dx, knee.dy)
+      ..lineTo(ankle.dx, ankle.dy)
+      ..lineTo(footToe.dx, footToe.dy);
+    _drawDashedPath(canvas, body, dashPaint);
+
+    // Arms raised with club shaft on plane (behind/above head).
+    final trailHand = Offset(cx - size.width * 0.12, size.height * 0.16);
+    final leadHand = Offset(cx + size.width * 0.02, size.height * 0.18);
+    final clubTip = Offset(cx - size.width * 0.22, size.height * 0.08);
+    final arms = Path()
+      ..moveTo(neck.dx, neck.dy)
+      ..lineTo(trailHand.dx, trailHand.dy)
+      ..lineTo(clubTip.dx, clubTip.dy)
+      ..moveTo(neck.dx, neck.dy)
+      ..lineTo(leadHand.dx, leadHand.dy)
+      ..lineTo(trailHand.dx, trailHand.dy);
+    _drawDashedPath(canvas, arms, dashPaint);
+
+    // Target-line rail under the feet.
+    _drawDashedLine(
+      canvas,
+      Offset(size.width * 0.28, size.height * 0.88),
+      Offset(size.width * 0.78, size.height * 0.88),
+      dashPaint,
+      dashWidth: 8,
+      gapWidth: 6,
+    );
+  }
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant AlignmentGuidePainter oldDelegate) =>
+      oldDelegate.cameraAngle != cameraAngle;
 }
 
 /// A single normalized (0..1) joint position relative to the preview box.

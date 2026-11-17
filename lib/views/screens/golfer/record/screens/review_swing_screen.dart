@@ -6,6 +6,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/free_swing_quota.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:golf_training_app/services/offline_swing_queue.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,7 +17,6 @@ import '../../home/compare_swings/compare_swings_screen.dart';
 import '../../library/screens/share_with_coach_screen.dart';
 import '../models/capture_session.dart';
 import 'fullscreen_review_screen.dart';
-import 'practice_coach_chat_screen.dart';
 
 /// Review the just-recorded clip. Trimming and local save run in the
 /// background. Upload waits until the device is online.
@@ -178,6 +178,9 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
         return;
       }
 
+      // Count toward the free 3-swing limit as soon as the clip is kept.
+      await FreeSwingQuota.incrementAfterSuccessfulUpload();
+
       try {
         final service = GolferService(
           apiService: ApiService(sharedPreferences: prefs),
@@ -322,12 +325,6 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
   void _compare() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CompareSwingsScreen()),
-    );
-  }
-
-  void _talkWithCoach() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PracticeCoachChatScreen()),
     );
   }
 
@@ -493,13 +490,9 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
                             borderRadius: AppRadii.buttonBorderRadius,
                           ),
                         ),
-                        onPressed: _isStillImage
-                            ? () => Navigator.of(context).pop()
-                            : _talkWithCoach,
+                        onPressed: () => Navigator.of(context).pop(),
                         child: Text(
-                          _isStillImage
-                              ? 'Done'
-                              : 'Talk with AI Golf Coach',
+                          'Done',
                           style: AppTextStyles.buttonLabel,
                         ),
                       ),
