@@ -39,7 +39,7 @@ class SubscriptionPlan {
       id: '${json['_id'] ?? json['id'] ?? ''}',
       name: '${json['name'] ?? 'Pro'}',
       planType: '${json['planType'] ?? ''}',
-      description: '${json['description'] ?? ''}'.trim(),
+      description: stripTrialSentences('${json['description'] ?? ''}'),
       price: _asDouble(json['price']),
       currency: '${json['currency'] ?? 'EUR'}'.toUpperCase(),
       billingInterval: '${json['billingInterval'] ?? json['interval'] ?? 'monthly'}',
@@ -51,6 +51,9 @@ class SubscriptionPlan {
 
   static bool isListed(Map<String, dynamic> json) {
     if (json['isDeleted'] == true || json['deleted'] == true) return false;
+    // A free trial is a property of a paid plan (`trialDays`), never a plan
+    // card of its own with a price.
+    if ('${json['planType'] ?? ''}'.toLowerCase() == 'trial') return false;
     if (json['isActive'] == false || json['active'] == false) return false;
     final status = '${json['status'] ?? ''}'.toLowerCase();
     return status != 'inactive' && status != 'deleted' && status != 'disabled';
@@ -294,4 +297,22 @@ String billingPeriodLabel(String interval) {
     default:
       return interval.trim().isEmpty ? '' : '/$interval';
   }
+}
+
+/// Removes sentences that state a trial length ("7 days free", "3-day free
+/// trial"). The trial is always shown from the plan's `trialDays`, so free
+/// text can never contradict it.
+String stripTrialSentences(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) return text;
+  final mentionsTrialLength = RegExp(
+    r'(\d+\s*-?\s*days?\b[^.!?\n]*\b(free|trial)\b)|'
+    r'(\b(free|trial)\b[^.!?\n]*\d+\s*-?\s*days?\b)',
+    caseSensitive: false,
+  );
+  final sentences = text.split(RegExp(r'(?<=[.!?])\s+|\n+'));
+  return sentences
+      .where((s) => !mentionsTrialLength.hasMatch(s))
+      .join(' ')
+      .trim();
 }

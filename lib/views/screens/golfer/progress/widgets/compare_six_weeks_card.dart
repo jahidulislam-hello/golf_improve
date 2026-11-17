@@ -15,7 +15,8 @@ class CompareSixWeeksCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final recent = controller.compareRecent;
     final earlier = controller.compareEarlier;
-    final ready = recent != null && earlier != null;
+    final pairReady = recent != null && earlier != null;
+    final stats = controller.sixWeekComparison;
 
     return SectionCard(
       child: Column(
@@ -27,38 +28,56 @@ class CompareSixWeeksCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            ready
-                ? '${recent.club} · ${recent.angleLabel}'
-                : 'Same club and angle, about six weeks apart.',
+            'This week against the same week six weeks ago.',
             style: AppTextStyles.caption,
           ),
           const SizedBox(height: 16),
-          if (!ready)
-            Text(
-              'Record two swings with the same club and angle to see them here.',
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textSecondary,
+          if (stats == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             )
-          else
+          else ...[
+            _MetricRow(label: 'Swings', metric: stats.swings),
+            _MetricRow(label: 'Minutes practised', metric: stats.minutes),
+            _MetricRow(label: 'Practice sessions', metric: stats.sessions),
+            _MetricRow(label: 'Active days', metric: stats.activeDays),
+            _HandicapRow(stats: stats),
+            if (!stats.hasPreviousData) ...[
+              const SizedBox(height: 12),
+              Text(
+                'You had no practice six weeks ago yet. Keep recording and '
+                'this comparison fills in automatically.',
+                style: AppTextStyles.caption.copyWith(height: 1.4),
+              ),
+            ],
+          ],
+          if (pairReady) ...[
+            const SizedBox(height: 20),
+            Text(
+              '${recent.club} · ${recent.angleLabel}',
+              style: AppTextStyles.caption.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
-                  child: _SwingThumb(
-                    swing: earlier,
-                    caption: 'Earlier',
-                  ),
+                  child: _SwingThumb(swing: earlier, caption: 'Earlier'),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _SwingThumb(
-                    swing: recent,
-                    caption: 'Latest',
-                  ),
+                  child: _SwingThumb(swing: recent, caption: 'Latest'),
                 ),
               ],
             ),
-          if (ready) ...[
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -91,6 +110,109 @@ class CompareSixWeeksCard extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// "Label   previous → current   (+diff)" — higher is better.
+class _MetricRow extends StatelessWidget {
+  const _MetricRow({required this.label, required this.metric});
+
+  final String label;
+  final ComparisonMetric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ComparisonLine(
+      label: label,
+      previous: '${metric.previous}',
+      current: '${metric.current}',
+      difference: metric.difference.toDouble(),
+      lowerIsBetter: false,
+      decimals: 0,
+    );
+  }
+}
+
+class _HandicapRow extends StatelessWidget {
+  const _HandicapRow({required this.stats});
+
+  final SixWeekComparison stats;
+
+  @override
+  Widget build(BuildContext context) {
+    String fmt(double? v) => v == null ? '–' : v.toStringAsFixed(1);
+    return _ComparisonLine(
+      label: 'Handicap',
+      previous: fmt(stats.handicapPrevious),
+      current: fmt(stats.handicapCurrent),
+      difference: stats.handicapDifference,
+      lowerIsBetter: true,
+      decimals: 1,
+    );
+  }
+}
+
+class _ComparisonLine extends StatelessWidget {
+  const _ComparisonLine({
+    required this.label,
+    required this.previous,
+    required this.current,
+    required this.difference,
+    required this.lowerIsBetter,
+    required this.decimals,
+  });
+
+  final String label;
+  final String previous;
+  final String current;
+  final double? difference;
+  final bool lowerIsBetter;
+  final int decimals;
+
+  @override
+  Widget build(BuildContext context) {
+    final diff = difference;
+    final improved =
+        diff != null && diff != 0 && (lowerIsBetter ? diff < 0 : diff > 0);
+    final color = improved
+        ? AppColors.insightPositiveIcon
+        : AppColors.textSecondary;
+    final diffLabel = diff == null || diff == 0
+        ? '='
+        : '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(decimals)}';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.body.copyWith(fontSize: 14),
+            ),
+          ),
+          Text(
+            '$previous → $current',
+            style: AppTextStyles.body.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 44,
+            child: Text(
+              diffLabel,
+              textAlign: TextAlign.right,
+              style: AppTextStyles.caption.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );

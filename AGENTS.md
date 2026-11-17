@@ -2,7 +2,7 @@
 
 Flutter golf training app (`golf_training_app`). UI title: **GolfImprove**. Dual role: **Golfer** and **Coach (Pro)**.
 
-Package: `com.golfimprove.app` (Android) / `eu.golfimprove` (iOS). Dart SDK `^3.11.4`. Design frame: **393 × 852** via `flutter_screenutil`. Font: **Inter** (bundled).
+Package: `com.golfimprove.app` (Android) / `com.limitit.digitalbalance` (iOS). Dart SDK `^3.11.4`. Design frame: **393 × 852** via `flutter_screenutil`. Font: **Inter** (bundled).
 
 ## Current state
 

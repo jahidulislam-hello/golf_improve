@@ -26,7 +26,6 @@ class AddSwingTipController extends ChangeNotifier {
     'Driver',
     'Irons',
     'Wedges',
-    'Putter',
   ];
 
   bool _markAsImportant;

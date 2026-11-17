@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
+import 'package:get/get.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/choose_plan/choose_plan_screen.dart';
@@ -11,7 +13,6 @@ import 'package:golf_training_app/views/screens/golfer/profile/profile/settings_
 import 'package:golf_training_app/views/screens/golfer/profile/settings/community_legal.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/settings/help_support_screen.dart';
 import 'package:golf_training_app/views/screens/auth/screens/sign_in_screen.dart';
-import 'package:golf_training_app/views/screens/onboarding/role_selection/role_switch_sheet.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
 
@@ -33,12 +34,19 @@ class _GolferProfileScreenState extends State<GolferProfileScreen> {
     super.initState();
     _controller = widget._injectedController ?? GolferProfileController();
     _controller.addListener(_onControllerChanged);
+    _tabWorker = GolferNavbarController.onTabShown(
+      GolferNavbarController.profileTab,
+      _controller.refresh,
+    );
   }
+
+  Worker? _tabWorker;
 
   void _onControllerChanged() => setState(() {});
 
   @override
   void dispose() {
+    _tabWorker?.dispose();
     _controller.removeListener(_onControllerChanged);
     if (widget._injectedController == null) _controller.dispose();
     super.dispose();
@@ -129,28 +137,36 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const avatarSize = 52.0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(100),
           child: Container(
-            width: 52,
-            height: 52,
+            width: avatarSize,
+            height: avatarSize,
             color: AppColors.cardBackground,
             child: controller.avatarUrl != null
                 ? Image.network(
                     controller.avatarUrl!,
-                    width: 52,
-                    height: 52,
+                    width: avatarSize,
+                    height: avatarSize,
                     fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.person,
+                      color: AppColors.textSecondary,
+                    ),
                   )
                 : const Icon(Icons.person, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
+          // min + center keeps name and handicap vertically centred on the
+          // photo inside the fixed-height app bar.
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -260,21 +276,9 @@ class _GolfStandConnectedRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.accentBlueBg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.sports_golf,
-                  color: AppColors.ctaBrightBlue,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
+              _GolfStandThumb(),
+              SizedBox(width: 12),
+              Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,6 +294,38 @@ class _GolfStandConnectedRow extends StatelessWidget {
               ),
               Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Photo of the GolfImprove Stand. Drop the product photo into
+/// `assets/images/golf_stand.png`; until then a stand icon is shown.
+class _GolfStandThumb extends StatelessWidget {
+  const _GolfStandThumb();
+
+  static const double _size = 48;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/images/golf_stand.png',
+        width: _size,
+        height: _size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: _size,
+          height: _size,
+          color: AppColors.accentBlueBg,
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.videocam_outlined,
+            color: AppColors.ctaBrightBlue,
+            size: 24,
           ),
         ),
       ),

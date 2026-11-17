@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
+import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/home_controller.dart';
 
 import '../widgets/active_session_card.dart';
@@ -32,10 +35,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _controller = HomeController();
+    _tabWorker = GolferNavbarController.onTabShown(
+      GolferNavbarController.homeTab,
+      _controller.refresh,
+    );
   }
+
+  Worker? _tabWorker;
 
   @override
   void dispose() {
+    _tabWorker?.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -50,147 +60,187 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
-            return CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: DashboardHeader(
-                      greeting: 'Good morning',
-                      userName: _controller.userName,
-                      avatarInitials: _controller.avatarInitials,
-                      hasUnreadNotifications: _controller.hasUnreadNotifications,
-                      onNotificationTap: () =>
-                          _controller.onNotificationTap(context),
-                      onProfileTap: () => _controller.onProfileTap(context),
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.only(top: 24),
-                  sliver: SliverToBoxAdapter(
-                    child: HeroCarousel(
-                      banners: _controller.heroBanners,
-                      currentIndex: _controller.currentHeroIndex,
-                      pageController: _controller.heroPageController,
-                      onPageChanged: _controller.onHeroPageChanged,
-                      onCtaTap: () => _controller.onStartRecordingTap(context),
-                      onDragStart: _controller.onHeroDragStart,
-                      onDragEnd: _controller.onHeroDragEnd,
-                    ),
-                  ),
-                ),
-                if (_controller.stats.isNotEmpty)
+            return RefreshIndicator(
+              color: AppColors.ctaBrightBlue,
+              onRefresh: _controller.refresh,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     sliver: SliverToBoxAdapter(
-                      child: StatCardRow(stats: _controller.stats),
-                    ),
-                  ),
-                if (_controller.activeSession != null ||
-                    _controller.hasCoachFeedback)
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
-                    sliver: SliverToBoxAdapter(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_controller.activeSession != null) ...[
-                            SectionHeader(
-                              title: 'Active Session',
-                              actionLabel: 'View Timeline',
-                              onActionTap: () =>
-                                  _controller.onViewTimelineTap(context),
-                            ),
-                            const SizedBox(height: 14),
-                            ActiveSessionCard(
-                              session: _controller.activeSession!,
-                              onTap: () =>
-                                  _controller.onActiveSessionTap(context),
-                            ),
-                          ],
-                          if (_controller.hasCoachFeedback) ...[
-                            if (_controller.activeSession != null)
-                              const SizedBox(height: 14),
-                            CoachFeedbackCard(
-                              feedback: _controller.coachFeedback,
-                              onTap: () =>
-                                  _controller.onCoachFeedbackTap(context),
-                            ),
-                          ],
-                        ],
+                      child: DashboardHeader(
+                        greeting: _controller.greeting,
+                        userName: _controller.userName,
+                        avatarInitials: _controller.avatarInitials,
+                        hasUnreadNotifications:
+                            _controller.hasUnreadNotifications,
+                        onNotificationTap: () =>
+                            _controller.onNotificationTap(context),
+                        onProfileTap: () => _controller.onProfileTap(context),
                       ),
                     ),
                   ),
-                if (_controller.quickActions.isNotEmpty)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+                    padding: const EdgeInsets.only(top: 24),
                     sliver: SliverToBoxAdapter(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SectionHeader(title: 'Quick Actions'),
-                          const SizedBox(height: 14),
-                          QuickActionGrid(
-                            actions: _controller.quickActions,
-                            onActionTap: (action) =>
-                                _controller.onQuickActionTap(context, action),
-                          ),
-                        ],
+                      child: HeroCarousel(
+                        banners: _controller.heroBanners,
+                        currentIndex: _controller.currentHeroIndex,
+                        pageController: _controller.heroPageController,
+                        onPageChanged: _controller.onHeroPageChanged,
+                        onCtaTap: () =>
+                            _controller.onStartRecordingTap(context),
+                        onDragStart: _controller.onHeroDragStart,
+                        onDragEnd: _controller.onHeroDragEnd,
                       ),
                     ),
                   ),
-                if (_controller.recentActivities.isNotEmpty)
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
-                    sliver: SliverToBoxAdapter(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SectionHeader(
-                            title: 'Recent Activity',
-                            actionLabel: 'See All',
-                            onActionTap: () =>
-                                _controller.onSeeAllActivityTap(context),
+                  if (!_controller.hasLoaded && _controller.isLoading)
+                    const SliverPadding(
+                      padding: EdgeInsets.only(top: 48),
+                      sliver: SliverToBoxAdapter(
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.ctaBrightBlue,
                           ),
-                          const SizedBox(height: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceWhite,
-                              borderRadius: AppRadii.cardBorderRadius,
-                              border: AppRadii.cardBorder,
-                            ),
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16),
-                            child: Column(
-                              children: List.generate(
-                                _controller.recentActivities.length,
-                                (index) {
-                                  final activity =
-                                      _controller.recentActivities[index];
-                                  final isLast = index ==
-                                      _controller.recentActivities.length - 1;
-                                  return RecentActivityTile(
-                                    activity: activity,
-                                    showDivider: !isLast,
-                                    onTap: () => _controller.onActivityItemTap(
-                                      context,
-                                      activity,
-                                    ),
-                                  );
-                                },
+                        ),
+                      ),
+                    ),
+                  if (!_controller.hasLoaded &&
+                      !_controller.isLoading &&
+                      _controller.errorMessage != null)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          children: [
+                            Text(
+                              _controller.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.body.copyWith(
+                                color: AppColors.textSecondary,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _controller.refresh,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                // Clearance above the golfer bottom navbar.
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 28),
-                ),
-              ],
+                  if (_controller.stats.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: StatCardRow(stats: _controller.stats),
+                      ),
+                    ),
+                  if (_controller.activeSession != null ||
+                      _controller.hasCoachFeedback)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_controller.activeSession != null) ...[
+                              SectionHeader(
+                                title: 'Active Session',
+                                actionLabel: 'View Timeline',
+                                onActionTap: () =>
+                                    _controller.onViewTimelineTap(context),
+                              ),
+                              const SizedBox(height: 14),
+                              ActiveSessionCard(
+                                session: _controller.activeSession!,
+                                onTap: () =>
+                                    _controller.onActiveSessionTap(context),
+                              ),
+                            ],
+                            if (_controller.hasCoachFeedback) ...[
+                              if (_controller.activeSession != null)
+                                const SizedBox(height: 14),
+                              CoachFeedbackCard(
+                                feedback: _controller.coachFeedback,
+                                onTap: () =>
+                                    _controller.onCoachFeedbackTap(context),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_controller.quickActions.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionHeader(title: 'Quick Actions'),
+                            const SizedBox(height: 14),
+                            QuickActionGrid(
+                              actions: _controller.quickActions,
+                              onActionTap: (action) =>
+                                  _controller.onQuickActionTap(context, action),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_controller.recentActivities.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SectionHeader(
+                              title: 'Recent Activity',
+                              actionLabel: 'See All',
+                              onActionTap: () =>
+                                  _controller.onSeeAllActivityTap(context),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceWhite,
+                                borderRadius: AppRadii.cardBorderRadius,
+                                border: AppRadii.cardBorder,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Column(
+                                children: List.generate(
+                                  _controller.recentActivities.length,
+                                  (index) {
+                                    final activity =
+                                        _controller.recentActivities[index];
+                                    final isLast =
+                                        index ==
+                                        _controller.recentActivities.length - 1;
+                                    return RecentActivityTile(
+                                      activity: activity,
+                                      showDivider: !isLast,
+                                      onTap: () => _controller
+                                          .onActivityItemTap(context, activity),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Clearance above the golfer bottom navbar.
+                  const SliverToBoxAdapter(child: SizedBox(height: 28)),
+                ],
+              ),
             );
           },
         ),

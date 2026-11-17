@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
+import 'package:golf_training_app/utils/api_constants.dart';
 import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/share_with_coach_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/coach_feedback/coach_feedback_screen.dart';
@@ -12,6 +14,7 @@ import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_lo
 import 'package:golf_training_app/views/screens/golfer/home/home_screen/model.dart';
 import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_controller.dart';
 import 'package:golf_training_app/views/screens/golfer/home/session_timeline/session_timeline_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/library/screens/ai_golf_coach_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/library/screens/swing_analysis_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/notification/notification_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -116,47 +119,114 @@ class HomeController extends ChangeNotifier {
   bool isLoading = false;
   String? errorMessage;
 
+  static const String _cacheKey = ApiConstants.keyHomeCache;
+  bool hasLoaded = false;
+  bool _isRefreshing = false;
+
+  /// Cache-first load: paint the last known Home instantly, then refresh from
+  /// the API in the background. Offline uploads/shares are flushed afterwards
+  /// so they never delay the first paint.
   Future<void> _bootstrap() async {
-    isLoading = true;
+    final prefs = await SharedPreferences.getInstance();
+    if (_isDisposed) return;
+    _restoreCache(prefs);
+    await refresh(prefs: prefs);
+    if (_isDisposed) return;
+    unawaited(_flushOfflineWork(prefs));
+  }
+
+  /// Reloads Home data. Shows the loader only when nothing is on screen yet.
+  Future<void> refresh({SharedPreferences? prefs}) async {
+    if (_isRefreshing || _isDisposed) return;
+    _isRefreshing = true;
+    isLoading = !hasLoaded;
     _notifySafely();
 
     try {
-      final sharedPreferences = await SharedPreferences.getInstance();
-      if (_isDisposed) return;
-      final apiService = ApiService(sharedPreferences: sharedPreferences);
-      final golferService = GolferService(apiService: apiService);
+      final sharedPreferences = prefs ?? await SharedPreferences.getInstance();
+      final golferService = GolferService(
+        apiService: ApiService(sharedPreferences: sharedPreferences),
+      );
 
-      try {
-        await golferService.syncPendingSwings();
-        await golferService.flushQueuedShares();
-      } catch (_) {}
-
-      final profileResponse = await golferService.getMyProfile();
+      // Profile and home summary are independent — fetch them together.
+      final results = await Future.wait([
+        golferService.getMyProfile(),
+        golferService.getHomeSummary(),
+      ]);
       if (_isDisposed) return;
-      final profileData = _asMap(profileResponse['data']);
-      if (profileData != null) {
-        final name = _readString(profileData, 'name');
-        if (name != null && name.isNotEmpty) {
-          userName = name;
-          avatarInitials = _buildInitials(name);
-        }
-      }
 
-      final homeResponse = await golferService.getHomeSummary();
-      if (_isDisposed) return;
-      final homeData = _asMap(homeResponse['data']);
-      if (homeData != null) {
-        _applyHomeData(homeData);
-      }
+      final profileData = _asMap(results[0]['data']);
+      final homeData = _asMap(results[1]['data']);
+      _applyProfile(profileData);
+      if (homeData != null) _applyHomeData(homeData);
+      unawaited(_refreshUnreadCount(golferService));
+      hasLoaded = true;
+      errorMessage = null;
+
+      await sharedPreferences.setString(
+        _cacheKey,
+        jsonEncode({'name': userName, 'home': homeData}),
+      );
     } catch (e) {
       if (_isDisposed) return;
-      errorMessage = e.toString();
+      // Keep showing cached data; only surface the error on an empty screen.
+      if (!hasLoaded) {
+        errorMessage = e is ApiError ? e.message : e.toString();
+      }
     } finally {
+      _isRefreshing = false;
       if (!_isDisposed) {
         isLoading = false;
         _notifySafely();
       }
     }
+  }
+
+  Future<void> _flushOfflineWork(SharedPreferences prefs) async {
+    try {
+      final golferService = GolferService(
+        apiService: ApiService(sharedPreferences: prefs),
+      );
+      await golferService.syncPendingSwings();
+      await golferService.flushQueuedShares();
+    } catch (_) {}
+  }
+
+  void _applyProfile(Map<String, dynamic>? profileData) {
+    if (profileData == null) return;
+    final name = _readString(profileData, 'name');
+    if (name != null && name.isNotEmpty) {
+      userName = name;
+      avatarInitials = _buildInitials(name);
+    }
+  }
+
+  void _restoreCache(SharedPreferences prefs) {
+    final raw = prefs.getString(_cacheKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final cached = _asMap(jsonDecode(raw));
+      if (cached == null) return;
+      final name = cached['name'];
+      if (name is String && name.isNotEmpty) {
+        userName = name;
+        avatarInitials = _buildInitials(name);
+      }
+      final home = _asMap(cached['home']);
+      if (home != null) {
+        _applyHomeData(home);
+        hasLoaded = true;
+      }
+      _notifySafely();
+    } catch (_) {}
+  }
+
+  /// Time-of-day greeting for the header.
+  String get greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   }
 
   void _notifySafely() {
@@ -187,7 +257,8 @@ class HomeController extends ChangeNotifier {
           label: 'Swings This Week',
         ),
         StatModel(
-          value: _consistencyLabel(summary['consistency']) ??
+          value:
+              _consistencyLabel(summary['consistency']) ??
               '${summary['totalAiAnalyses'] ?? 0}',
           label: summary['consistency'] is Map ? 'Consistency' : 'AI Analyses',
         ),
@@ -207,55 +278,45 @@ class HomeController extends ChangeNotifier {
       activeSession = null;
     }
 
-    final quickActionData = _asMap(data['quickAction']);
-    if (quickActionData != null) {
-      quickActions = [
-        // QuickActionModel(
-        //   type: QuickActionType.aiAnalysis,
-        //   icon: Icons.psychology_alt_outlined,
-        //   title: 'AI Analysis',
-        //   subtitle: 'Review your swing',
-        //   backgroundColor: AppColors.quickActionAiBg,
-        //   iconColor: AppColors.quickActionAiIcon,
-        //   payload: _asMap(quickActionData['aiAnalysis']),
-        // ),
-        QuickActionModel(
-          type: QuickActionType.compareSwing,
-          icon: Icons.psychology_alt_outlined,
-          title: 'Compare',
-          subtitle: 'Side by Side View',
-          backgroundColor: AppColors.quickActionAiBg,
-          iconColor: AppColors.quickActionAiIcon,
-          payload: _asMap(quickActionData['compareSwing']),
-        ),
-        QuickActionModel(
-          type: QuickActionType.logbook,
-          icon: Icons.menu_book_outlined,
-          title: 'Logbook',
-          subtitle: 'Tips & reminders',
-          backgroundColor: AppColors.quickActionLogbookBg,
-          iconColor: AppColors.quickActionLogbookIcon,
-          payload: _asMap(quickActionData['logbook']),
-        ),
-        QuickActionModel(
-          type: QuickActionType.shareWithCoach,
-          icon: Icons.share_outlined,
-          title: 'Share with Coach',
-          subtitle: 'Send for review',
-          backgroundColor: AppColors.quickActionShareBg,
-          iconColor: AppColors.quickActionShareIcon,
-          payload: _asMap(quickActionData['shareSwing']),
-        ),
-        const QuickActionModel(
-          type: QuickActionType.library,
-          icon: Icons.video_library_outlined,
-          title: 'Library',
-          subtitle: 'All your swings',
-          backgroundColor: AppColors.quickActionLibraryBg,
-          iconColor: AppColors.quickActionLibraryIcon,
-        ),
-      ];
-    }
+    // Always available, even when the server sends no quick-action payloads.
+    final quickActionData = _asMap(data['quickAction']) ?? const {};
+    quickActions = [
+      const QuickActionModel(
+        type: QuickActionType.aiCoach,
+        icon: Icons.psychology_alt_outlined,
+        title: 'AI Coach',
+        subtitle: 'Ask anything',
+        backgroundColor: AppColors.quickActionAiBg,
+        iconColor: AppColors.quickActionAiIcon,
+      ),
+      QuickActionModel(
+        type: QuickActionType.compareSwing,
+        icon: Icons.compare_arrows_rounded,
+        title: 'Compare',
+        subtitle: 'Side by Side View',
+        backgroundColor: AppColors.quickActionLibraryBg,
+        iconColor: AppColors.quickActionLibraryIcon,
+        payload: _asMap(quickActionData['compareSwing']),
+      ),
+      QuickActionModel(
+        type: QuickActionType.logbook,
+        icon: Icons.menu_book_outlined,
+        title: 'Logbook',
+        subtitle: 'Tips & reminders',
+        backgroundColor: AppColors.quickActionLogbookBg,
+        iconColor: AppColors.quickActionLogbookIcon,
+        payload: _asMap(quickActionData['logbook']),
+      ),
+      QuickActionModel(
+        type: QuickActionType.shareWithCoach,
+        icon: Icons.share_outlined,
+        title: 'Share with Coach',
+        subtitle: 'Send for review',
+        backgroundColor: AppColors.quickActionShareBg,
+        iconColor: AppColors.quickActionShareIcon,
+        payload: _asMap(quickActionData['shareSwing']),
+      ),
+    ];
 
     final recent = data['recentActivities'];
     if (recent is List) {
@@ -393,10 +454,31 @@ class HomeController extends ChangeNotifier {
   // so navigation / analytics / API calls can be wired up in one place.
   // ---------------------------------------------------------------------
 
-  void onNotificationTap(BuildContext context) {
-    Navigator.of(context).push(
+  Future<void> onNotificationTap(BuildContext context) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const NotificationScreen()),
     );
+    if (_isDisposed) return;
+    // Everything was seen in the inbox — clear the badge.
+    final hadUnread = hasUnreadNotifications;
+    hasUnreadNotifications = false;
+    _notifySafely();
+    if (!hadUnread) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await GolferService(
+        apiService: ApiService(sharedPreferences: prefs),
+      ).markAllNotificationsRead();
+    } catch (_) {}
+  }
+
+  Future<void> _refreshUnreadCount(GolferService service) async {
+    try {
+      final count = await service.getUnreadNotificationCount();
+      if (_isDisposed) return;
+      hasUnreadNotifications = count > 0;
+      _notifySafely();
+    } catch (_) {}
   }
 
   void onProfileTap(BuildContext context) {
@@ -406,11 +488,13 @@ class HomeController extends ChangeNotifier {
   }
 
   void onStartRecordingTap(BuildContext context) {
+    _openTab(GolferNavbarController.recordTab);
+  }
+
+  void _openTab(int index) {
     if (Get.isRegistered<GolferNavbarController>()) {
-      Get.find<GolferNavbarController>().changeIndex(2);
-      return;
+      Get.find<GolferNavbarController>().changeIndex(index);
     }
-    _toast(context, 'Starting a new recording…');
   }
 
   void onActiveSessionTap(BuildContext context) {
@@ -442,11 +526,7 @@ class HomeController extends ChangeNotifier {
   void _openSessionTimeline(BuildContext context) {
     final payload = activeSession?.payload;
     final timelineController = SessionTimelineController(
-      shareId: _readId(payload, const [
-        'shareId',
-        'share_id',
-        'shareSwingId',
-      ]),
+      shareId: _readId(payload, const ['shareId', 'share_id', 'shareSwingId']),
       analysisId: _readId(payload, const [
         'analysisId',
         'swingLibraryId',
@@ -495,19 +575,18 @@ class HomeController extends ChangeNotifier {
         );
         break;
       case QuickActionType.library:
-        _openLibraryTab();
+        _openTab(GolferNavbarController.libraryTab);
+        break;
+      case QuickActionType.aiCoach:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AiGolfCoachScreen()),
+        );
         break;
     }
   }
 
-  void _openLibraryTab() {
-    if (Get.isRegistered<GolferNavbarController>()) {
-      Get.find<GolferNavbarController>().changeIndex(1);
-    }
-  }
-
   void onSeeAllActivityTap(BuildContext context) {
-    _toast(context, 'Opening full activity history');
+    _openTab(GolferNavbarController.libraryTab);
   }
 
   void onActivityItemTap(BuildContext context, RecentActivityModel item) {
@@ -516,19 +595,6 @@ class HomeController extends ChangeNotifier {
         builder: (_) => SwingAnalysisScreen(initialData: item.payload),
       ),
     );
-  }
-
-  void _toast(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(milliseconds: 1200),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.primaryNavy,
-        ),
-      );
   }
 
   @override

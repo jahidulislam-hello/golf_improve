@@ -57,7 +57,7 @@ class ChoosePlanController extends ChangeNotifier {
     }
     if (promoController.text.trim().isNotEmpty) return 'Apply promo code';
     if (days > 0) return 'Start $days-Day Free Trial';
-    return 'Continue';
+    return 'Enter promo code';
   }
 
   Future<void> loadPlans() async {

@@ -467,6 +467,9 @@ class ApiService {
     await sharedPreferences.remove(ApiConstants.keyRefreshTokenExpiresAt);
     await sharedPreferences.remove(ApiConstants.keyUserData);
     await sharedPreferences.remove(ApiConstants.keyGuestId);
+    for (final key in ApiConstants.userCacheKeys) {
+      await sharedPreferences.remove(key);
+    }
     await sharedPreferences.setBool(ApiConstants.keyIsLoggedIn, false);
   }
 }
