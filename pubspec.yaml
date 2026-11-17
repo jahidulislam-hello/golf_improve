@@ -91,6 +91,11 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
 
+  # Plugins install via CocoaPods (ios/Podfile targets iOS 18.0). Flutter's
+  # generated Swift package is pinned to iOS 13.0, below Firebase's 15.0 minimum.
+  config:
+    enable-swift-package-manager: false
+
   assets:
     - assets/icons/
     - assets/images/

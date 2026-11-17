@@ -7,6 +7,7 @@ class CompareSwingOption {
     this.thumbnailUrl = '',
     this.clubType = '',
     this.cameraAngle = '',
+    this.recordedAt,
   });
 
   final String id;
@@ -15,21 +16,42 @@ class CompareSwingOption {
   final String thumbnailUrl;
   final String clubType;
   final String cameraAngle;
+  final DateTime? recordedAt;
 
+  /// "Driver · Face On · 2 Nov, 14:51" — the date tells same-club swings apart.
   factory CompareSwingOption.fromJson(Map<String, dynamic> json) {
     final id = (json['_id'] ?? json['id'] ?? '').toString();
     final club = (json['clubType'] ?? 'Swing').toString();
     final angle = (json['cameraAngle'] ?? '').toString();
-    final label = angle.trim().isEmpty ? club : '$club · $angle';
+    final recordedAt = DateTime.tryParse(
+      (json['recorded_at'] ?? json['recordedAt'] ?? json['createdAt'] ?? '')
+          .toString(),
+    )?.toLocal();
+    final parts = [
+      club,
+      if (angle.trim().isNotEmpty) angle,
+      if (recordedAt != null) _shortDate(recordedAt),
+    ];
     return CompareSwingOption(
       id: id,
-      label: label,
+      label: parts.join(' · '),
+      recordedAt: recordedAt,
       videoUrl: (json['videoUrl'] ?? '').toString(),
       thumbnailUrl: (json['thumbnailUrl'] ?? '').toString(),
       clubType: club,
       cameraAngle: angle,
     );
   }
+}
+
+String _shortDate(DateTime d) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  final hh = d.hour.toString().padLeft(2, '0');
+  final mm = d.minute.toString().padLeft(2, '0');
+  return '${d.day} ${months[d.month - 1]}, $hh:$mm';
 }
 
 class ComparedSwing {

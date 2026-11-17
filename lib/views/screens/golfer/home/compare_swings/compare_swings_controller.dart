@@ -117,11 +117,22 @@ class CompareSwingsController extends ChangeNotifier {
     }
     try {
       final service = await _service();
-      final response = await service.getMyLibrary(limit: 100);
+      // Same list as the Swing Library, so the swings selected there (and on
+      // Progress) are always found here — including swings with no analysis.
+      final records = await service.getAllMySwingRecords();
       final seen = <String>{};
-      options = _optionsFrom(response['data'])
+      options = records
+          .map(CompareSwingOption.fromJson)
           .where((option) => option.id.isNotEmpty && seen.add(option.id))
-          .toList();
+          .toList()
+        ..sort((a, b) {
+          final ta = a.recordedAt;
+          final tb = b.recordedAt;
+          if (ta == null && tb == null) return 0;
+          if (ta == null) return 1;
+          if (tb == null) return -1;
+          return tb.compareTo(ta);
+        });
       if (swingAId != null && _option(swingAId) == null) swingAId = null;
       if (swingBId != null && _option(swingBId) == null) swingBId = null;
       if (swingAId == null && initialSwingAId != null) {
@@ -342,25 +353,6 @@ class CompareSwingsController extends ChangeNotifier {
       if (option.id == id) return option;
     }
     return null;
-  }
-
-  List<CompareSwingOption> _optionsFrom(dynamic data) {
-    final list = _asList(data);
-    return list
-        .whereType<Map>()
-        .map((e) => CompareSwingOption.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-  }
-
-  List<dynamic> _asList(dynamic data) {
-    if (data is List) return data;
-    if (data is Map) {
-      for (final key in ['results', 'swings', 'items', 'docs', 'data']) {
-        final value = data[key];
-        if (value is List) return value;
-      }
-    }
-    return const [];
   }
 
   String _message(Object error) {

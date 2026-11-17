@@ -44,18 +44,31 @@ class GolferProfileController extends ChangeNotifier {
 
   Future<void> refresh() => _bootstrap();
 
+  bool _hasLoaded = false;
+
   Future<void> _bootstrap() async {
-    _isLoading = true;
+    final sharedPreferences = await SharedPreferences.getInstance();
+    final apiService = ApiService(sharedPreferences: sharedPreferences);
+
+    // Paint the stored profile immediately; refresh from the API after.
+    if (!_hasLoaded) {
+      final cached = apiService.getUserData();
+      if (cached != null && '${cached['name'] ?? ''}'.isNotEmpty) {
+        _applyProfile(cached);
+        _hasLoaded = true;
+      }
+    }
+    _isLoading = !_hasLoaded;
     notifyListeners();
 
     try {
-      final sharedPreferences = await SharedPreferences.getInstance();
-      final apiService = ApiService(sharedPreferences: sharedPreferences);
       final golferService = GolferService(apiService: apiService);
       final response = await golferService.getMyProfile();
       _applyProfile(response['data']);
+      _hasLoaded = true;
+      _errorMessage = null;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e is ApiError ? e.message : e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();

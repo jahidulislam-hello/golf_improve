@@ -91,7 +91,7 @@ class GoogleAuthService {
         throw StateError(
           'Google Sign-In config error. On Android, the app must be signed with '
           'SHA-1 6D:E3:C2:C9:... (upload keystore). On iOS, bundle id must be '
-          'eu.golfimprove and match GoogleService-Info.plist.'
+          'com.limitit.digitalbalance and match GoogleService-Info.plist.'
           '${message.isNotEmpty ? ' ($message)' : ''}',
         );
       }

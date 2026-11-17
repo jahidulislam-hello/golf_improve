@@ -6,17 +6,20 @@ import '../controllers/ai_chat_controller.dart';
 import '../models/models.dart';
 import '../widgets/shared_widgets.dart';
 
-/// Screen 4 — AI Golf Coach chat.
-/// Reached from Screen 2 by tapping the "AI Golf Coach" button.
+/// AI Golf Coach chat.
+/// Opened from a swing's analysis (chat about that swing), or on its own from
+/// Home and the Record review (general coach) with an empty [swingId].
 class AiGolfCoachScreen extends StatefulWidget {
   const AiGolfCoachScreen({
     super.key,
-    required this.swingId,
+    this.swingId = '',
+    this.clubType,
     this.conversation = const [],
     this.suggestedQuestions = const [],
   });
 
   final String swingId;
+  final String? clubType;
   final List<AiConversationEntry> conversation;
   final List<String> suggestedQuestions;
 
@@ -33,6 +36,7 @@ class _AiGolfCoachScreenState extends State<AiGolfCoachScreen> {
     super.initState();
     controller = AiChatController(
       swingId: widget.swingId,
+      clubType: widget.clubType,
       conversation: widget.conversation,
       suggestedQuestions: widget.suggestedQuestions,
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/progress/progress_controller.dart';
@@ -29,12 +31,19 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? ProgressController();
     _controller.addListener(_onChanged);
+    _tabWorker = GolferNavbarController.onTabShown(
+      GolferNavbarController.progressTab,
+      () => _controller.loadProgress(showLoader: false).catchError((_) {}),
+    );
   }
+
+  Worker? _tabWorker;
 
   void _onChanged() => setState(() {});
 
   @override
   void dispose() {
+    _tabWorker?.dispose();
     _controller.removeListener(_onChanged);
     if (_ownsController) {
       _controller.dispose();
@@ -44,27 +53,32 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The white header runs up under the status bar (like Home and Profile)
+    // so time / wifi / battery sit on the same colour as "My Progress".
+    final topInset = MediaQuery.paddingOf(context).top;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: AppColors.backgroundOffWhite,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
       ),
       child: Scaffold(
         backgroundColor: AppColors.backgroundOffWhite,
         body: SafeArea(
+          top: false,
           child: Column(
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                padding: EdgeInsets.fromLTRB(20, topInset + 16, 20, 16),
                 decoration: const BoxDecoration(
-                  color: AppColors.backgroundOffWhite,
+                  color: AppColors.surfaceWhite,
                   border: Border(
                     bottom: BorderSide(color: AppColors.borderLightGray),
                   ),
                 ),
-                child: const Text('My Progress', style: AppTextStyles.screenTitle),
+                child: const Text(
+                  'My Progress',
+                  style: AppTextStyles.screenTitle,
+                ),
               ),
               Expanded(child: _buildBody()),
             ],
@@ -143,8 +157,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   icon: Icons.timer_outlined,
                   iconColor: AppColors.accentGreen,
                   iconBackground: AppColors.insightPositiveIconBg,
-                  value: '${_controller.minutesThisWeek}',
-                  label: 'Minutes Practised',
+                  value: '${_controller.totalPracticeMinutes}',
+                  label: 'Total Minutes',
                 ),
               ),
             ],

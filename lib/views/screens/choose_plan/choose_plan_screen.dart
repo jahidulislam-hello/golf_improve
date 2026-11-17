@@ -42,6 +42,13 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
 
   Future<void> _handleCta() async {
     final typed = _controller.promoController.text.trim();
+    if (typed.isEmpty &&
+        _controller.appliedPromo == null &&
+        _controller.displayTrialDays <= 0) {
+      // No trial on this plan and no code yet: guide to the promo field.
+      _controller.promoFocus.requestFocus();
+      return;
+    }
     if (typed.isEmpty && _controller.appliedPromo == null) {
       final message = await _controller.startTrial();
       if (!mounted || message == null) return;
@@ -117,7 +124,7 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
                               i,
                             ),
                             period: _controller.plans[i].periodLabel,
-                            badgeLabel: _controller.plans[i].badgeLabel,
+                            badgeLabel: _badgeFor(_controller.plans[i], quote),
                           ),
                           if (i != _controller.plans.length - 1)
                             const SizedBox(height: 16),
@@ -165,24 +172,19 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
     return formatPlanMoney(quote.originalPrice, quote.currency);
   }
 
-  String _subtitleFor(SubscriptionPlan plan, PromoQuote? quote) {
-    final trial = quote != null &&
+  /// Plan description only — the trial length is shown once, in the badge,
+  /// so the screen never states two different trial lengths.
+  String _subtitleFor(SubscriptionPlan plan, PromoQuote? quote) =>
+      plan.description;
+
+  String? _badgeFor(SubscriptionPlan plan, PromoQuote? quote) {
+    final promoDays = quote != null &&
             _controller.selectedPlan?.id == plan.id &&
             quote.trialDays > 0
         ? quote.trialDays
-        : plan.trialDays;
-    // One consistent trial line — avoid mixing "7 days" in description with "3-day".
-    final trialLine = trial > 0 ? '$trial-day free trial included' : '';
-    final description = plan.description
-        .replaceAll(
-          RegExp(r'\b\d+[-\s]?day(s)?\s+free\s+trial\b', caseSensitive: false),
-          '',
-        )
-        .replaceAll(RegExp(r'\n{2,}'), '\n')
-        .trim();
-    if (description.isEmpty) return trialLine;
-    if (trialLine.isEmpty) return description;
-    return '$description\n$trialLine';
+        : 0;
+    if (promoDays > 0) return '$promoDays-DAY FREE TRIAL';
+    return plan.badgeLabel;
   }
 
   IconData _iconFor(SubscriptionPlan plan) {

@@ -9,8 +9,9 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/services/api_services.dart';
-import 'package:golf_training_app/services/free_swing_quota.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
+import 'package:golf_training_app/services/swing_quota_service.dart';
+import 'package:golf_training_app/views/screens/choose_plan/choose_plan_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,6 +72,30 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   SwingCategory? _selectedCategory;
   String _handedness = 'right';
 
+  /// Free-plan swing allowance. `null` until the first check finishes.
+  SwingQuota? _quota;
+  bool _paywallOpen = false;
+
+  bool get _isDownTheLine {
+    final n = _selectedAngle.toLowerCase();
+    return n.contains('down') || n.contains('line') || n == 'dtl';
+  }
+
+  /// Slow-Mo, Swing, Video — always in this order so Swing is in the middle.
+  static List<String> _orderModes(List<String> modes) {
+    const order = ['slow-mo', 'swing', 'video'];
+    final sorted = [...modes]..sort((a, b) {
+        final ia = order.indexOf(CaptureFieldNormalizer.recordingMode(a));
+        final ib = order.indexOf(CaptureFieldNormalizer.recordingMode(b));
+        return (ia < 0 ? order.length : ia).compareTo(ib < 0 ? order.length : ib);
+      });
+    return sorted;
+  }
+
+  /// The app cannot track putting strokes, so Putter is never offered.
+  static bool _isTrackableClub(SwingCategory category) =>
+      !category.name.toLowerCase().contains('putt');
+
   bool get _isUsingFrontCamera {
     final controller = _controller;
     if (controller == null) return false;
@@ -87,6 +112,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
+    _refreshQuota();
     // User may have enabled Camera/Mic in Settings — retry automatically.
     if (_permissionError != null &&
         (_controller == null || !(_controller?.value.isInitialized ?? false))) {
@@ -95,7 +121,47 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _bootstrap() async {
-    await Future.wait([_initCamera(), _loadCategories()]);
+    await Future.wait([_initCamera(), _loadCategories(), _refreshQuota()]);
+  }
+
+  Future<SwingQuota> _refreshQuota() async {
+    final quota = await SwingQuotaService.refresh();
+    if (mounted) setState(() => _quota = quota);
+    return quota;
+  }
+
+  /// Free users get a fixed number of swings. Checked before every recording
+  /// or import; the server enforces the same limit again on upload.
+  Future<bool> _ensureCanRecord() async {
+    final quota = _quota ?? await _refreshQuota();
+    if (quota.canRecord) return true;
+    if (!mounted) return false;
+    await _showSwingLimitReached(quota);
+    return false;
+  }
+
+  Future<void> _showSwingLimitReached(SwingQuota quota) async {
+    if (_paywallOpen) return;
+    _paywallOpen = true;
+    final limit = quota.limit ?? 3;
+    final subscribe = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.surfaceWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => _SwingLimitSheet(limit: limit),
+    );
+    if (subscribe == true && mounted) {
+      await _stopImageStream();
+      if (!mounted) return;
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const ChoosePlanScreen()),
+      );
+      await _refreshQuota();
+      await _startPoseStream();
+    }
+    _paywallOpen = false;
   }
 
   Future<void> _loadCategories() async {
@@ -140,19 +206,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       recordingModes: data.recordingModes,
     );
     _cameraAngles = classified.angles;
-    _recordingModes = classified.modes;
+    _recordingModes = _orderModes(classified.modes);
 
     // Keep only club-like categories (ignore angle/mode strings wrongly nested).
-    // Putter is not tracked — hide it from the picker.
-    final clubCats = data.categories
+    final trackable = data.categories.where(_isTrackableClub).toList();
+    final clubCats = trackable
         .where((c) => CaptureFieldNormalizer.looksLikeClubName(c.name))
-        .where((c) => !c.name.toLowerCase().contains('putt'))
         .toList();
-    _categories = clubCats.isNotEmpty
-        ? clubCats
-        : data.categories
-            .where((c) => !c.name.toLowerCase().contains('putt'))
-            .toList();
+    _categories = clubCats.isNotEmpty ? clubCats : trackable;
 
     if (_categories.isNotEmpty) {
       _selectedCategory = _categories.first;
@@ -181,7 +242,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           : _recordingModes,
     );
     _cameraAngles = classified.angles;
-    _recordingModes = classified.modes;
+    _recordingModes = _orderModes(classified.modes);
 
     final preferredAngle = CaptureFieldNormalizer.cameraAngle(
       category.defaultCameraAngle,
@@ -494,7 +555,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _pickFromGallery() async {
     if (_isRecording) return;
-    if (!await FreeSwingQuota.ensureCanRecord()) return;
+    if (!await _ensureCanRecord()) return;
 
     // Pause live stream so the system picker + AI are not fighting for memory.
     await _stopImageStream();
@@ -598,13 +659,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ReviewSwingScreen(session: session)),
     );
+    await _refreshQuota();
   }
 
   Future<void> _toggleRecord() async {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
-
-    if (!_isRecording && !await FreeSwingQuota.ensureCanRecord()) return;
 
     if (_isRecording) {
       final elapsedMs =
@@ -651,10 +711,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         deviceModel: Platform.isIOS ? 'iOS' : 'Android',
       ).sanitized(allowedClubs: allowedClubs);
 
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => ReviewSwingScreen(session: session)),
       );
+      await _refreshQuota();
     } else {
+      if (!await _ensureCanRecord()) return;
       // Standalone preview stream must stop before starting record+stream.
       await _stopImageStream();
       _poseSamples.clear();
@@ -842,7 +904,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                             joints: _joints,
                             isMirrored: _isUsingFrontCamera,
                           )
-                        : AlignmentGuidePainter(cameraAngle: _selectedAngle),
+                        : AlignmentGuidePainter(
+                            downTheLine: _isDownTheLine,
+                            leftHanded: _handedness == 'left',
+                          ),
                   ),
                   if (_autoDetectReady)
                     Positioned(
@@ -858,6 +923,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                       top: 64,
                       child: _AlignmentTipCard(),
                     ),
+                  if (_quota != null &&
+                      !_quota!.isUnlimited &&
+                      _quota!.remaining != null)
+                    Positioned(
+                      left: 12,
+                      bottom: 12,
+                      child: _FreeSwingsPill(remaining: _quota!.remaining!),
+                    ),
                 ],
               ),
             ),
@@ -870,7 +943,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           onRecord: _toggleRecord,
           onFlip: _flipCamera,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         _CaptureModeTabs(
           modes: _recordingModes,
           selected: _selectedMode,
@@ -1155,6 +1228,9 @@ class _BottomControls extends StatelessWidget {
   final VoidCallback onRecord;
   final VoidCallback onFlip;
 
+  /// Gallery and flip use the same width so the record button is centred.
+  static const double _sideSlot = 44;
+
   const _BottomControls({
     required this.isRecording,
     required this.onGalleryTap,
@@ -1172,8 +1248,8 @@ class _BottomControls extends StatelessWidget {
           GestureDetector(
             onTap: onGalleryTap,
             child: Container(
-              width: 44,
-              height: 44,
+              width: _sideSlot,
+              height: _sideSlot,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white24, width: 2),
@@ -1208,7 +1284,13 @@ class _BottomControls extends StatelessWidget {
               ),
             ),
           ),
-          _RoundIconButton(icon: Icons.cameraswitch, onTap: onFlip),
+          SizedBox(
+            width: _sideSlot,
+            height: _sideSlot,
+            child: Center(
+              child: _RoundIconButton(icon: Icons.cameraswitch, onTap: onFlip),
+            ),
+          ),
         ],
       ),
     );
@@ -1221,6 +1303,8 @@ class _CaptureModeTabs extends StatelessWidget {
   final String Function(String) labelFor;
   final ValueChanged<String> onSelect;
 
+  static const double _slotWidth = 96;
+
   const _CaptureModeTabs({
     required this.modes,
     required this.selected,
@@ -1230,50 +1314,143 @@ class _CaptureModeTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cluster Slow-Mo / Swing / Video so Swing sits under the centered shutter.
+    // Equal-width slots, grouped in the centre, so SWING sits exactly under
+    // the record button with SLOW-MO and VIDEO evenly on each side.
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var i = 0; i < modes.length; i++) ...[
-          if (i > 0) const SizedBox(width: 28),
-          GestureDetector(
-            onTap: () => onSelect(modes[i]),
-            child: SizedBox(
-              width: 78,
-              child: Column(
-                children: [
-                  Text(
-                    labelFor(modes[i]),
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.type13.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                      color: modes[i] == selected
-                          ? AppCaptureColors.captureTabActiveDot
-                          : AppCaptureColors.captureTabInactive,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    height: 5,
-                    child: modes[i] == selected
-                        ? Container(
-                            width: 5,
-                            height: 5,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppCaptureColors.captureTabActiveDot,
-                            ),
-                          )
-                        : null,
-                  ),
-                ],
+      children: modes.map((mode) {
+        final isSelected = mode == selected;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onSelect(mode),
+          child: SizedBox(
+            width: _slotWidth,
+            child: Column(
+            children: [
+              Text(
+                labelFor(mode),
+                style: AppTextStyles.type13.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: isSelected
+                      ? AppCaptureColors.captureTabActiveDot
+                      : AppCaptureColors.captureTabInactive,
+                ),
               ),
-            ),
+              const SizedBox(height: 4),
+              if (isSelected)
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppCaptureColors.captureTabActiveDot,
+                  ),
+                ),
+            ],
           ),
-        ],
-      ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
 
+
+class _FreeSwingsPill extends StatelessWidget {
+  final int remaining;
+  const _FreeSwingsPill({required this.remaining});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (remaining) {
+      0 => 'No free swings left',
+      1 => '1 free swing left',
+      _ => '$remaining free swings left',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppCaptureColors.scrimPillBg,
+        borderRadius: AppRadii.cardBorderRadius,
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.type13.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when a free user has used all free swings.
+class _SwingLimitSheet extends StatelessWidget {
+  final int limit;
+  const _SwingLimitSheet({required this.limit});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.accentBlueBg,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                color: AppColors.ctaBrightBlue,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You have used your $limit free swings',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.sectionHeader,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Subscribe to keep recording and analysing your swings. '
+              'Your saved swings stay in your Library.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.ctaBrightBlue,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadii.buttonBorderRadius,
+                  ),
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('See plans', style: AppTextStyles.buttonLabel),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not now'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

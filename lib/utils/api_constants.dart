@@ -1,5 +1,6 @@
 class ApiConstants {
-  static const String baseUrl = 'https://api.golfimprove.eu';
+  // static const String baseUrl = 'https://api.golfimprove.eu';
+  static const String baseUrl = 'https://golf.ssh.bd';
   static const String apiUrl = '$baseUrl/api/v1';
 
   // SharedPreferences keys
@@ -14,6 +15,16 @@ class ApiConstants {
   static const String keyOfflineShares = 'offline_shares';
   static const String keyLibraryCache = 'swing_library_cache';
   static const String keyProgressCache = 'progress_cache';
+  static const String keyHomeCache = 'home_cache_v1';
+  static const String keySwingQuotaCache = 'swing_quota_cache';
+
+  /// Per-account caches wiped on logout so the next user never sees them.
+  static const List<String> userCacheKeys = [
+    keyLibraryCache,
+    keyProgressCache,
+    keyHomeCache,
+    keySwingQuotaCache,
+  ];
 
   // Refresh Token
   static const String refreshToken = '$apiUrl/auth/refresh-token';
@@ -70,6 +81,7 @@ class ApiConstants {
 
   //Progress
   static const String progress = '$apiUrl/meta/my-progress';
+  static const String compareSixWeeks = '$apiUrl/meta/compare-six-weeks';
   static const String updateHandicap = '$apiUrl/meta/update-handicap';
 
 
@@ -150,6 +162,10 @@ class ApiConstants {
 
   // Notifications
   static const String notifications = '$apiUrl/notification/get-all';
+  static const String notificationsUnreadCount =
+      '$apiUrl/notification/unread-count';
+  static const String notificationsMarkAllRead =
+      '$apiUrl/notification/mark-all-read';
 
 
 

@@ -5,6 +5,7 @@ import '../controllers/share_coach_controller.dart';
 import '../controllers/swing_analysis_controller.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/video_preview.dart';
+import 'ai_golf_coach_screen.dart';
 import 'share_with_coach_screen.dart';
 import 'review_swing_screen.dart';
 import 'package:golf_training_app/core/app_radii.dart';
@@ -12,11 +13,7 @@ import 'package:golf_training_app/core/app_radii.dart';
 /// Screen 2 — Swing Analysis (AI Golf Coach summary for one recorded swing).
 /// Loads detail via GET `/swing-library/find/:id`.
 class SwingAnalysisScreen extends StatefulWidget {
-  const SwingAnalysisScreen({
-    super.key,
-    this.swingId,
-    this.initialData,
-  });
+  const SwingAnalysisScreen({super.key, this.swingId, this.initialData});
 
   final String? swingId;
   final Map<String, dynamic>? initialData;
@@ -49,6 +46,18 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
         builder: (_) => ReviewSwingScreen(
           videoUrl: controller.videoUrl,
           thumbnailUrl: controller.thumbnailUrl,
+        ),
+      ),
+    );
+  }
+
+  void _openAiChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AiGolfCoachScreen(
+          swingId: controller.id,
+          conversation: controller.aiConversation,
+          suggestedQuestions: controller.suggestedQuestions,
         ),
       ),
     );
@@ -96,13 +105,18 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                         size: 36,
                       ),
                       const SizedBox(width: 10),
-                      Text('Swing Analysis',
-                          style: AppTextStyles.sectionHeader
-                              .copyWith(fontWeight: FontWeight.w800)),
+                      Text(
+                        'Swing Analysis',
+                        style: AppTextStyles.sectionHeader.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFCE7B5),
                           borderRadius: BorderRadius.circular(8),
@@ -116,11 +130,6 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                         ),
                       ),
                       const Spacer(),
-                      CircleIconButton(
-                        icon: Icons.share,
-                        background: AppColors.backgroundOffWhite,
-                        onTap: () {},
-                      ),
                     ],
                   ),
                 ),
@@ -158,8 +167,8 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                   final id = controller.id.isNotEmpty
                       ? controller.id
                       : (widget.swingId ??
-                          widget.initialData?['_id']?.toString() ??
-                          '');
+                            widget.initialData?['_id']?.toString() ??
+                            '');
                   if (id.isNotEmpty) controller.load(id);
                 },
                 child: const Text('Retry'),
@@ -179,8 +188,7 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
           showAnnotationLines: true,
           onExpand: _openReviewSwing,
         ),
-        if (controller.clubType.isNotEmpty ||
-            controller.cameraAngle.isNotEmpty)
+        if (controller.clubType.isNotEmpty || controller.cameraAngle.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
             child: Text(
@@ -199,13 +207,25 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // AI Golf Coach hidden for launch — not reliable with profile context yet.
-              if (controller.insights.isNotEmpty)
+              if (!controller.isAnalysisReady) ...[
+                _AnalysisPendingCard(
+                  processing: controller.isAnalysisProcessing,
+                  message: controller.analysisMessage,
+                ),
+                const SizedBox(height: 16),
+              ],
+              PrimaryButton(
+                label: 'AI Golf Coach',
+                icon: Icons.psychology,
+                onTap: _openAiChat,
+              ),
+              const SizedBox(height: 16),
+              if (controller.isAnalysisReady)
                 const WarningBanner(
                   text:
                       'AI suggestions are experimental. Always review results with your golf coach before making technique changes.',
                 ),
-              if (controller.insights.isNotEmpty) const SizedBox(height: 16),
+              if (controller.isAnalysisReady) const SizedBox(height: 16),
               ...controller.insights.map(
                 (i) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -219,8 +239,8 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                   improvementNote: controller.proImprovement?.isNotEmpty == true
                       ? controller.proImprovement!
                       : (controller.feedbackReceivedLabel != null
-                          ? 'Received ${controller.feedbackReceivedLabel}'
-                          : 'Coach feedback'),
+                            ? 'Received ${controller.feedbackReceivedLabel}'
+                            : 'Coach feedback'),
                 ),
               if (controller.thingsToTry.isNotEmpty) ...[
                 const SizedBox(height: 20),
@@ -240,60 +260,135 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          child: GestureDetector(
-            onTap: _openShareWithCoach,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.primaryNavy,
-                borderRadius: AppRadii.cardBorderRadius,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.share, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        controller.isSharedWithCoach
-                            ? 'Shared with ${controller.coachName}'
-                            : 'Share AI Result with Coach',
-                        style: AppTextStyles.type16.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    controller.isSharedWithCoach
-                        ? (ShareCoachController.labelForShareStatus(
+        if (controller.isAnalysisReady)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: GestureDetector(
+              onTap: _openShareWithCoach,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryNavy,
+                  borderRadius: AppRadii.cardBorderRadius,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.share, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          controller.isSharedWithCoach
+                              ? 'Shared with ${controller.coachName}'
+                              : 'Share AI Result with Coach',
+                          style: AppTextStyles.type16.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      controller.isSharedWithCoach
+                          ? (ShareCoachController.labelForShareStatus(
                                   controller.shareStatus,
                                 ).isNotEmpty
-                            ? ShareCoachController.labelForShareStatus(
-                                controller.shareStatus,
-                              )
-                            : 'Your coach can review this swing and send feedback.')
-                        : 'Let ${controller.coachName} review the AI observations and add their professional feedback.',
-                    style: AppTextStyles.type13.copyWith(
-                        color: Colors.white60, height: 1.4),
-                  ),
-                  const SizedBox(height: 16),
-                  PrimaryButton(
-                    label: controller.isSharedWithCoach
-                        ? 'View share details'
-                        : 'Send to ${controller.coachName}',
-                    onTap: _openShareWithCoach,
-                  ),
-                ],
+                                ? ShareCoachController.labelForShareStatus(
+                                    controller.shareStatus,
+                                  )
+                                : 'Your coach can review this swing and send feedback.')
+                          : 'Let ${controller.coachName} review the AI observations and add their professional feedback.',
+                      style: AppTextStyles.type13.copyWith(
+                        color: Colors.white60,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: controller.isSharedWithCoach
+                          ? 'View share details'
+                          : 'Send to ${controller.coachName}',
+                      onTap: _openShareWithCoach,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
       ],
+    );
+  }
+}
+
+/// Shown instead of the AI insights while the analysis is not available.
+class _AnalysisPendingCard extends StatelessWidget {
+  const _AnalysisPendingCard({required this.processing, required this.message});
+
+  final bool processing;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = message.trim().isNotEmpty
+        ? message.trim()
+        : processing
+        ? 'Your swing analysis is being prepared. This usually takes under a minute.'
+        : 'Analysis is not available for this swing. You can still watch the video and ask the AI Golf Coach.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceWhite,
+        borderRadius: AppRadii.cardBorderRadius,
+        border: AppRadii.cardBorder,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: processing
+                ? const Padding(
+                    padding: EdgeInsets.all(3),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: AppColors.ctaBrightBlue,
+                    ),
+                  )
+                : const Icon(
+                    Icons.info_outline_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  processing ? 'Analysing your swing' : 'No analysis yet',
+                  style: AppTextStyles.type16.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  text,
+                  style: AppTextStyles.type13.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

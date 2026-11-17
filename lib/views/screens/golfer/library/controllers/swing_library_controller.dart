@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -167,15 +168,23 @@ class SwingLibraryController extends ChangeNotifier {
         apiService: ApiService(sharedPreferences: prefs),
       );
 
-      try {
-        await service.syncPendingSwings();
-      } catch (_) {}
+      // First open: show the cached library straight away, then refresh.
+      if (!hasLoaded) {
+        final cached = await _readCache(prefs);
+        if (cached.isNotEmpty) {
+          swings = _merge(cached, await _localSwings(prefs));
+          _recount();
+          hasLoaded = true;
+          isLoading = false;
+          notifyListeners();
+        }
+      }
 
-      try {
-        final filterResponse = await service.getFilterCategories();
-        final filterData = _asMap(filterResponse['data']);
-        if (filterData != null) _applyStats(filterData);
-      } catch (_) {}
+      // Stats and the swing list are independent — load them together.
+      final statsFuture = service
+          .getFilterCategories()
+          .then<Map<String, dynamic>?>((r) => _asMap(r['data']))
+          .catchError((_) => null);
 
       List<SwingVideo> remote = const [];
       try {
@@ -186,6 +195,12 @@ class SwingLibraryController extends ChangeNotifier {
         remote = await _readCache(prefs);
         if (remote.isEmpty) errorMessage = _message(e);
       }
+
+      final filterData = await statsFuture;
+      if (filterData != null) _applyStats(filterData);
+
+      // Upload clips recorded offline after the list is on screen.
+      unawaited(_syncOffline(service));
 
       final local = await _localSwings(prefs);
       swings = _merge(remote, local);
@@ -202,6 +217,22 @@ class SwingLibraryController extends ChangeNotifier {
     }
   }
 
+  bool _isSyncing = false;
+
+  Future<void> _syncOffline(GolferService service) async {
+    if (_isSyncing) return;
+    final prefs = await SharedPreferences.getInstance();
+    if ((await OfflineSwingQueue.load(prefs)).isEmpty) return;
+    _isSyncing = true;
+    try {
+      await service.syncPendingSwings();
+      await load(showLoader: false);
+    } catch (_) {
+    } finally {
+      _isSyncing = false;
+    }
+  }
+
   Future<void> selectClub(String club) async {
     if (selectedClub == club) return;
     selectedClub = club;
@@ -215,61 +246,24 @@ class SwingLibraryController extends ChangeNotifier {
   }
 
   Future<List<SwingVideo>> _fetchRemote(GolferService service) async {
-    // Prefer swing-library (analysis) rows — my-swings ids are not findable via
-    // `/swing-library/find/:id` and caused "Analysis not found".
-    final libraryMaps = <Map<String, dynamic>>[];
-    try {
-      final library = await service.getMyLibrary(limit: 100);
-      libraryMaps.addAll(_maps(_asResultList(library['data'])));
-    } catch (_) {}
-
-    final swingMaps = <Map<String, dynamic>>[];
-    try {
-      for (var page = 1; page <= 3; page++) {
-        final response = await service.getMySwings(
-          page: page,
-          limit: 50,
-          sort: '-createdAt',
-        );
-        swingMaps.addAll(_maps(_asResultList(response['data'])));
-        final meta = _asMap(response['meta']);
-        final totalPage = meta == null ? 1 : _asInt(meta['totalPage']);
-        if (page >= totalPage || totalPage == 0) break;
-      }
-    } on ApiError catch (error) {
-      if (error.statusCode != 404 && error.statusCode != 405) {
-        if (libraryMaps.isEmpty) rethrow;
-      }
-    }
-
-    if (libraryMaps.isEmpty && swingMaps.isEmpty) {
-      return const [];
-    }
-
-    final library = libraryMaps.map(SwingVideo.fromJson).toList();
-    final bySwingId = <String, SwingVideo>{};
-    final byId = <String, SwingVideo>{};
-    for (final item in library) {
-      byId[item.id] = item;
-      if (item.swingId.isNotEmpty) bySwingId[item.swingId] = item;
-      if (item.analysisId.isNotEmpty) byId[item.analysisId] = item;
-    }
-
-    for (final raw in swingMaps) {
-      final swing = SwingVideo.fromJson({
-        ...raw,
-        'hasAnalysis': false,
-      });
-      if (swing.id.isEmpty) continue;
-      if (byId.containsKey(swing.id) || bySwingId.containsKey(swing.id)) {
-        continue;
-      }
-      // Keep unanalyzed swings visible, but openId stays the swing id.
-      byId[swing.id] = swing;
-    }
-
-    return byId.values.toList();
+    final records = await service.getAllMySwingRecords();
+    return records.map(SwingVideo.fromJson).toList();
   }
+
+  /// Instruction shown above the grid while selecting swings to compare.
+  String get compareHint {
+    final anchor = compareAnchor;
+    if (anchor == null) {
+      return 'Pick 2 swings recorded with the same club and angle.';
+    }
+    if (compareBId == null) {
+      return 'Now pick another ${anchor.club} · ${anchor.angleLabel} swing.';
+    }
+    return 'Ready to compare.';
+  }
+
+  int get compareSelectedCount =>
+      (compareAId != null ? 1 : 0) + (compareBId != null ? 1 : 0);
 
   Future<List<SwingVideo>> _localSwings(SharedPreferences prefs) async {
     final queued = await OfflineSwingQueue.load(prefs);
@@ -361,24 +355,6 @@ class SwingLibraryController extends ChangeNotifier {
     } catch (_) {
       return const [];
     }
-  }
-
-  List<Map<String, dynamic>> _maps(List<dynamic> raw) {
-    return raw
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
-  }
-
-  List<dynamic> _asResultList(dynamic data) {
-    if (data is List) return data;
-    if (data is Map) {
-      for (final key in ['results', 'swings', 'items', 'docs', 'data']) {
-        final value = data[key];
-        if (value is List) return value;
-      }
-    }
-    return const [];
   }
 
   Map<String, dynamic>? _asMap(dynamic raw) {
