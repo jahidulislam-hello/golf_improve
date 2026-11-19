@@ -7,7 +7,7 @@ import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:golf_training_app/utils/api_constants.dart';
 import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_controller.dart';
-import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/share_with_coach_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/library/screens/share_with_coach_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/coach_feedback/coach_feedback_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/compare_swings/compare_swings_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_logbook_screen.dart';
@@ -568,9 +568,27 @@ class HomeController extends ChangeNotifier {
         ).push(MaterialPageRoute(builder: (_) => const GolfLogbookScreen()));
         break;
       case QuickActionType.shareWithCoach:
+        final payload = action.payload;
+        final swingId = '${payload?['swingLibraryId'] ?? payload?['_id'] ?? payload?['id'] ?? ''}'
+            .trim();
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ShareWithCoachScreen(initialData: action.payload),
+            builder: (_) => ShareWithCoachScreen(
+              swingLibraryId: swingId.isEmpty ? null : swingId,
+              videoUrl: '${payload?['videoUrl'] ?? ''}'.trim().isEmpty
+                  ? null
+                  : '${payload?['videoUrl']}'.trim(),
+              thumbnailUrl: '${payload?['thumbnailUrl'] ?? ''}'.trim().isEmpty
+                  ? null
+                  : '${payload?['thumbnailUrl']}'.trim(),
+              coachId: '${payload?['coachId'] ?? ''}'.trim().isEmpty
+                  ? null
+                  : '${payload?['coachId']}'.trim(),
+              coachName: '${payload?['coachName'] ?? 'Coach'}'.trim().isEmpty
+                  ? 'Coach'
+                  : '${payload?['coachName']}'.trim(),
+              includeAiAnalysis: true,
+            ),
           ),
         );
         break;

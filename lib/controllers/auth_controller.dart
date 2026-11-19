@@ -361,19 +361,51 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  DateTime? _otpResendAvailableAt;
+
+  bool get canResendOtp {
+    final at = _otpResendAvailableAt;
+    if (at == null) return true;
+    return DateTime.now().isAfter(at);
+  }
+
+  int get otpResendSecondsLeft {
+    final at = _otpResendAvailableAt;
+    if (at == null) return 0;
+    final left = at.difference(DateTime.now()).inSeconds;
+    return left > 0 ? left : 0;
+  }
+
+  void _armOtpResendCooldown({int seconds = 60}) {
+    _otpResendAvailableAt = DateTime.now().add(Duration(seconds: seconds));
+    notifyListeners();
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+  }
+
   Future<bool> sendResetCode() async {
-    if (resetEmail.trim().isEmpty) {
+    final email = resetEmail.trim();
+    if (email.isEmpty) {
       _setError('Please enter your email.');
+      return false;
+    }
+    if (!_isValidEmail(email)) {
+      _setError('Please enter a valid email address.');
       return false;
     }
 
     return _runAuthCall(() async {
       otpFlow = OtpFlow.forgotPassword;
-      final response =
-          await _authService.forgotPassword(email: resetEmail.trim());
-      // Backend returns `data.token` from forgot-password. Persist it so
-      // verify-otp / reset-password can work via Authorization header.
+      clearOtpDigits();
+      newPassword = '';
+      confirmPassword = '';
+      final response = await _authService.forgotPassword(email: email);
+      // Backend returns `data.token`. Persist as Bearer for
+      // `/auth/forgot-otp-verify` and `/auth/reset-password`.
       await _authService.persistAuthResponse(response);
+      _armOtpResendCooldown();
     });
   }
 
@@ -394,14 +426,26 @@ class AuthController extends ChangeNotifier {
 
   String get otpCode => otpDigits.join();
 
+  /// Fills all 6 OTP boxes from a pasted / autofilled code.
+  void applyOtpCode(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return;
+    otpDigits = List.filled(6, '');
+    for (var i = 0; i < digits.length && i < 6; i++) {
+      otpDigits[i] = digits[i];
+    }
+    notifyListeners();
+  }
+
   Future<bool> verifyOtp() async {
-    if (!otpDigits.every((d) => d.isNotEmpty)) {
-      _setError('Please enter the full OTP code.');
+    if (otpCode.length != 6 || !otpDigits.every((d) => d.isNotEmpty)) {
+      _setError('Please enter the full 6-digit OTP code.');
       return false;
     }
 
     return _runAuthCall(() async {
       if (otpFlow == OtpFlow.forgotPassword) {
+        // Keeps the same Bearer reset token for `/auth/reset-password`.
         await _authService.verifyForgotPasswordOtp(otp: otpCode);
         return;
       }
@@ -423,6 +467,11 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> resendOtp() async {
+    if (!canResendOtp) {
+      _setError('Please wait ${otpResendSecondsLeft}s before resending.');
+      return false;
+    }
+
     final email = otpFlow == OtpFlow.forgotPassword
         ? resetEmail.trim()
         : signUpEmail.trim();
@@ -433,8 +482,15 @@ class AuthController extends ChangeNotifier {
     }
 
     final success = await _runAuthCall(() async {
-      final response = await _authService.resendOtp(email: email);
-      await _authService.persistAuthResponse(response);
+      if (otpFlow == OtpFlow.forgotPassword) {
+        // Forgot flow needs a fresh JWT from `/auth/forgot-password`.
+        final response = await _authService.forgotPassword(email: email);
+        await _authService.persistAuthResponse(response);
+      } else {
+        final response = await _authService.resendOtp(email: email);
+        await _authService.persistAuthResponse(response);
+      }
+      _armOtpResendCooldown();
     });
 
     if (success) {
@@ -490,6 +546,14 @@ class AuthController extends ChangeNotifier {
         newPassword: newPassword,
         confirmPassword: confirmPassword,
       );
+      // Reset JWT is not a logged-in session — clear before Sign In.
+      await _authService.clearResetSession();
+      resetEmail = '';
+      clearOtpDigits();
+      newPassword = '';
+      confirmPassword = '';
+      otpFlow = OtpFlow.signUp;
+      _otpResendAvailableAt = null;
     });
   }
 

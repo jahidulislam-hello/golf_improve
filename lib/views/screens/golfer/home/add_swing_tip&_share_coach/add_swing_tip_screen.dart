@@ -5,6 +5,8 @@ import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/club_type_pill.dart';
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/dashed_border_box.dart';
 
+import 'package:golf_training_app/views/screens/golfer/library/screens/share_with_coach_screen.dart';
+
 import 'add_swing_tip_controller.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
@@ -39,12 +41,44 @@ class _AddSwingTipScreenState extends State<AddSwingTipScreen> {
     final ok = await _controller.save();
     if (!mounted) return;
     if (ok) {
-      Navigator.of(context).maybePop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tip saved to your Golf Logbook.')),
+      );
+      Navigator.of(context).maybePop(true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add a reminder before saving.')),
+        SnackBar(
+          content: Text(
+            _controller.errorMessage ?? 'Add a reminder before saving.',
+          ),
+        ),
       );
     }
+  }
+
+  Future<void> _onShareWithPro() async {
+    final ok = await _controller.save();
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _controller.errorMessage ?? 'Add a reminder before sharing.',
+          ),
+        ),
+      );
+      return;
+    }
+    final noteId = _controller.lastCreatedNoteId;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ShareWithCoachScreen(
+          practiceNoteId: noteId,
+          includeAiAnalysis: false,
+        ),
+      ),
+    );
+    if (mounted) Navigator.of(context).maybePop(true);
   }
 
   @override
@@ -54,7 +88,7 @@ class _AddSwingTipScreenState extends State<AddSwingTipScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _AppBarRow(onShareWithPro: () {}),
+            _AppBarRow(onShareWithPro: _onShareWithPro),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),

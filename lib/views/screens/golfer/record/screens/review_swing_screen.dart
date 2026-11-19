@@ -8,6 +8,7 @@ import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:golf_training_app/services/offline_swing_queue.dart';
+import 'package:golf_training_app/services/swing_media_cache.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -131,7 +132,10 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
     ).sanitized();
   }
 
-  /// Copies the clip, stores trim metadata, and syncs only when online.
+  /// Copies the clip locally, then:
+  /// 1) `POST /swing/analyzer` — saves video + telemetry
+  /// 2) `POST /swing/analyze/video/:id` — generates analysis cards
+  /// Offline: queue with telemetry and sync later via the same path.
   Future<void> _saveInBackground() async {
     if (_isStillImage) return;
     if (_saving) return;
@@ -156,8 +160,25 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       final fileSize = await copy.length();
+      final fps = session.recordingMode.toLowerCase().contains('slow')
+          ? 120.0
+          : 30.0;
+      final cameraData = SwingTelemetryBuilder.cameraData(
+        cameraAngle: session.cameraAngle,
+        width: session.previewWidth,
+        height: session.previewHeight,
+        deviceModel: session.deviceModel,
+        fps: fps,
+      );
+      final calibration = SwingTelemetryBuilder.calibration();
+      final swingPhases = SwingTelemetryBuilder.swingPhases(
+        durationSeconds: session.durationSeconds,
+        samples: session.poseSamples,
+        fps: fps,
+      );
+
       _queuedKey = idempotencyKey;
-      await OfflineSwingQueue.enqueue(prefs, {
+      final queueItem = <String, dynamic>{
         'local_id': localId,
         'idempotencyKey': idempotencyKey,
         'client_session_id': 'session_$localId',
@@ -172,18 +193,95 @@ class _ReviewSwingScreenState extends State<ReviewSwingScreen> {
         'recorded_at': DateTime.now().toUtc().toIso8601String(),
         'fileSize': fileSize,
         'fileType': 'video/mp4',
-      });
+        'cameraData': cameraData,
+        'calibration': calibration,
+        'swingPhases': swingPhases,
+        'useAnalyzer': true,
+      };
+      await OfflineSwingQueue.enqueue(prefs, queueItem);
+      // Always keep a local playable copy keyed by this recording.
+      await SwingMediaCache.rememberLocal(localPath: copy.path);
       if (_discarded) {
         await _removeQueued(prefs);
         return;
       }
 
+      final service = GolferService(
+        apiService: ApiService(sharedPreferences: prefs),
+      );
       try {
-        final service = GolferService(
-          apiService: ApiService(sharedPreferences: prefs),
+        final uploaded = await service.uploadAndAnalyzeSwing(
+          videoPath: copy.path,
+          clubType: session.clubType,
+          cameraAngle: session.cameraAngle,
+          recordingMode: session.recordingMode,
+          handedness: session.handedness,
+          duration: session.durationSeconds,
+          trimStart: session.trimStart,
+          trimEnd: session.effectiveTrimEnd,
+          cameraData: cameraData,
+          calibration: calibration,
+          swingPhases: swingPhases,
         );
-        await service.syncPendingSwings();
-      } catch (_) {}
+        final data = uploaded['data'] is Map
+            ? Map<String, dynamic>.from(uploaded['data'] as Map)
+            : uploaded;
+        final swingId = GolferService.extractSwingId(data) ??
+            GolferService.extractSwingId(uploaded) ??
+            uploaded['swingId']?.toString();
+        final analysisId = data['_id']?.toString() ??
+            data['analysisId']?.toString() ??
+            data['id']?.toString();
+        final remoteUrl = data['videoUrl']?.toString() ??
+            (data['swing'] is Map
+                ? (data['swing'] as Map)['videoUrl']?.toString()
+                : null);
+        await SwingMediaCache.rememberLocal(
+          localPath: copy.path,
+          swingId: swingId,
+          analysisId: analysisId,
+          remoteUrl: remoteUrl,
+        );
+        if (!_discarded) {
+          await _removeQueued(prefs);
+        }
+        if (mounted && !_discarded) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Swing saved to your library.'),
+            ),
+          );
+        }
+      } on ApiError catch (error) {
+        if (error.statusCode != 0 && error.statusCode < 500) {
+          // Permanent client/server rejection — drop the queue entry.
+          await _removeQueued(prefs);
+          if (mounted && !_discarded) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(error.message)),
+            );
+          }
+        } else if (mounted && !_discarded) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Saved on this device. Will sync when you are online.',
+              ),
+            ),
+          );
+        }
+        // Network / 5xx: keep queued for syncPendingSwings.
+      } catch (_) {
+        if (mounted && !_discarded) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Saved on this device. Will sync when you are online.',
+              ),
+            ),
+          );
+        }
+      }
     } catch (_) {
       if (copy != null && await copy.exists() && _queuedKey == null) {
         await copy.delete();

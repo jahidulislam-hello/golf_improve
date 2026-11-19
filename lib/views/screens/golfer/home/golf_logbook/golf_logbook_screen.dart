@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
-import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/core/app_radii.dart';
+import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/golfer/home/add_swing_tip&_share_coach/add_swing_tip_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_logbook_controller.dart';
+import 'package:golf_training_app/views/screens/golfer/library/screens/share_with_coach_screen.dart';
 
-
-/// Golf Logbook screen — active reminder banner, Newest/Oldest toggle,
-/// and a list of tip cards. Tapping the ⋮ on any card opens the
-/// Edit / Share with pro / Delete popup shown in screen 2, anchored
-/// right under that card's icon.
+/// Golf Logbook — live practice notes from `GET /note-book/get-my-notes`.
 class GolfLogbookScreen extends StatefulWidget {
   const GolfLogbookScreen({super.key});
 
@@ -16,35 +14,40 @@ class GolfLogbookScreen extends StatefulWidget {
   State<GolfLogbookScreen> createState() => _GolfLogbookScreenState();
 }
 
-enum _SortOrder { newest, oldest }
-
 class _GolfLogbookScreenState extends State<GolfLogbookScreen> {
-  _SortOrder _sort = _SortOrder.newest;
-  bool _reminderVisible = true;
+  late final GolfLogbookController _controller;
+  bool _reminderDismissed = false;
 
-  final List<_TipData> _tips = const [
-    _TipData(
-      badges: ['Driver'],
-      important: true,
-      title: 'Hip rotation timing',
-      description: 'Initiate from the ground up — hips lead before shoulders unwind.',
-    ),
-    _TipData(
-      badges: ['All Clubs'],
-      important: false,
-      title: 'Grip pressure at address',
-      description: 'Hold at 4 out of 10. Tension kills tempo.',
-    ),
-    _TipData(
-      badges: ['Wedges'],
-      important: false,
-      title: 'Wedge follow-through',
-      description: 'Finish with shaft vertical, hands at chest height.',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _controller = GolfLogbookController()..addListener(_onChange);
+    _controller.load();
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChange);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addTip() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const AddSwingTipScreen()),
+    );
+    if (saved == true) await _controller.load(showLoader: false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pinned = _controller.pinnedReminder;
+    final showReminder = !_reminderDismissed && pinned != null;
+
     return Scaffold(
       backgroundColor: AppColors.backgroundOffWhite,
       body: SafeArea(
@@ -54,22 +57,9 @@ class _GolfLogbookScreenState extends State<GolfLogbookScreen> {
               children: [
                 _buildAppBar(context),
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    children: [
-                      if (_reminderVisible) ...[
-                        _ActiveReminderCard(
-                          onDismiss: () => setState(() => _reminderVisible = false),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      _buildTipsHeader(),
-                      const SizedBox(height: 12),
-                      for (final tip in _tips) ...[
-                        _TipCard(data: tip),
-                        const SizedBox(height: 12),
-                      ],
-                    ],
+                  child: RefreshIndicator(
+                    onRefresh: () => _controller.load(showLoader: false),
+                    child: _buildBody(showReminder: showReminder, pinned: pinned),
                   ),
                 ),
               ],
@@ -77,19 +67,86 @@ class _GolfLogbookScreenState extends State<GolfLogbookScreen> {
             Positioned(
               right: 16,
               bottom: 16,
-              child: _AddTipButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AddSwingTipScreen(),
-                    ),
-                  );
-                },
-              ),
+              child: _AddTipButton(onPressed: _addTip),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBody({
+    required bool showReminder,
+    required LogbookTip? pinned,
+  }) {
+    if (_controller.isLoading && _controller.tips.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_controller.errorMessage != null && _controller.tips.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        children: [
+          Text(
+            _controller.errorMessage!,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => _controller.load(),
+            child: const Text('Retry'),
+          ),
+        ],
+      );
+    }
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+      children: [
+        if (showReminder && pinned != null) ...[
+          _ActiveReminderCard(
+            text: pinned.title.isNotEmpty ? pinned.title : pinned.description,
+            onDismiss: () async {
+              setState(() => _reminderDismissed = true);
+              await _controller.dismissPinned();
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+        _buildTipsHeader(),
+        const SizedBox(height: 12),
+        if (_controller.tips.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: Text(
+              'No tips yet. Tap + to add your first practice reminder.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          for (final tip in _controller.tips) ...[
+            _TipCard(
+              tip: tip,
+              onShare: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ShareWithCoachScreen(
+                      practiceNoteId: tip.id,
+                      includeAiAnalysis: false,
+                    ),
+                  ),
+                );
+              },
+              onDelete: () async {
+                await _controller.deleteTip(tip.id);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+      ],
     );
   }
 
@@ -113,39 +170,28 @@ class _GolfLogbookScreenState extends State<GolfLogbookScreen> {
     return Row(
       children: [
         Expanded(
-          child: Text('Recent Tips',
-              style: AppTextStyles.body.copyWith(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-              )),
+          child: Text(
+            'Recent Tips',
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+            ),
+          ),
         ),
         _SortToggle(
-          sort: _sort,
-          onChanged: (s) => setState(() => _sort = s),
+          sort: _controller.sort,
+          onChanged: _controller.setSort,
         ),
       ],
     );
   }
 }
 
-class _TipData {
-  final List<String> badges;
-  final bool important;
-  final String title;
-  final String description;
-
-  const _TipData({
-    required this.badges,
-    required this.important,
-    required this.title,
-    required this.description,
-  });
-}
-
-/// Dark "Active Reminder" banner with bell icon and dismiss (X).
 class _ActiveReminderCard extends StatelessWidget {
+  const _ActiveReminderCard({required this.text, required this.onDismiss});
+
+  final String text;
   final VoidCallback onDismiss;
-  const _ActiveReminderCard({required this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
@@ -167,8 +213,11 @@ class _ActiveReminderCard extends StatelessWidget {
               color: AppColors.surfaceWhite.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.notifications_none,
-                size: 18, color: AppColors.surfaceWhite),
+            child: const Icon(
+              Icons.notifications_none,
+              size: 18,
+              color: AppColors.surfaceWhite,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -186,7 +235,7 @@ class _ActiveReminderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Keep your left arm straight through impact — Driver session today',
+                  text,
                   style: AppTextStyles.body.copyWith(
                     color: AppColors.surfaceWhite,
                     fontWeight: FontWeight.w600,
@@ -198,7 +247,11 @@ class _ActiveReminderCard extends StatelessWidget {
           ),
           GestureDetector(
             onTap: onDismiss,
-            child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+            child: const Icon(
+              Icons.close,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -206,12 +259,11 @@ class _ActiveReminderCard extends StatelessWidget {
   }
 }
 
-/// Segmented "Newest / Oldest" toggle.
 class _SortToggle extends StatelessWidget {
-  final _SortOrder sort;
-  final ValueChanged<_SortOrder> onChanged;
-
   const _SortToggle({required this.sort, required this.onChanged});
+
+  final LogbookSort sort;
+  final ValueChanged<LogbookSort> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -224,15 +276,15 @@ class _SortToggle extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _segment('Newest', _SortOrder.newest),
-          _segment('Oldest', _SortOrder.oldest),
+          _segment('Newest', LogbookSort.newest),
+          _segment('Oldest', LogbookSort.oldest),
         ],
       ),
     );
   }
 
-  Widget _segment(String label, _SortOrder value) {
-    final bool selected = sort == value;
+  Widget _segment(String label, LogbookSort value) {
+    final selected = sort == value;
     return GestureDetector(
       onTap: () => onChanged(value),
       child: AnimatedContainer(
@@ -254,10 +306,16 @@ class _SortToggle extends StatelessWidget {
   }
 }
 
-/// One tip card: badges row + ⋮ menu button, bold title, caption description.
 class _TipCard extends StatelessWidget {
-  final _TipData data;
-  const _TipCard({required this.data});
+  const _TipCard({
+    required this.tip,
+    required this.onShare,
+    required this.onDelete,
+  });
+
+  final LogbookTip tip;
+  final VoidCallback onShare;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -278,43 +336,52 @@ class _TipCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    if (data.important) ...[
-                      const Icon(Icons.star, size: 14, color: Colors.orange),
-                      const SizedBox(width: 4),
-                      Text(
-                        'IMPORTANT',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
+                    _Badge(tip.club),
+                    if (tip.important) ...[
                       const SizedBox(width: 8),
+                      const _Badge('Important', emphasize: true),
                     ],
-                    for (final badge in data.badges) _BadgePill(label: badge),
+                    const Spacer(),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'share') onShare();
+                        if (value == 'delete') onDelete();
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'share',
+                          child: Text('Share with pro'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete'),
+                        ),
+                      ],
+                      child: const Icon(
+                        Icons.more_vert,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  data.title,
+                  tip.title.isEmpty ? tip.description : tip.title,
                   style: AppTextStyles.body.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  data.description,
-                  style: AppTextStyles.caption.copyWith(height: 1.4),
-                ),
+                if (tip.description.isNotEmpty &&
+                    tip.description != tip.title) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    tip.description,
+                    style: AppTextStyles.caption.copyWith(height: 1.4),
+                  ),
+                ],
               ],
             ),
-          ),
-          _TipMenuButton(
-            onEdit: () {},
-            onShareWithPro: () {},
-            onDelete: () {},
           ),
         ],
       ),
@@ -322,127 +389,51 @@ class _TipCard extends StatelessWidget {
   }
 }
 
-class _BadgePill extends StatelessWidget {
+class _Badge extends StatelessWidget {
+  const _Badge(this.label, {this.emphasize = false});
+
   final String label;
-  const _BadgePill({required this.label});
+  final bool emphasize;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.pillInactive,
-        borderRadius: AppRadii.cardBorderRadius,
+        color: emphasize
+            ? AppColors.accentOrangeBg
+            : AppColors.accentBlueBg,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         label,
         style: AppTextStyles.caption.copyWith(
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
+          color: emphasize ? AppColors.accentOrange : AppColors.ctaBrightBlue,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
   }
 }
 
-/// The ⋮ button on a tip card. Opens the Edit / Share with pro / Delete
-/// popup shown in screen 2, anchored directly under this button.
-class _TipMenuButton extends StatelessWidget {
-  final VoidCallback onEdit;
-  final VoidCallback onShareWithPro;
-  final VoidCallback onDelete;
-
-  const _TipMenuButton({
-    required this.onEdit,
-    required this.onShareWithPro,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      padding: EdgeInsets.zero,
-      offset: const Offset(0, 36),
-      color: Colors.transparent,
-      elevation: 0,
-      shape: AppRadii.buttonShape,
-      constraints: const BoxConstraints(minWidth: 160, maxWidth: 180),
-      itemBuilder: (context) => [
-        _menuItem(value: 'edit', label: 'Edit', background: AppColors.statusInfoBg, textColor: AppColors.textPrimary),
-        _menuItem(value: 'share', label: 'Share with pro', background: AppColors.quickActionShareBg, textColor: AppColors.textPrimary),
-        _menuItem(value: 'delete', label: 'Delete', background: AppColors.surfaceWhite, textColor: AppColors.destructiveRed),
-      ],
-      onSelected: (value) {
-        switch (value) {
-          case 'edit':
-            onEdit();
-            break;
-          case 'share':
-            onShareWithPro();
-            break;
-          case 'delete':
-            onDelete();
-            break;
-        }
-      },
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: const BoxDecoration(
-          color: AppColors.pillInactive,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.more_vert, size: 18, color: AppColors.textSecondary),
-      ),
-    );
-  }
-
-  PopupMenuItem<String> _menuItem({
-    required String value,
-    required String label,
-    required Color background,
-    required Color textColor,
-  }) {
-    return PopupMenuItem<String>(
-      value: value,
-      padding: EdgeInsets.zero,
-      height: 44,
-      child: Container(
-        width: double.infinity,
-        height: 44,
-        alignment: Alignment.center,
-        color: background,
-        child: Text(
-          label,
-          style: AppTextStyles.body.copyWith(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-            color: textColor,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Blue circular floating "+" button, bottom right.
 class _AddTipButton extends StatelessWidget {
-  final VoidCallback onPressed;
   const _AddTipButton({required this.onPressed});
+
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.ctaBrightBlue,
       shape: const CircleBorder(),
-      elevation: 3,
+      elevation: 4,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onPressed,
         child: const SizedBox(
           width: 56,
           height: 56,
-          child: Icon(Icons.add, color: AppColors.surfaceWhite, size: 26),
+          child: Icon(Icons.add, color: Colors.white),
         ),
       ),
     );
@@ -450,23 +441,23 @@ class _AddTipButton extends StatelessWidget {
 }
 
 class _CircleIconButton extends StatelessWidget {
+  const _CircleIconButton({required this.icon, required this.onTap});
+
   final IconData icon;
   final VoidCallback onTap;
-
-  const _CircleIconButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.pillInactive,
+      color: AppColors.surfaceWhite,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(icon, size: 16, color: AppColors.textPrimary),
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 18, color: AppColors.textPrimary),
         ),
       ),
     );

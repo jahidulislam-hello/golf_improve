@@ -18,8 +18,10 @@ class ShareWithCoachScreen extends StatefulWidget {
     this.coachProfileUrl,
     this.coachId,
     this.swingLibraryId,
+    this.swingId,
     this.practiceNoteId,
     this.initialStatus = '',
+    this.includeAiAnalysis = true,
   });
 
   final String? videoUrl;
@@ -28,8 +30,10 @@ class ShareWithCoachScreen extends StatefulWidget {
   final String? coachProfileUrl;
   final String? coachId;
   final String? swingLibraryId;
+  final String? swingId;
   final String? practiceNoteId;
   final String initialStatus;
+  final bool includeAiAnalysis;
 
   @override
   State<ShareWithCoachScreen> createState() => _ShareWithCoachScreenState();
@@ -48,6 +52,7 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
       swingLibraryId: widget.swingLibraryId,
       practiceNoteId: widget.practiceNoteId,
       initialStatus: widget.initialStatus,
+      includeAiAnalysis: widget.includeAiAnalysis,
     );
   }
 
@@ -156,6 +161,8 @@ class _ShareWithCoachScreenState extends State<ShareWithCoachScreen> {
                         child: VideoPreview(
                           videoUrl: widget.videoUrl,
                           thumbnailUrl: widget.thumbnailUrl,
+                          swingId: widget.swingId,
+                          analysisId: widget.swingLibraryId,
                           showOverlayButtons: false,
                           aspectRatio: 16 / 11,
                           borderRadius: AppRadii.cardBorderRadius,

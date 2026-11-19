@@ -33,13 +33,10 @@ class ApiConstants {
   static const String guestSession = '$apiUrl/auth/guest-session';
   static const String mergeGuest = '$apiUrl/auth/merge-guest';
   static const String register = '$apiUrl/auth/register';
-  // Docs v2: /auth/verify-email (legacy: /auth/verify-otp)
-  static const String verifyOtp = '$apiUrl/auth/verify-email';
-  // static const String verifyOtp = '$apiUrl/auth/verify-otp';
+  // Live API routes (verify-email / resend-code return 404 on api.golfimprove.eu).
+  static const String verifyOtp = '$apiUrl/auth/verify-otp';
   static const String updateRegisterProfile = '$apiUrl/user/update-my-profile';
-  // Docs v2: /auth/resend-code (legacy: /auth/resend-otp)
-  static const String resendOTP = '$apiUrl/auth/resend-code';
-  // static const String resendOTP = '$apiUrl/auth/resend-otp';
+  static const String resendOTP = '$apiUrl/auth/resend-otp';
   static const String login = '$apiUrl/auth/login';
   /// Mobile Google Sign-In: send Google `idToken` (and optional role / guestId).
   static const String googleLogin = '$apiUrl/auth/google';
@@ -167,6 +164,19 @@ class ApiConstants {
   static const String notificationsMarkAllRead =
       '$apiUrl/notification/mark-all-read';
 
+  // Practice notes / Golf Logbook
+  static const String noteBookCreate = '$apiUrl/note-book/create';
+  static const String noteBookMyNotes = '$apiUrl/note-book/get-my-notes';
+  static String noteBookFind(String id) => '$apiUrl/note-book/find/$id';
+  static String noteBookUpdate(String id) => '$apiUrl/note-book/update/$id';
+  static String noteBookTogglePin(String id) =>
+      '$apiUrl/note-book/toggle-pin/$id';
+  static String noteBookDelete(String id) => '$apiUrl/note-book/delete/$id';
 
-
+  // CMS / legal / support / stand card
+  static const String commonAbout = '$apiUrl/common/about';
+  static const String commonTerms = '$apiUrl/common/terms';
+  static const String commonPrivacy = '$apiUrl/common/privacy-policy';
+  static const String commonSupport = '$apiUrl/common/support';
+  static const String commonStand = '$apiUrl/common/stand';
 }

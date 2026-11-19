@@ -189,7 +189,6 @@ class SwingLibraryController extends ChangeNotifier {
       List<SwingVideo> remote = const [];
       try {
         remote = await _fetchRemote(service);
-        await _cache(prefs, remote);
         errorMessage = null;
       } catch (e) {
         remote = await _readCache(prefs);
@@ -205,8 +204,17 @@ class SwingLibraryController extends ChangeNotifier {
       final local = await _localSwings(prefs);
       swings = _merge(remote, local);
       if (swings.isNotEmpty) errorMessage = null;
-      _recount();
+      // Count matches what the grid actually shows (not a stale meta/cache).
+      _syncCountsFromList();
+      await _cache(prefs, remote);
       hasLoaded = true;
+      notifyListeners();
+
+      // my-swings rows with no SwingLibrary doc → POST /swing/analyze/video/:id
+      // so they appear in GET /swing-library/my-library (Postman source of truth).
+      if (showLoader) {
+        unawaited(_backfillAnalyses(service, prefs));
+      }
     } catch (e) {
       errorMessage = _message(e);
       if (!showLoader) rethrow;
@@ -218,6 +226,7 @@ class SwingLibraryController extends ChangeNotifier {
   }
 
   bool _isSyncing = false;
+  bool _isBackfilling = false;
 
   Future<void> _syncOffline(GolferService service) async {
     if (_isSyncing) return;
@@ -231,6 +240,47 @@ class SwingLibraryController extends ChangeNotifier {
     } finally {
       _isSyncing = false;
     }
+  }
+
+  /// Runs analyze for recordings that are in `/swing/my-swings` but missing
+  /// from `/swing-library/my-library`, then refreshes the grid.
+  Future<void> _backfillAnalyses(
+    GolferService service,
+    SharedPreferences prefs,
+  ) async {
+    if (_isBackfilling) return;
+    final pending = swings
+        .where((s) => !s.isLocal && !s.hasAnalysis)
+        .map((s) => s.swingId.isNotEmpty ? s.swingId : s.id)
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (pending.isEmpty) return;
+
+    _isBackfilling = true;
+    try {
+      final created = await service.backfillMissingLibraryAnalyses(
+        maxItems: pending.length.clamp(1, 8),
+      );
+      if (created <= 0) return;
+
+      final remote = await _fetchRemote(service);
+      final local = await _localSwings(prefs);
+      swings = _merge(remote, local);
+      _syncCountsFromList();
+      await _cache(prefs, remote);
+      if (!_isDisposed) notifyListeners();
+    } catch (_) {
+    } finally {
+      _isBackfilling = false;
+    }
+  }
+
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 
   Future<void> selectClub(String club) async {
@@ -318,15 +368,20 @@ class SwingLibraryController extends ChangeNotifier {
   void _applyStats(Map<String, dynamic> data) {
     final stats = _asMap(data['stats']);
     if (stats == null) return;
-    totalSwings = _asInt(stats['totalSwings']);
-    sharedWithCoach = _asInt(stats['sharedWithCoach']);
+    // Prefer live grid count; meta is only a hint when the list is empty.
+    final metaTotal = _asInt(stats['totalSwings']);
+    final metaShared = _asInt(stats['sharedWithCoach']);
+    if (swings.isEmpty && metaTotal > 0) totalSwings = metaTotal;
+    if (metaShared > 0) sharedWithCoach = metaShared;
   }
 
   void _recount() {
-    if (totalSwings == 0) totalSwings = swings.length;
-    if (sharedWithCoach == 0) {
-      sharedWithCoach = swings.where((swing) => swing.isSharedWithCoach).length;
-    }
+    _syncCountsFromList();
+  }
+
+  void _syncCountsFromList() {
+    totalSwings = swings.length;
+    sharedWithCoach = swings.where((swing) => swing.isSharedWithCoach).length;
   }
 
   Future<void> _cache(SharedPreferences prefs, List<SwingVideo> remote) async {

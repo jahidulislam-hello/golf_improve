@@ -59,19 +59,21 @@ class _SwingLibraryScreenState extends State<SwingLibraryScreen> {
       );
       return;
     }
-    if (!swing.hasAnalysis && swing.analysisId.isEmpty) {
+    // Always open details. Analysis may still be processing — the detail
+    // screen shows the video immediately from list data and polls for AI.
+    final openId = swing.openId;
+    if (openId.isEmpty && swing.videoUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Analysis is not ready for this swing yet. Try again after sync.',
-          ),
-        ),
+        const SnackBar(content: Text('This swing has no video to open yet.')),
       );
       return;
     }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SwingAnalysisScreen(swingId: swing.openId),
+        builder: (_) => SwingAnalysisScreen(
+          swingId: openId.isNotEmpty ? openId : null,
+          initialData: swing.toAnalysisSeed(),
+        ),
       ),
     );
   }

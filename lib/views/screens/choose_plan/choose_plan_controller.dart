@@ -57,7 +57,8 @@ class ChoosePlanController extends ChangeNotifier {
     }
     if (promoController.text.trim().isNotEmpty) return 'Apply promo code';
     if (days > 0) return 'Start $days-Day Free Trial';
-    return 'Enter promo code';
+    // No trial on this plan — activate with an optional promo code.
+    return 'Apply promo code';
   }
 
   Future<void> loadPlans() async {
@@ -217,7 +218,11 @@ class ChoosePlanController extends ChangeNotifier {
 
     final typed = promoController.text.trim();
     if (typed.isEmpty && appliedPromo == null) {
-      _setPromoMessage('Enter a promo code to activate this plan.', isError: true);
+      if (displayTrialDays > 0) return startTrial();
+      _setPromoMessage(
+        'This plan has no free trial. Enter a promo code to activate.',
+        isError: true,
+      );
       return null;
     }
 

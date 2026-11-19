@@ -17,8 +17,22 @@ class SwingAnalysisController extends ChangeNotifier {
         ? swingId
         : _readString(initialData, '_id') ?? _readString(initialData, 'id');
 
+    rawSwingId = _readString(initialData, 'swingId') ??
+        _readString(initialData, 'swing') ??
+        rawSwingId;
+
     if (initialData != null) {
       _applyData(initialData);
+    }
+
+    // Prefer explicit swing recording id for `/swing/analyze/video/:id`.
+    if (rawSwingId == null || rawSwingId!.isEmpty) {
+      final candidate = id;
+      if (candidate != null &&
+          candidate.isNotEmpty &&
+          (analysisStatus == 'processing' || !isAnalysisReady)) {
+        rawSwingId = candidate;
+      }
     }
 
     if (id != null && id.isNotEmpty) {
@@ -29,10 +43,15 @@ class SwingAnalysisController extends ChangeNotifier {
     } else {
       isLoading = false;
       hasLoaded = true;
+      _triggerAnalyzeIfNeeded();
     }
   }
 
   final String? swingId;
+
+  /// Underlying recording id for `POST /swing/analyze/video/:id`.
+  String? rawSwingId;
+  bool _analyzeTriggered = false;
 
   bool isLoading = true;
   bool hasLoaded = false;
@@ -102,18 +121,49 @@ class SwingAnalysisController extends ChangeNotifier {
 
     try {
       final service = await _service();
+      await _ensureAnalyzeTriggered(service);
+
+      // After analyze, prefer the library analysis document id when available.
+      final lookupId = this.id.isNotEmpty ? this.id : id;
+
       Map<String, dynamic>? data;
       try {
-        final response = await service.getSwingLibraryById(id);
+        final response = await service.getSwingLibraryById(lookupId);
         data = _asMap(response['data']);
       } on ApiError catch (error) {
-        // Raw swing ids are not library analysis ids — try analyze then re-fetch.
+        // Raw swing ids are not library analysis ids — analyze then load result.
         if (error.statusCode == 404) {
           try {
-            await service.analyzeSwingVideo(id);
-            final response = await service.getSwingLibraryById(id);
-            data = _asMap(response['data']);
+            final analyzeId = (rawSwingId != null && rawSwingId!.isNotEmpty)
+                ? rawSwingId!
+                : id;
+            final analyzed = await service.analyzeSwingVideo(analyzeId);
+            _analyzeTriggered = true;
+            data = _asMap(analyzed['data']);
+            final analysisId = _readString(data, '_id') ??
+                _readString(data, 'id') ??
+                GolferService.extractSwingId(analyzed);
+            if (analysisId != null &&
+                analysisId.isNotEmpty &&
+                analysisId != lookupId) {
+              try {
+                final response =
+                    await service.getSwingLibraryById(analysisId);
+                data = _asMap(response['data']) ?? data;
+              } catch (_) {}
+            }
           } catch (_) {
+            // Keep list/seed video details visible while analysis catches up.
+            if (videoUrl.isNotEmpty || thumbnailUrl.isNotEmpty) {
+              isAnalysisReady = false;
+              analysisStatus = 'processing';
+              analysisMessage =
+                  'Analysis is still preparing. You can watch the video meanwhile.';
+              hasLoaded = true;
+              errorMessage = null;
+              if (!showLoader) return;
+              return;
+            }
             errorMessage =
                 'Analysis is not ready for this swing yet. Pull to refresh the library shortly.';
             if (!showLoader) rethrow;
@@ -129,12 +179,25 @@ class SwingAnalysisController extends ChangeNotifier {
       hasLoaded = true;
       errorMessage = null;
     } catch (e) {
-      errorMessage = e is ApiError ? e.message : e.toString();
+      // Network / DNS failures should not hide a video we already have.
+      if (videoUrl.isNotEmpty || thumbnailUrl.isNotEmpty) {
+        isAnalysisReady = false;
+        if (analysisStatus == 'ready') analysisStatus = 'processing';
+        if (analysisMessage.isEmpty) {
+          analysisMessage =
+              'Could not refresh analysis right now. Showing the saved video.';
+        }
+        hasLoaded = true;
+        errorMessage = null;
+      } else {
+        errorMessage = e is ApiError ? e.message : e.toString();
+      }
       if (!showLoader) rethrow;
     } finally {
       isLoading = false;
       if (!_isDisposed) notifyListeners();
-      _schedulePollIfProcessing(id);
+      final pollId = this.id.isNotEmpty ? this.id : id;
+      _schedulePollIfProcessing(pollId);
     }
   }
 
@@ -154,6 +217,33 @@ class SwingAnalysisController extends ChangeNotifier {
     });
   }
 
+  void _triggerAnalyzeIfNeeded() {
+    if (_isDisposed || isAnalysisReady || _analyzeTriggered) return;
+    _service().then(_ensureAnalyzeTriggered).catchError((_) {});
+  }
+
+  Future<void> _ensureAnalyzeTriggered(GolferService service) async {
+    if (_analyzeTriggered || isAnalysisReady) return;
+    final analyzeId = (rawSwingId != null && rawSwingId!.isNotEmpty)
+        ? rawSwingId!
+        : ((swingId != null && swingId!.isNotEmpty) ? swingId! : id);
+    if (analyzeId.isEmpty) return;
+    try {
+      _analyzeTriggered = true;
+      final analyzed = await service.analyzeSwingVideo(analyzeId);
+      final data = _asMap(analyzed['data']);
+      if (data != null) {
+        _applyData(data);
+        hasLoaded = true;
+        errorMessage = null;
+        if (!_isDisposed) notifyListeners();
+      }
+    } catch (_) {
+      // Allow a later poll / manual refresh to retry.
+      _analyzeTriggered = false;
+    }
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
@@ -164,6 +254,11 @@ class SwingAnalysisController extends ChangeNotifier {
   void _applyData(Map<String, dynamic> data) {
     // Share-find payload nests the library under `swingLibrary`.
     final library = _asMap(data['swingLibrary']) ?? data;
+
+    rawSwingId = _readString(data, 'swingId') ??
+        _readString(library, 'swingId') ??
+        GolferService.extractSwingId(_asMap(data['swing']) ?? {}) ??
+        rawSwingId;
 
     id = _readString(library, '_id') ??
         _readString(library, 'id') ??

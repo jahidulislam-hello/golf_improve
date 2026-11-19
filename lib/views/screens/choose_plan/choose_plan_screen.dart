@@ -42,14 +42,19 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
 
   Future<void> _handleCta() async {
     final typed = _controller.promoController.text.trim();
-    if (typed.isEmpty &&
-        _controller.appliedPromo == null &&
-        _controller.displayTrialDays <= 0) {
-      // No trial on this plan and no code yet: guide to the promo field.
-      _controller.promoFocus.requestFocus();
-      return;
-    }
+    // Promo is optional when the plan offers a free trial.
     if (typed.isEmpty && _controller.appliedPromo == null) {
+      if (_controller.displayTrialDays <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'This plan has no free trial. Enter a promo code to activate, or choose a trial plan.',
+            ),
+          ),
+        );
+        _controller.promoFocus.requestFocus();
+        return;
+      }
       final message = await _controller.startTrial();
       if (!mounted || message == null) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +67,6 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
     final ready = quote != null &&
         quote.code.toUpperCase() == typed.toUpperCase();
     if (!ready) {
-      if (typed.isEmpty) _controller.promoFocus.requestFocus();
       await _controller.applyPromo();
       return;
     }
@@ -206,11 +210,15 @@ class _ChoosePlanScreenState extends State<ChoosePlanScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        Text(
-          'Choose your plan',
-          style: AppTextStyles.screenTitle.copyWith(
-            color: AppColors.surfaceWhite,
-            fontSize: 28,
+        Expanded(
+          child: Text(
+            'Choose your plan',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.screenTitle.copyWith(
+              color: AppColors.surfaceWhite,
+              fontSize: 28,
+            ),
           ),
         ),
       ],
@@ -239,7 +247,7 @@ class _PromoCodeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'PROMO CODE',
+            'PROMO CODE (OPTIONAL)',
             style: AppTextStyles.caption.copyWith(
               color: AppColors.surfaceWhite.withOpacity(0.45),
               fontWeight: FontWeight.w700,
@@ -264,7 +272,7 @@ class _PromoCodeCard extends StatelessWidget {
                   ),
                   cursorColor: AppColors.surfaceWhite,
                   decoration: InputDecoration(
-                    hintText: 'LAUNCH50',
+                    hintText: 'Optional — e.g. LAUNCH50',
                     hintStyle: AppTextStyles.body.copyWith(
                       color: AppColors.surfaceWhite.withOpacity(0.35),
                       fontWeight: FontWeight.w600,

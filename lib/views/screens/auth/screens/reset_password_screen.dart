@@ -38,8 +38,18 @@ class ResetPasswordScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Reset Password',
-                        textAlign: TextAlign.center, style: AppTextStyles.cardTitle),
+                    Text(
+                      'Reset Password',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.cardTitle,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose a new password with at least 8 characters.',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.body
+                          .copyWith(color: AppColors.textSecondary),
+                    ),
                     const SizedBox(height: 20),
                     AuthTextField(
                       hintText: 'Enter New Password',
@@ -71,6 +81,13 @@ class ResetPasswordScreen extends StatelessWidget {
                     _showAuthError(context, auth);
                     return;
                   }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Password reset successfully. Please sign in.',
+                      ),
+                    ),
+                  );
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (_) => const SignInScreen()),
                     (route) => false,

@@ -3,6 +3,8 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import 'package:golf_training_app/views/screens/coach/profile/profile_info_screen/profile_info_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/notification/notification_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/settings/community_legal.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/settings/help_support_screen.dart';
 import 'package:golf_training_app/views/screens/onboarding/role_selection/role_switch_sheet.dart';
 import '../../../auth/screens/sign_in_screen.dart';
 import 'profile_controller.dart';
@@ -170,14 +172,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     icon: Icons.help_outline,
                     title: 'Help & Support',
                     subtitle: 'Contact us anytime',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const HelpSupportScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1, color: AppColors.borderCard),
                   _MenuTile(
                     icon: Icons.apps,
                     title: 'Community & Legal',
                     subtitle: 'Privacy, data & more',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const OthersScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

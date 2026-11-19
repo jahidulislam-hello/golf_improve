@@ -6,12 +6,10 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/services/api_services.dart';
 import 'package:golf_training_app/services/golfer_service.dart';
 import 'package:golf_training_app/views/screens/auth/screens/sign_in_screen.dart';
-import 'package:golf_training_app/views/screens/golfer/profile/settings/privacy_screen.dart';
-import 'package:golf_training_app/views/screens/golfer/profile/settings/terms_conditions_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/settings/change_password_screen.dart';
+import 'package:golf_training_app/views/screens/golfer/profile/settings/cms_document_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'about_us.dart';
 
 
 class OthersScreen extends StatelessWidget {
@@ -33,7 +31,11 @@ class OthersScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const PrivacyScreen(),
+                  builder: (_) => const CmsDocumentScreen(
+                    type: CmsDocumentType.privacy,
+                    fallbackTitle: 'Privacy Policy & Security',
+                    assetImage: 'assets/images/privacy.png',
+                  ),
                 ),
               ),
             ),
@@ -44,7 +46,10 @@ class OthersScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const TermsCondition(
+                  builder: (_) => const CmsDocumentScreen(
+                    type: CmsDocumentType.terms,
+                    fallbackTitle: 'Terms & Conditions',
+                    assetImage: 'assets/images/terms.png',
                   ),
                 ),
               ),
@@ -56,8 +61,22 @@ class OthersScreen extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const AboutUs(
+                  builder: (_) => const CmsDocumentScreen(
+                    type: CmsDocumentType.about,
+                    fallbackTitle: 'About GolfImprove',
+                    assetImage: 'assets/images/hello.png',
                   ),
+                ),
+              ),
+            ),
+            _MenuItem(
+              icon: Icons.lock_outline_rounded,
+              label: 'Change Password',
+              color: AppColors.textPrimary,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ChangePasswordScreen(),
                 ),
               ),
             ),

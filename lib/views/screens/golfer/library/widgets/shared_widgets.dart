@@ -3,6 +3,7 @@ import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
 import '../models/models.dart';
 import 'package:golf_training_app/core/app_radii.dart';
+import 'package:golf_training_app/views/screens/golfer/library/widgets/library_media_thumb.dart';
 
 /// Small uppercase gray label used above filter rows ("CLUB", "ANGLE").
 class SectionLabel extends StatelessWidget {
@@ -148,8 +149,7 @@ class _StatColumn extends StatelessWidget {
 }
 
 /// Grid card thumbnail used in the Swing Library. Shows a network thumbnail
-/// (or placeholder), a centered play button, an optional match-percentage
-/// pill, and the club/angle caption below.
+/// (or a still frame from the video), a centered play button, and captions.
 class SwingThumbnailCard extends StatelessWidget {
   final SwingVideo swing;
   final VoidCallback onTap;
@@ -166,9 +166,6 @@ class SwingThumbnailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final thumb = swing.thumbnailUrl;
-    final hasNetworkThumb = thumb.startsWith('http');
-
     return GestureDetector(
       onTap: onTap,
       child: Opacity(
@@ -190,15 +187,11 @@ class SwingThumbnailCard extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (hasNetworkThumb)
-                        Image.network(
-                          thumb,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const _ThumbPlaceholder(),
-                        )
-                      else
-                        const _ThumbPlaceholder(),
+                      LibraryMediaThumb(
+                        thumbnailUrl: swing.thumbnailUrl,
+                        videoUrl: swing.videoUrl,
+                        isLocal: swing.isLocal,
+                      ),
                       Center(
                         child: Container(
                           width: 40,
@@ -251,26 +244,6 @@ class SwingThumbnailCard extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ThumbPlaceholder extends StatelessWidget {
-  const _ThumbPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF4F7942), Color(0xFF1E3A2B)],
-        ),
-      ),
-      child: const Center(
-        child: Icon(Icons.golf_course, color: Colors.white24, size: 40),
       ),
     );
   }
@@ -344,11 +317,16 @@ class PrimaryButton extends StatelessWidget {
                 Icon(icon, color: textColor, size: 20),
                 const SizedBox(width: 8),
               ],
-              Text(
-                label,
-                style: AppTextStyles.type16.copyWith(
-                  color: textColor,
-                  fontWeight: FontWeight.w700,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.type16.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -494,12 +472,16 @@ class ProFeedbackCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                'YOUR PRO PREVIOUSLY SAID',
-                style: AppTextStyles.type11.copyWith(
-                  color: AppColors.ctaBrightBlue,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
+              Expanded(
+                child: Text(
+                  'YOUR PRO PREVIOUSLY SAID',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.type11.copyWith(
+                    color: AppColors.ctaBrightBlue,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
                 ),
               ),
             ],
@@ -628,28 +610,36 @@ class ShareIncludeTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      item.title,
-                      style: AppTextStyles.type16.copyWith(
-                        fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.type16.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     if (item.badge != null) ...[
                       const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFCE7B5),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          item.badge!,
-                          style: AppTextStyles.type9.copyWith(
-                            color: const Color(0xFF8A6D1D),
-                            fontWeight: FontWeight.w700,
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFCE7B5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.badge!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.type9.copyWith(
+                              color: const Color(0xFF8A6D1D),
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
@@ -660,6 +650,7 @@ class ShareIncludeTile extends StatelessWidget {
                 Text(
                   item.subtitle,
                   style: AppTextStyles.caption,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
