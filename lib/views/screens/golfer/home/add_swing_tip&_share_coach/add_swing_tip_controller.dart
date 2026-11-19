@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/golfer_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Controller for the "Add Swing Tip" screen.
-///
-/// Owns the reminder text field, the "Mark as Important" toggle, the
-/// selected club type, and the attached video reference. Exposed as a
-/// [ChangeNotifier] so it can be wired up with `provider`, `ChangeNotifierProvider`,
-/// or plain `AnimatedBuilder` / `ListenableBuilder` — whichever the app already uses.
+/// Controller for the "Add Swing Tip" screen → `POST /note-book/create`.
 class AddSwingTipController extends ChangeNotifier {
   AddSwingTipController({
     String? initialReminder,
@@ -17,10 +15,8 @@ class AddSwingTipController extends ChangeNotifier {
     reminderController.addListener(notifyListeners);
   }
 
-  /// Backs the "What's the reminder?" text field.
   final TextEditingController reminderController;
 
-  /// Available club type filter pills, in display order.
   static const List<String> clubTypes = [
     'All Clubs',
     'Driver',
@@ -34,15 +30,19 @@ class AddSwingTipController extends ChangeNotifier {
   String _selectedClubType;
   String get selectedClubType => _selectedClubType;
 
-  /// Display name of the attached clip, or null if nothing is attached yet.
   String? _attachedVideoName;
   String? get attachedVideoName => _attachedVideoName;
   bool get hasAttachedVideo => _attachedVideoName != null;
 
+  String? _swingId;
+  String? get swingId => _swingId;
+
   bool _isSaving = false;
   bool get isSaving => _isSaving;
 
-  /// Reminder text is required to save.
+  String? errorMessage;
+  String? lastCreatedNoteId;
+
   bool get canSave =>
       reminderController.text.trim().isNotEmpty && !_isSaving;
 
@@ -58,33 +58,51 @@ class AddSwingTipController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void attachVideo(String fileName) {
+  void attachVideo(String fileName, {String? swingId}) {
     _attachedVideoName = fileName;
+    _swingId = swingId;
     notifyListeners();
   }
 
   void removeVideo() {
-    if (_attachedVideoName == null) return;
+    if (_attachedVideoName == null && _swingId == null) return;
     _attachedVideoName = null;
+    _swingId = null;
     notifyListeners();
   }
 
-  /// Persists the tip. Replace the body with your repository / API call.
   Future<bool> save() async {
     if (!canSave) return false;
     _isSaving = true;
+    errorMessage = null;
     notifyListeners();
 
     try {
-      // TODO: wire up to your data layer, e.g.:
-      // await ref.read(swingTipRepositoryProvider).createTip(
-      //   reminder: reminderController.text.trim(),
-      //   isImportant: markAsImportant,
-      //   clubType: selectedClubType,
-      //   videoRef: attachedVideoName,
-      // );
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final text = reminderController.text.trim();
+      final title = text.length > 80 ? '${text.substring(0, 77)}...' : text;
+      final prefs = await SharedPreferences.getInstance();
+      final service = GolferService(
+        apiService: ApiService(sharedPreferences: prefs),
+      );
+      final response = await service.createNote(
+        title: title,
+        description: text,
+        isImportant: markAsImportant,
+        isPinned: markAsImportant,
+        clubType: selectedClubType,
+        swingId: _swingId,
+      );
+      final data = response['data'];
+      if (data is Map) {
+        lastCreatedNoteId = '${data['_id'] ?? data['id'] ?? ''}'.trim();
+      }
       return true;
+    } on ApiError catch (e) {
+      errorMessage = e.message;
+      return false;
+    } catch (e) {
+      errorMessage = e.toString();
+      return false;
     } finally {
       _isSaving = false;
       notifyListeners();

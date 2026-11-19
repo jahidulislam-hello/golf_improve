@@ -347,7 +347,7 @@ class GolferService {
             idempotencyKey: map['idempotencyKey']?.toString(),
             status: 'sent',
             isSwingVideo: true,
-            isAiAnalysis: false,
+            isAiAnalysis: map['isAiAnalysis'] == true,
             isPersonalNotesAndTips: map['isPersonalNotesAndTips'] == true,
             allowDrawOnVideo: map['allowDrawOnVideo'] == true ||
                 map['allowCoachToDraw'] == true,
@@ -622,6 +622,10 @@ class GolferService {
           final keys = _recordIdentityKeys(item);
           if (keys.any(seen.contains)) continue;
           seen.addAll(keys);
+          // Already analyzed on the Swing doc — skip duplicate library row.
+          final analyzed = item['isAnalyzed'] == true ||
+              (item['analysisId']?.toString().trim().isNotEmpty ?? false);
+          if (analyzed) continue;
           collected.add({...item, 'hasAnalysis': false});
         }
         final meta = response['meta'];
@@ -635,6 +639,41 @@ class GolferService {
     }
     if (collected.isEmpty && libraryError != null) throw libraryError;
     return collected;
+  }
+
+  /// Recordings that exist in `/swing/my-swings` but not yet in
+  /// `/swing-library/my-library`. Calls `POST /swing/analyze/video/:id`
+  /// so the backend creates the library analysis rows.
+  Future<int> backfillMissingLibraryAnalyses({int maxItems = 8}) async {
+    final records = await getAllMySwingRecords();
+    final pending = <String>[];
+    for (final item in records) {
+      if (item['hasAnalysis'] == false) {
+        final id = extractSwingId(item) ??
+            item['_id']?.toString() ??
+            item['id']?.toString();
+        if (id != null && id.trim().isNotEmpty) {
+          pending.add(id.trim());
+        }
+      }
+    }
+    if (pending.isEmpty) return 0;
+
+    var created = 0;
+    for (final swingId in pending.take(maxItems)) {
+      try {
+        await analyzeSwingVideo(swingId);
+        created++;
+      } on ApiError catch (error) {
+        // Paywall / not found — stop hammering; leave the rest pending.
+        if (error.statusCode == 402 ||
+            error.statusCode == 403 ||
+            error.statusCode == 404) {
+          break;
+        }
+      } catch (_) {}
+    }
+    return created;
   }
 
   static List<Map<String, dynamic>> _recordMaps(dynamic data) {
@@ -864,9 +903,69 @@ class GolferService {
     return Map<String, dynamic>.from(response as Map);
   }
 
-  /// Pre-signed S3 upload, then `POST /swing/create`.
-  /// Network failures are queued for `syncPendingSwings`.
-  /// A missing upload-url route falls back to multipart `/swing/analyzer`.
+  /// Production record path:
+  /// 1) `POST /swing/analyzer` — upload video + telemetry (saves the clip)
+  /// 2) `POST /swing/analyze/video/:id` — generate library analysis cards
+  Future<Map<String, dynamic>> uploadAndAnalyzeSwing({
+    required String videoPath,
+    required String clubType,
+    required String cameraAngle,
+    required String recordingMode,
+    required String handedness,
+    required num duration,
+    required num trimStart,
+    required num trimEnd,
+    required Map<String, dynamic> cameraData,
+    required Map<String, dynamic> calibration,
+    required Map<String, dynamic> swingPhases,
+  }) async {
+    final upload = await uploadSwingForAnalysis(
+      videoPath: videoPath,
+      clubType: clubType,
+      cameraAngle: cameraAngle,
+      recordingMode: recordingMode,
+      handedness: handedness,
+      duration: duration,
+      trimStart: trimStart,
+      trimEnd: trimEnd,
+      cameraData: cameraData,
+      calibration: calibration,
+      swingPhases: swingPhases,
+    );
+
+    final uploadData = _asResponseMap(upload['data']) ?? upload;
+    final swingId = extractSwingId(uploadData) ?? extractSwingId(upload);
+    if (swingId == null || swingId.isEmpty) {
+      return upload;
+    }
+
+    try {
+      final analysis = await analyzeSwingVideo(swingId);
+      final analysisData = _asResponseMap(analysis['data']) ?? analysis;
+      return {
+        ...upload,
+        'data': {
+          ...uploadData,
+          ...analysisData,
+          'swingId': swingId,
+        },
+        'swingId': swingId,
+      };
+    } on ApiError catch (error) {
+      // Clip is already saved; analysis can finish later from the detail screen.
+      if (error.statusCode == 0 || error.statusCode >= 500) {
+        return {
+          ...upload,
+          'swingId': swingId,
+          'analysisPending': true,
+        };
+      }
+      rethrow;
+    }
+  }
+
+  /// Prefer analyzer + analyze/video. Falls back to pre-signed create when
+  /// the analyzer route is unavailable. Network failures enqueue for sync.
   Future<Map<String, dynamic>> recordSwing({
     required String videoPath,
     required String clubType,
@@ -887,18 +986,18 @@ class GolferService {
     final recordedAt = DateTime.now().toUtc().toIso8601String();
 
     try {
-      return await _recordViaPresigned(
+      return await uploadAndAnalyzeSwing(
         videoPath: videoPath,
         clubType: clubType,
         cameraAngle: cameraAngle,
         recordingMode: recordingMode,
+        handedness: handedness,
         duration: duration,
         trimStart: trimStart,
         trimEnd: trimEnd,
-        localId: localId,
-        idempotencyKey: idempotencyKey,
-        recordedAt: recordedAt,
-        fileSize: fileSize,
+        cameraData: cameraData,
+        calibration: calibration,
+        swingPhases: swingPhases,
       );
     } on ApiError catch (e) {
       if (e.statusCode == 0) {
@@ -922,6 +1021,7 @@ class GolferService {
             'cameraData': cameraData,
             'calibration': calibration,
             'swingPhases': swingPhases,
+            'useAnalyzer': true,
           },
         );
         throw ApiError(
@@ -931,19 +1031,34 @@ class GolferService {
         );
       }
       if (e.statusCode == 404 || e.statusCode == 405) {
-        return uploadSwingForAnalysis(
+        final created = await _recordViaPresigned(
           videoPath: videoPath,
           clubType: clubType,
           cameraAngle: cameraAngle,
           recordingMode: recordingMode,
-          handedness: handedness,
           duration: duration,
           trimStart: trimStart,
           trimEnd: trimEnd,
-          cameraData: cameraData,
-          calibration: calibration,
-          swingPhases: swingPhases,
+          localId: localId,
+          idempotencyKey: idempotencyKey,
+          recordedAt: recordedAt,
+          fileSize: fileSize,
         );
+        final createdData = _asResponseMap(created['data']) ?? created;
+        final swingId = extractSwingId(createdData) ?? extractSwingId(created);
+        if (swingId != null && swingId.isNotEmpty) {
+          try {
+            final analysis = await analyzeSwingVideo(swingId);
+            return {
+              ...created,
+              'data': analysis['data'] ?? analysis,
+              'swingId': swingId,
+            };
+          } catch (_) {
+            return {...created, 'swingId': swingId, 'analysisPending': true};
+          }
+        }
+        return created;
       }
       rethrow;
     }
@@ -961,20 +1076,32 @@ class GolferService {
       final path = item['videoPath']?.toString() ?? '';
       if (!OfflineSwingQueue.fileExists(path)) continue;
       try {
-        payloads.add(await _uploadOfflinePayload(item));
+        if (_offlineItemHasTelemetry(item) || item['useAnalyzer'] == true) {
+          await _syncOfflineViaAnalyzer(item);
+        } else {
+          payloads.add(await _uploadOfflinePayload(item));
+        }
       } on ApiError catch (e) {
         if (e.statusCode == 0 || e.statusCode >= 500) {
           remaining.add(item);
         }
+      } catch (_) {
+        remaining.add(item);
       }
     }
 
     if (payloads.isNotEmpty) {
       try {
-        await _api.post(
+        final syncResponse = await _api.post(
           ApiConstants.swingSyncOffline,
           body: {'swings': payloads},
         );
+        final syncedIds = _extractSyncedSwingIds(syncResponse);
+        for (final swingId in syncedIds) {
+          try {
+            await analyzeSwingVideo(swingId);
+          } catch (_) {}
+        }
       } on ApiError catch (e) {
         if (e.statusCode == 0 || e.statusCode >= 500) {
           remaining.addAll(
@@ -988,6 +1115,93 @@ class GolferService {
     }
 
     await OfflineSwingQueue.save(prefs, remaining);
+  }
+
+  Future<void> _syncOfflineViaAnalyzer(Map<String, dynamic> item) async {
+    final path = item['videoPath'].toString();
+    final cameraData = _asResponseMap(item['cameraData']) ??
+        <String, dynamic>{'view': 'face_on', 'fps': 30};
+    final calibration = _asResponseMap(item['calibration']) ??
+        <String, dynamic>{
+          'groundPlane': {'detected': true, 'confidence': 0.9},
+          'golferDistanceCm': 280,
+        };
+    final swingPhases = _asResponseMap(item['swingPhases']) ??
+        <String, dynamic>{};
+
+    await uploadAndAnalyzeSwing(
+      videoPath: path,
+      clubType: '${item['clubType'] ?? 'Driver'}',
+      cameraAngle: '${item['cameraAngle'] ?? 'Face On'}',
+      recordingMode: '${item['recordingMode'] ?? 'swing'}',
+      handedness: '${item['handedness'] ?? 'right'}',
+      duration: item['duration'] is num ? item['duration'] as num : 1,
+      trimStart: item['trimStart'] is num ? item['trimStart'] as num : 0,
+      trimEnd: item['trimEnd'] is num ? item['trimEnd'] as num : 1,
+      cameraData: cameraData,
+      calibration: calibration,
+      swingPhases: swingPhases,
+    );
+  }
+
+  bool _offlineItemHasTelemetry(Map<String, dynamic> item) {
+    return item['cameraData'] != null ||
+        item['calibration'] != null ||
+        item['swingPhases'] != null;
+  }
+
+  Map<String, dynamic>? _asResponseMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  List<String> _extractSyncedSwingIds(dynamic response) {
+    final root = _asResponseMap(response);
+    if (root == null) return const [];
+    final data = root['data'];
+    final ids = <String>[];
+    void collect(dynamic value) {
+      final id = extractSwingId(_asResponseMap(value) ?? {});
+      if (id != null && id.isNotEmpty) ids.add(id);
+    }
+
+    if (data is List) {
+      for (final item in data) {
+        collect(item);
+      }
+    } else if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      for (final key in ['swings', 'results', 'items', 'docs']) {
+        final list = map[key];
+        if (list is List) {
+          for (final item in list) {
+            collect(item);
+          }
+          return ids;
+        }
+      }
+      collect(map);
+    }
+    return ids;
+  }
+
+  /// Pulls the raw swing document id from analyzer / create / analyze payloads.
+  static String? extractSwingId(Map<String, dynamic> data) {
+    String? asId(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is Map) {
+        raw = raw['_id'] ?? raw['id'];
+      }
+      final text = raw?.toString().trim() ?? '';
+      if (text.isEmpty) return null;
+      return text;
+    }
+
+    return asId(data['swingId']) ??
+        asId(data['swing']) ??
+        asId(data['_id']) ??
+        asId(data['id']);
   }
 
   Future<Map<String, dynamic>> _uploadOfflinePayload(
@@ -1097,5 +1311,116 @@ class GolferService {
       },
     );
     return Map<String, dynamic>.from(response as Map);
+  }
+
+  // ── Practice notes / Golf Logbook (`/note-book`) ──────────────────────────
+
+  Future<Map<String, dynamic>> getMyNotes({
+    String? club,
+    String sort = 'newest',
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      'limit': '$limit',
+      'sort': sort,
+    };
+    if (club != null && club.isNotEmpty && club != 'All Clubs') {
+      query['club'] = club;
+    }
+    final uri =
+        Uri.parse(ApiConstants.noteBookMyNotes).replace(queryParameters: query);
+    final response = await _api.get(uri.toString());
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> createNote({
+    required String title,
+    required String description,
+    bool isImportant = false,
+    bool isPinned = false,
+    String clubType = 'All Clubs',
+    String? swingId,
+  }) async {
+    final body = <String, dynamic>{
+      'title': title,
+      'description': description,
+      'note': description,
+      'isImportant': isImportant,
+      'isPinned': isPinned,
+      'pinnedAsReminder': isPinned,
+      'clubType': clubType,
+      'club': clubType,
+    };
+    if (swingId != null && swingId.trim().isNotEmpty) {
+      body['swingId'] = swingId.trim();
+    }
+    final response = await _api.post(ApiConstants.noteBookCreate, body: body);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> updateNote({
+    required String id,
+    String? title,
+    String? description,
+    bool? isImportant,
+    bool? isPinned,
+    String? clubType,
+  }) async {
+    final body = <String, dynamic>{};
+    if (title != null) body['title'] = title;
+    if (description != null) {
+      body['description'] = description;
+      body['note'] = description;
+    }
+    if (isImportant != null) body['isImportant'] = isImportant;
+    if (isPinned != null) {
+      body['isPinned'] = isPinned;
+      body['pinnedAsReminder'] = isPinned;
+    }
+    if (clubType != null) {
+      body['clubType'] = clubType;
+      body['club'] = clubType;
+    }
+    final response =
+        await _api.patch(ApiConstants.noteBookUpdate(id), body: body);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> togglePinNote(String id, {bool? isPinned}) async {
+    final body = <String, dynamic>{};
+    if (isPinned != null) {
+      body['isPinned'] = isPinned;
+      body['pinnedAsReminder'] = isPinned;
+    }
+    final response =
+        await _api.patch(ApiConstants.noteBookTogglePin(id), body: body);
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  Future<Map<String, dynamic>> deleteNote(String id) async {
+    final response = await _api.delete(ApiConstants.noteBookDelete(id));
+    return Map<String, dynamic>.from(response as Map);
+  }
+
+  /// Lightweight coach/golfer profile name + avatar update.
+  Future<Map<String, dynamic>> updateProfileBasics({
+    required String name,
+    String? profileImagePath,
+    String? email,
+    String? ageRange,
+    double? handicap,
+    String? practiceSessionPerWeek,
+    bool? usesGolfImproveStand,
+  }) async {
+    return updateMyProfile(
+      name: name,
+      age: ageRange ?? '25-34',
+      handicap: handicap ?? 0,
+      practiceSessionPerWeek: practiceSessionPerWeek ?? '3',
+      profileImagePath: profileImagePath,
+      usesGolfImproveStand: usesGolfImproveStand,
+    );
   }
 }

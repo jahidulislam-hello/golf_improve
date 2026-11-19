@@ -17,8 +17,28 @@ void _showAuthError(BuildContext context, AuthController auth) {
   );
 }
 
-class ForgotPasswordScreen extends StatelessWidget {
+class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
+
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  late final TextEditingController _emailController;
+
+  @override
+  void initState() {
+    super.initState();
+    final auth = context.read<AuthController>();
+    _emailController = TextEditingController(text: auth.resetEmail);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,19 +58,24 @@ class ForgotPasswordScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Forgot Password',
-                        textAlign: TextAlign.center, style: AppTextStyles.cardTitle),
+                    Text(
+                      'Forgot Password',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.cardTitle,
+                    ),
                     const SizedBox(height: 8),
                     Text(
-                      'Welcome Back! Please enter your details.',
+                      'Enter the email linked to your account. We will send a one-time code to reset your password.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.body
+                          .copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
                     AuthTextField(
                       hintText: 'Input your email',
                       leadingIcon: Icons.mail_outline,
                       keyboardType: TextInputType.emailAddress,
+                      controller: _emailController,
                       onChanged: auth.updateResetEmail,
                     ),
                   ],
@@ -61,15 +86,22 @@ class ForgotPasswordScreen extends StatelessWidget {
                 label: 'Continue',
                 isLoading: auth.isLoading,
                 onPressed: () async {
+                  auth.updateResetEmail(_emailController.text.trim());
                   final success = await auth.sendResetCode();
                   if (!context.mounted) return;
                   if (!success) {
                     _showAuthError(context, auth);
                     return;
                   }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('OTP sent. Check your email.'),
+                    ),
+                  );
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (_) => const OtpVerificationScreen()),
+                      builder: (_) => const OtpVerificationScreen(),
+                    ),
                   );
                 },
               ),

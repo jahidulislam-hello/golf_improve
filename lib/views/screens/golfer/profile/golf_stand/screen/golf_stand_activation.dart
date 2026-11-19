@@ -42,12 +42,11 @@ class _GolfStandActivationScreenState
   }
 
   void _handleScanQr() {
-    // Hook up a real scanner package (e.g. mobile_scanner) here, then
-    // call _controller.applyScannedCode(result) with the decoded value.
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Open QR scanner'),
-        duration: Duration(milliseconds: 900),
+        content: Text(
+          'Paste the Stand promo code from your email into the field above.',
+        ),
       ),
     );
   }
@@ -57,10 +56,19 @@ class _GolfStandActivationScreenState
     if (!mounted) return;
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Golf Stand activated!'),
-          duration: Duration(milliseconds: 900),
+        SnackBar(
+          content: Text(
+            _controller.successMessage ?? 'Golf Stand activated!',
+          ),
         ),
+      );
+      Navigator.of(context).maybePop(true);
+      return;
+    }
+    final error = _controller.errorMessage;
+    if (error != null && error.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
       );
     }
   }

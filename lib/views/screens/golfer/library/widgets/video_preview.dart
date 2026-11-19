@@ -3,14 +3,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/services/swing_media_cache.dart';
 import 'package:video_player/video_player.dart';
 
-/// Shared swing-video preview with real network/file playback via
-/// [video_player]. Shows play/pause, progress, optional annotation lines,
-/// and expand / target overlay buttons.
+/// Shared swing-video preview with local-first playback via [video_player].
+/// Prefers on-device files (and a downloaded cache) so private S3 / ExoPlayer
+/// 403s do not block watching a clip that already exists on the phone.
 class VideoPreview extends StatefulWidget {
   final String? videoUrl;
   final String? thumbnailUrl;
+  final String? swingId;
+  final String? analysisId;
   final bool showAnnotationLines;
   final bool showOverlayButtons;
   final VoidCallback? onExpand;
@@ -35,6 +38,8 @@ class VideoPreview extends StatefulWidget {
     super.key,
     this.videoUrl,
     this.thumbnailUrl,
+    this.swingId,
+    this.analysisId,
     this.showAnnotationLines = false,
     this.showOverlayButtons = true,
     this.onExpand,
@@ -58,7 +63,8 @@ class _VideoPreviewState extends State<VideoPreview> {
   int _appliedPlayRequest = 0;
   bool _initializing = false;
   bool _hasError = false;
-  String? _loadedUrl;
+  String? _loadedKey;
+  int _initToken = 0;
 
   @override
   void initState() {
@@ -69,7 +75,9 @@ class _VideoPreviewState extends State<VideoPreview> {
   @override
   void didUpdateWidget(covariant VideoPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.videoUrl != widget.videoUrl) {
+    if (oldWidget.videoUrl != widget.videoUrl ||
+        oldWidget.swingId != widget.swingId ||
+        oldWidget.analysisId != widget.analysisId) {
       _initPlayer();
       return;
     }
@@ -83,61 +91,145 @@ class _VideoPreviewState extends State<VideoPreview> {
 
   @override
   void dispose() {
+    _initToken++;
     _disposeController();
     super.dispose();
   }
 
+  String get _sourceKey =>
+      '${widget.analysisId ?? ''}|${widget.swingId ?? ''}|${widget.videoUrl ?? ''}';
+
   Future<void> _initPlayer() async {
-    final url = widget.videoUrl?.trim() ?? '';
-    final isRemote = url.startsWith('http');
-    final localFile = !isRemote && url.isNotEmpty ? File(url) : null;
-    final isLocal = localFile != null && localFile.existsSync();
-    if (!isRemote && !isLocal) {
+    final token = ++_initToken;
+    final raw = widget.videoUrl?.trim() ?? '';
+
+    if (raw.isEmpty &&
+        (widget.swingId == null || widget.swingId!.isEmpty) &&
+        (widget.analysisId == null || widget.analysisId!.isEmpty)) {
       _disposeController();
       if (mounted) {
         setState(() {
           _initializing = false;
           _hasError = false;
-          _loadedUrl = null;
+          _loadedKey = null;
         });
       }
       return;
     }
 
-    if (_loadedUrl == url && _controller != null) return;
+    if (_loadedKey == _sourceKey &&
+        _controller != null &&
+        _controller!.value.isInitialized &&
+        !_hasError) {
+      return;
+    }
 
     _disposeController();
-    setState(() {
-      _initializing = true;
-      _hasError = false;
-      _loadedUrl = url;
-    });
+    if (mounted) {
+      setState(() {
+        _initializing = true;
+        _hasError = false;
+        _loadedKey = _sourceKey;
+      });
+    }
 
-    final controller = isRemote
-        ? VideoPlayerController.networkUrl(Uri.parse(url))
-        : VideoPlayerController.file(localFile!);
+    final preferredLocal =
+        raw.isNotEmpty && !raw.startsWith('http') ? raw : null;
+    final remote = raw.startsWith('http') ? raw : null;
+
+    final resolved = await SwingMediaCache.resolvePlayableSource(
+      remoteUrl: remote,
+      swingId: widget.swingId,
+      analysisId: widget.analysisId,
+      preferredLocalPath: preferredLocal,
+    );
+
+    if (!mounted || token != _initToken) return;
+
+    if (resolved == null) {
+      setState(() {
+        _initializing = false;
+        _hasError = true;
+      });
+      return;
+    }
+
+    final ok = await _attachController(
+      isLocal: resolved.isLocal,
+      source: resolved.source,
+      token: token,
+    );
+    if (!mounted || token != _initToken) return;
+
+    // Network stream failed (typical S3 403) — download once, play from disk.
+    if (!ok && remote != null) {
+      final downloaded = await SwingMediaCache.resolveLocalPath(
+        remoteUrl: remote,
+        swingId: widget.swingId,
+        analysisId: widget.analysisId,
+      );
+      if (!mounted || token != _initToken) return;
+      if (downloaded != null) {
+        await _attachController(
+          isLocal: true,
+          source: downloaded,
+          token: token,
+        );
+        return;
+      }
+      setState(() {
+        _initializing = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  Future<bool> _attachController({
+    required bool isLocal,
+    required String source,
+    required int token,
+  }) async {
+    _disposeController();
+    final controller = isLocal
+        ? VideoPlayerController.file(File(source))
+        : VideoPlayerController.networkUrl(Uri.parse(source));
     _controller = controller;
     controller.addListener(_onTick);
 
     try {
       await controller.initialize();
+      if (!mounted || token != _initToken || _controller != controller) {
+        await controller.dispose();
+        return false;
+      }
       await controller.setLooping(true);
       await controller.setPlaybackSpeed(widget.playbackSpeed);
-      if (!mounted || _controller != controller) {
+      if (!mounted || token != _initToken || _controller != controller) {
         await controller.dispose();
-        return;
+        return false;
       }
-      setState(() => _initializing = false);
+      setState(() {
+        _initializing = false;
+        _hasError = false;
+      });
       if (widget.autoPlay || widget.playRequest > _appliedPlayRequest) {
         _appliedPlayRequest = widget.playRequest;
         await controller.play();
       }
+      return true;
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _initializing = false;
-        _hasError = true;
-      });
+      if (_controller == controller) {
+        controller.removeListener(_onTick);
+        _controller = null;
+      }
+      await controller.dispose();
+      if (mounted && token == _initToken) {
+        setState(() {
+          _initializing = false;
+          _hasError = true;
+        });
+      }
+      return false;
     }
   }
 
@@ -171,6 +263,9 @@ class _VideoPreviewState extends State<VideoPreview> {
   Future<void> _togglePlay() async {
     final c = _controller;
     if (c == null || !c.value.isInitialized) {
+      if (_hasError) {
+        await _initPlayer();
+      }
       widget.onPlayToggle?.call();
       return;
     }
@@ -238,7 +333,6 @@ class _VideoPreviewState extends State<VideoPreview> {
               )
             else
               const _VideoPlaceholder(),
-            // Tap-to-pause while playing (below chrome so controls stay tappable).
             if (playing && ready)
               Positioned.fill(
                 child: GestureDetector(
@@ -260,12 +354,27 @@ class _VideoPreviewState extends State<VideoPreview> {
                   ),
                 ),
               ),
-            if (_hasError)
-              const ColoredBox(
+            if (_hasError && !_initializing)
+              ColoredBox(
                 color: Colors.black45,
                 child: Center(
-                  child: Icon(Icons.error_outline,
-                      color: Colors.white70, size: 32),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.videocam_off_outlined,
+                            color: Colors.white70, size: 32),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap play to retry',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.type13
+                              .copyWith(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             if (widget.showAnnotationLines) const _SwingPlaneOverlay(),
@@ -296,7 +405,7 @@ class _VideoPreviewState extends State<VideoPreview> {
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.35),
+                      color: Colors.white.withValues(alpha: 0.35),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(

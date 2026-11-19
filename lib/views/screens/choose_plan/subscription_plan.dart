@@ -214,8 +214,8 @@ SubscriptionPlan normalizeLaunchPlan(SubscriptionPlan plan) {
     price = plan.isBestValue ? 20 : 30;
   }
 
-  // Keep one consistent trial length in the UI (avoid "7 days" vs "3-day").
-  final trialDays = plan.trialDays > 0 ? 3 : 0;
+  // Keep the server trial length (0 = no trial / promo or IAP required).
+  final trialDays = plan.trialDays > 0 ? plan.trialDays : 0;
 
   return SubscriptionPlan(
     id: plan.id,

@@ -62,12 +62,15 @@ class _DirectConnect {
     try {
       final host = uri.host;
       final v4Lookup = _lookup(host, InternetAddressType.IPv4);
+      final anyLookup = _lookup(host, InternetAddressType.any);
       final v6Lookup = _lookup(host, InternetAddressType.IPv6);
 
       final v4 = await v4Lookup;
       final connected = await _dialAll(v4) ??
+          await _dialAll(await anyLookup) ??
           await _dialAll(await v6Lookup) ??
-          await _dialAll(await _dnsOverHttps(host));
+          await _dialAll(await _dnsOverHttps(host)) ??
+          await _dialAll(_pinnedAddresses(host));
 
       if (_cancelled || _socket.isCompleted) {
         if (connected != null) _destroy(connected);
@@ -159,37 +162,81 @@ Future<List<InternetAddress>> _dnsOverHttps(String host) async {
   if (InternetAddress.tryParse(host) != null) return const [];
 
   final addresses = <InternetAddress>[];
+  final seen = <String>{};
+  void addAll(Iterable<InternetAddress> next) {
+    for (final address in next) {
+      if (seen.add(address.address)) addresses.add(address);
+    }
+  }
+
   for (final recordType in const ['A', 'AAAA']) {
     try {
-      addresses.addAll(await _queryCloudflare(host, recordType));
+      addAll(await _queryDnsOverHttps(
+        host: host,
+        recordType: recordType,
+        dnsIp: InternetAddress('1.1.1.1'),
+        sniHost: 'cloudflare-dns.com',
+      ));
     } catch (error) {
       if (kDebugMode) {
-        debugPrint('DeviceHttpOverrides: DoH $recordType for $host failed: $error');
+        debugPrint(
+          'DeviceHttpOverrides: Cloudflare DoH $recordType for $host failed: $error',
+        );
+      }
+    }
+    try {
+      addAll(await _queryDnsOverHttps(
+        host: host,
+        recordType: recordType,
+        dnsIp: InternetAddress('8.8.8.8'),
+        sniHost: 'dns.google',
+      ));
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'DeviceHttpOverrides: Google DoH $recordType for $host failed: $error',
+        );
       }
     }
   }
   return addresses;
 }
 
-Future<List<InternetAddress>> _queryCloudflare(
-  String host,
-  String recordType,
-) async {
+/// Last-resort A records when device DNS and DoH both fail (common on some
+/// carrier networks). Keep in sync with production hosts.
+List<InternetAddress> _pinnedAddresses(String host) {
+  const pins = <String, List<String>>{
+    'api.golfimprove.eu': ['13.63.125.248'],
+  };
+  final raw = pins[host.toLowerCase()];
+  if (raw == null) return const [];
+  return raw
+      .map(InternetAddress.tryParse)
+      .whereType<InternetAddress>()
+      .toList(growable: false);
+}
+
+Future<List<InternetAddress>> _queryDnsOverHttps({
+  required String host,
+  required String recordType,
+  required InternetAddress dnsIp,
+  required String sniHost,
+}) async {
   final raw = await Socket.connect(
-    InternetAddress('1.1.1.1'),
+    dnsIp,
     443,
     timeout: const Duration(seconds: 5),
   );
   final secure = await SecureSocket.secure(
     raw,
-    host: 'cloudflare-dns.com',
+    host: sniHost,
   ).timeout(const Duration(seconds: 8));
   try {
     final path =
         '/dns-query?name=${Uri.encodeQueryComponent(host)}&type=$recordType';
     secure.write(
       'GET $path HTTP/1.1\r\n'
-      'Host: cloudflare-dns.com\r\n'
+      'Host: $sniHost\r\n'
       'Accept: application/dns-json\r\n'
       'Connection: close\r\n'
       '\r\n',

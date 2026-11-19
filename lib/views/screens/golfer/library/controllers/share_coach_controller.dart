@@ -20,6 +20,7 @@ class ShareCoachController extends ChangeNotifier {
     this.swingLibraryId,
     this.practiceNoteId,
     this.initialStatus = '',
+    this.includeAiAnalysis = true,
     String? initialQuestion,
   }) {
     questionController = TextEditingController(text: initialQuestion ?? '');
@@ -40,6 +41,7 @@ class ShareCoachController extends ChangeNotifier {
   final String? swingLibraryId;
   String? practiceNoteId;
   final String? initialStatus;
+  final bool includeAiAnalysis;
 
   late final TextEditingController questionController;
   List<ShareIncludeItem> includeItems = [];
@@ -157,7 +159,7 @@ class ShareCoachController extends ChangeNotifier {
         idempotencyKey: _idempotencyKey,
         status: 'sent',
         isSwingVideo: true,
-        isAiAnalysis: false,
+        isAiAnalysis: includeAiAnalysis,
         isPersonalNotesAndTips: payload['isPersonalNotesAndTips'] == true,
         allowDrawOnVideo: payload['allowDrawOnVideo'] == true ||
             payload['allowCoachToDraw'] == true,
@@ -388,6 +390,7 @@ class ShareCoachController extends ChangeNotifier {
       'practice_note_id': noteOn ? practiceNoteId : null,
       'allowDrawOnVideo': _isOn('Allow Coach to Draw on Video'),
       // 'allowCoachToDraw': _isOn('Allow Coach to Draw on Video'),
+      'isAiAnalysis': includeAiAnalysis,
       'isPersonalNotesAndTips': noteOn && hasLinkedPracticeNote,
       'status': 'waiting_to_send',
     };

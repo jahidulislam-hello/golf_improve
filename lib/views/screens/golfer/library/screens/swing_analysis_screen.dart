@@ -7,7 +7,7 @@ import '../widgets/shared_widgets.dart';
 import '../widgets/video_preview.dart';
 import 'ai_golf_coach_screen.dart';
 import 'share_with_coach_screen.dart';
-import 'review_swing_screen.dart';
+import 'review_swing_fullscreen_screen.dart';
 import 'package:golf_training_app/core/app_radii.dart';
 
 /// Screen 2 — Swing Analysis (AI Golf Coach summary for one recorded swing).
@@ -43,9 +43,11 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
   void _openReviewSwing() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ReviewSwingScreen(
+        builder: (_) => ReviewSwingFullscreenScreen(
           videoUrl: controller.videoUrl,
           thumbnailUrl: controller.thumbnailUrl,
+          swingId: controller.rawSwingId,
+          analysisId: controller.id,
         ),
       ),
     );
@@ -63,7 +65,26 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
     );
   }
 
+  String get _shareSwingId {
+    final fromController = controller.id.trim();
+    if (fromController.isNotEmpty) return fromController;
+    final fromWidget = (widget.swingId ?? '').trim();
+    if (fromWidget.isNotEmpty) return fromWidget;
+    return '${widget.initialData?['_id'] ?? widget.initialData?['id'] ?? ''}'
+        .trim();
+  }
+
   void _openShareWithCoach() {
+    final swingId = _shareSwingId;
+    if (swingId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This swing is not ready to share yet.'),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context)
         .push(
           MaterialPageRoute(
@@ -73,15 +94,17 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
               coachName: controller.coachName,
               coachProfileUrl: controller.coachProfileUrl,
               coachId: controller.coachId,
-              swingLibraryId: controller.id,
+              swingLibraryId: swingId,
+              swingId: controller.rawSwingId,
               practiceNoteId: controller.practiceNoteId,
               initialStatus: controller.shareStatus,
+              includeAiAnalysis: controller.isAnalysisReady,
             ),
           ),
         )
         .then((_) {
-          if (!mounted || controller.id.isEmpty) return;
-          controller.load(controller.id, showLoader: false);
+          if (!mounted || swingId.isEmpty) return;
+          controller.load(swingId, showLoader: false);
         });
   }
 
@@ -130,6 +153,11 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
                         ),
                       ),
                       const Spacer(),
+                      CircleIconButton(
+                        icon: Icons.ios_share_rounded,
+                        onTap: _openShareWithCoach,
+                        size: 36,
+                      ),
                     ],
                   ),
                 ),
@@ -185,6 +213,8 @@ class _SwingAnalysisScreenState extends State<SwingAnalysisScreen> {
         VideoPreview(
           videoUrl: controller.videoUrl,
           thumbnailUrl: controller.thumbnailUrl,
+          swingId: controller.rawSwingId,
+          analysisId: controller.id,
           showAnnotationLines: true,
           onExpand: _openReviewSwing,
         ),

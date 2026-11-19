@@ -60,6 +60,29 @@ class SwingVideo {
   String get openId =>
       analysisId.isNotEmpty ? analysisId : (id.isNotEmpty ? id : swingId);
 
+  /// Seed Swing Analysis so the video/details show even before AI is ready.
+  Map<String, dynamic> toAnalysisSeed() {
+    final detailId = openId;
+    return {
+      if (detailId.isNotEmpty) '_id': detailId,
+      if (analysisId.isNotEmpty) 'analysisId': analysisId,
+      if (swingId.isNotEmpty) 'swingId': swingId,
+      'clubType': club,
+      'cameraAngle': angle,
+      'thumbnailUrl': thumbnailUrl,
+      'videoUrl': videoUrl,
+      'isSharedWithCoach': isSharedWithCoach,
+      'isAnalysisReady': hasAnalysis && !isLocal,
+      'analysisStatus': hasAnalysis && !isLocal ? 'ready' : 'processing',
+      'analysisMessage': hasAnalysis && !isLocal
+          ? ''
+          : 'Analysis is still preparing. You can watch the video meanwhile.',
+      if (recordedAt != null)
+        'recordedAt': recordedAt!.toUtc().toIso8601String(),
+      if (createdAt != null) 'createdAt': createdAt!.toUtc().toIso8601String(),
+    };
+  }
+
   /// Back-compat alias used by older mock widgets.
   String get thumbnailAsset => thumbnailUrl;
 
@@ -126,15 +149,50 @@ class SwingVideo {
   }
 
   factory SwingVideo.fromJson(Map<String, dynamic> json) {
-    final localPath = (json['videoPath'] ?? '').toString();
-    final remoteVideo = (json['videoUrl'] ?? '').toString();
+    final nestedSwing = json['swing'];
+    final nested = nestedSwing is Map
+        ? Map<String, dynamic>.from(nestedSwing)
+        : const <String, dynamic>{};
+    final nestedDetails = json['swingDetails'];
+    final details = nestedDetails is Map
+        ? Map<String, dynamic>.from(nestedDetails)
+        : const <String, dynamic>{};
+
+    String pickUrl(List<dynamic> candidates) {
+      for (final raw in candidates) {
+        final value = '${raw ?? ''}'.trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final localPath = pickUrl([
+      json['videoPath'],
+      nested['videoPath'],
+      details['videoPath'],
+    ]);
+    final remoteVideo = pickUrl([
+      json['videoUrl'],
+      nested['videoUrl'],
+      details['videoUrl'],
+    ]);
+    final rawThumb = pickUrl([
+      json['thumbnailUrl'],
+      nested['thumbnailUrl'],
+      details['thumbnailUrl'],
+      json['thumbnail'],
+      nested['thumbnail'],
+    ]);
+    // Never treat an .mp4 as an image thumb — the grid will render a frame.
+    final thumbLooksLikeVideo = rawThumb.toLowerCase().contains('.mp4');
+    final thumbnailUrl = thumbLooksLikeVideo ? '' : rawThumb;
+
     final isLocal = json['isLocal'] == true ||
         (remoteVideo.isEmpty && localPath.isNotEmpty);
-    final rootId = (json['_id'] ?? json['id'] ?? json['local_id'] ?? '').toString();
-    final nestedSwing = json['swing'];
-    final nestedSwingId = nestedSwing is Map
-        ? (nestedSwing['_id'] ?? nestedSwing['id'] ?? '').toString()
-        : '';
+    final rootId =
+        (json['_id'] ?? json['id'] ?? json['local_id'] ?? '').toString();
+    final nestedSwingId =
+        (nested['_id'] ?? nested['id'] ?? '').toString();
     // my-swings rows pass hasAnalysis:false; library rows keep the analysis id.
     final forcedNoAnalysis = json['hasAnalysis'] == false;
     final analysisId = forcedNoAnalysis
@@ -151,20 +209,36 @@ class SwingVideo {
       id: analysisId.isNotEmpty ? analysisId : rootId,
       analysisId: analysisId,
       swingId: swingId.isNotEmpty ? swingId : (hasAnalysis ? '' : rootId),
-      club: (json['clubType'] ?? json['club'] ?? 'Driver').toString(),
-      angle: (json['cameraAngle'] ?? json['angle'] ?? 'Face On').toString(),
-      thumbnailUrl: (json['thumbnailUrl'] ?? '').toString(),
+      club: (json['clubType'] ??
+              json['club'] ??
+              nested['clubType'] ??
+              'Driver')
+          .toString(),
+      angle: (json['cameraAngle'] ??
+              json['angle'] ??
+              nested['cameraAngle'] ??
+              'Face On')
+          .toString(),
+      thumbnailUrl: thumbnailUrl,
       videoUrl: remoteVideo.isNotEmpty ? remoteVideo : localPath,
       isSharedWithCoach: json['isSharedWithCoach'] == true,
       recordedAt: DateTime.tryParse(
-        (json['recorded_at'] ?? json['recordedAt'] ?? '').toString(),
+        (json['recorded_at'] ??
+                json['recordedAt'] ??
+                nested['recorded_at'] ??
+                nested['recordedAt'] ??
+                '')
+            .toString(),
       ),
-      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()),
+      createdAt: DateTime.tryParse(
+        (json['createdAt'] ?? nested['createdAt'] ?? '').toString(),
+      ),
       sessionId: (json['client_session_id'] ?? json['sessionId'] ?? '')
           .toString(),
       localId: (json['local_id'] ?? json['localId'] ?? '').toString(),
       isLocal: isLocal,
-      hasAnalysis: hasAnalysis || isLocal,
+      // Local queued clips are not analyzed yet — open the local player.
+      hasAnalysis: isLocal ? false : hasAnalysis,
     );
   }
 

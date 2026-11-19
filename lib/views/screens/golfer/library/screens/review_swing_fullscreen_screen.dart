@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/services/swing_media_cache.dart';
 import 'package:video_player/video_player.dart';
 import '../controllers/review_swing_fullscreen_controller.dart';
 import '../widgets/shared_widgets.dart';
@@ -11,10 +14,14 @@ class ReviewSwingFullscreenScreen extends StatefulWidget {
     super.key,
     this.videoUrl,
     this.thumbnailUrl,
+    this.swingId,
+    this.analysisId,
   });
 
   final String? videoUrl;
   final String? thumbnailUrl;
+  final String? swingId;
+  final String? analysisId;
 
   @override
   State<ReviewSwingFullscreenScreen> createState() =>
@@ -67,9 +74,26 @@ class _ReviewSwingFullscreenScreenState
 
   Future<void> _initPlayer() async {
     final url = widget.videoUrl?.trim() ?? '';
-    if (url.isEmpty || !url.startsWith('http')) return;
+    final preferredLocal =
+        url.isNotEmpty && !url.startsWith('http') ? url : null;
+    final remote = url.startsWith('http') ? url : null;
 
-    final player = VideoPlayerController.networkUrl(Uri.parse(url));
+    final resolved = await SwingMediaCache.resolvePlayableSource(
+      remoteUrl: remote,
+      swingId: widget.swingId,
+      analysisId: widget.analysisId,
+      preferredLocalPath: preferredLocal,
+    );
+    if (!mounted || resolved == null) {
+      if (mounted) setState(() => _hasError = true);
+      return;
+    }
+
+    var source = resolved.source;
+    var isLocal = resolved.isLocal;
+    VideoPlayerController player = isLocal
+        ? VideoPlayerController.file(File(source))
+        : VideoPlayerController.networkUrl(Uri.parse(source));
     _player = player;
     player.addListener(_onPlayerTick);
 
@@ -80,11 +104,45 @@ class _ReviewSwingFullscreenScreenState
         await player.dispose();
         return;
       }
-      setState(() => _ready = true);
+      setState(() {
+        _ready = true;
+        _hasError = false;
+      });
       if (controller.isPlaying) {
         await player.play();
       }
     } catch (_) {
+      // Network 403 → download then play from disk.
+      if (remote != null) {
+        final downloaded = await SwingMediaCache.resolveLocalPath(
+          remoteUrl: remote,
+          swingId: widget.swingId,
+          analysisId: widget.analysisId,
+        );
+        if (downloaded != null && mounted) {
+          player.removeListener(_onPlayerTick);
+          await player.dispose();
+          source = downloaded;
+          isLocal = true;
+          player = VideoPlayerController.file(File(source));
+          _player = player;
+          player.addListener(_onPlayerTick);
+          try {
+            await player.initialize();
+            await player.setLooping(true);
+            if (!mounted || _player != player) {
+              await player.dispose();
+              return;
+            }
+            setState(() {
+              _ready = true;
+              _hasError = false;
+            });
+            if (controller.isPlaying) await player.play();
+            return;
+          } catch (_) {}
+        }
+      }
       if (!mounted) return;
       setState(() => _hasError = true);
     }

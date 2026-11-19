@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
@@ -14,6 +16,22 @@ class PersonalInfoScreen extends StatefulWidget {
 }
 
 class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onChange);
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onChange);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
@@ -58,11 +76,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         color: AppColors.noteHighlightBg, // soft pink bg
                         shape: BoxShape.circle,
                       ),
-                      child: c.profileImagePath != null
-                          ? ClipOval(
-                        child: Image.network(c.profileImagePath!, fit: BoxFit.cover),
-                      )
-                          : Icon(Icons.camera_alt_outlined, color: AppColors.ctaBrightBlue, size: 28),
+                      child: _avatar(c),
                     ),
                     Positioned(
                       right: 0,
@@ -72,10 +86,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
-                          onTap: () {
-                            // TODO: hook up image_picker here, then:
-                            // c.setProfileImage(pickedPath);
-                          },
+                          onTap: () => c.pickProfileImage(),
                           child: const Padding(
                             padding: EdgeInsets.all(6),
                             child: Icon(Icons.add, color: Colors.white, size: 16),
@@ -149,7 +160,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         Navigator.of(context).pop();
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please check your name and email.')),
+                          SnackBar(
+                            content: Text(
+                              c.errorMessage ??
+                                  'Please check your name and try again.',
+                            ),
+                          ),
                         );
                       }
                     },
@@ -179,6 +195,36 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _avatar(ProfileController c) {
+    final local = c.profileImagePath;
+    if (local != null && local.isNotEmpty && !local.startsWith('http')) {
+      return ClipOval(
+        child: Image.file(File(local), fit: BoxFit.cover, width: 88, height: 88),
+      );
+    }
+    final remote = local?.startsWith('http') == true ? local : c.avatarUrl;
+    if (remote != null && remote.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          remote,
+          fit: BoxFit.cover,
+          width: 88,
+          height: 88,
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.camera_alt_outlined,
+            color: AppColors.ctaBrightBlue,
+            size: 28,
+          ),
+        ),
+      );
+    }
+    return Icon(
+      Icons.camera_alt_outlined,
+      color: AppColors.ctaBrightBlue,
+      size: 28,
     );
   }
 }

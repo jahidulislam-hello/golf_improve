@@ -309,24 +309,30 @@ class AuthService {
     );
   }
 
+  /// `POST /auth/forgot-password` → `{ data: { token } }` (Bearer for OTP/reset).
   Future<dynamic> forgotPassword({required String email}) {
     return _api.post(
       ApiConstants.forgotPassword,
-      body: {'email': email},
+      body: {'email': email.trim()},
+      headers: _api.publicJsonHeaders(),
+      timeout: ApiService.authTimeout,
     );
   }
 
+  /// `POST /auth/forgot-otp-verify` — requires Bearer from [forgotPassword].
   Future<dynamic> verifyForgotPasswordOtp({
     required String otp,
   }) {
     return _api.post(
       ApiConstants.forgotPasswordOTPVerify,
       body: {
-        'otp': otp,
+        'otp': otp.trim(),
       },
+      timeout: ApiService.authTimeout,
     );
   }
 
+  /// `POST /auth/reset-password` — requires the same Bearer reset token.
   Future<dynamic> resetPassword({
     required String newPassword,
     required String confirmPassword,
@@ -334,6 +340,25 @@ class AuthService {
     return _api.post(
       ApiConstants.resetPassword,
       body: {
+        'newPassword': newPassword,
+        'confirmPassword': confirmPassword,
+      },
+      timeout: ApiService.authTimeout,
+    );
+  }
+
+  /// Drops the temporary forgot/reset JWT so splash does not treat it as login.
+  Future<void> clearResetSession() => clearSession();
+
+  Future<dynamic> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) {
+    return _api.post(
+      ApiConstants.changePassword,
+      body: {
+        'oldPassword': oldPassword,
         'newPassword': newPassword,
         'confirmPassword': confirmPassword,
       },

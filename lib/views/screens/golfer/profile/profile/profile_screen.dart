@@ -3,6 +3,8 @@ import 'package:golf_training_app/views/base/golfer_navbar/golfer_navbar_control
 import 'package:get/get.dart';
 import 'package:golf_training_app/core/app_colors.dart';
 import 'package:golf_training_app/core/app_styles.dart';
+import 'package:golf_training_app/services/api_services.dart';
+import 'package:golf_training_app/services/common_content_service.dart';
 import 'package:golf_training_app/views/screens/choose_plan/choose_plan_screen.dart';
 import 'package:golf_training_app/views/screens/golfer/profile/golf_stand/screen/golf_stand_activation.dart';
 import 'package:golf_training_app/views/screens/golfer/home/golf_logbook/golf_logbook_screen.dart';
@@ -14,6 +16,7 @@ import 'package:golf_training_app/views/screens/golfer/profile/settings/communit
 import 'package:golf_training_app/views/screens/golfer/profile/settings/help_support_screen.dart';
 import 'package:golf_training_app/views/screens/auth/screens/sign_in_screen.dart';
 import 'package:golf_training_app/core/app_radii.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 class GolferProfileScreen extends StatefulWidget {
@@ -250,10 +253,47 @@ class _PlanUpsellCard extends StatelessWidget {
   }
 }
 
-class _GolfStandConnectedRow extends StatelessWidget {
+class _GolfStandConnectedRow extends StatefulWidget {
   const _GolfStandConnectedRow();
 
-  void _openGolfStand(BuildContext context) {
+  @override
+  State<_GolfStandConnectedRow> createState() => _GolfStandConnectedRowState();
+}
+
+class _GolfStandConnectedRowState extends State<_GolfStandConnectedRow> {
+  String _title = 'My GolfImprove Stand';
+  String _subtitle = 'Setup and recording guides';
+  String? _imageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStandInfo();
+  }
+
+  Future<void> _loadStandInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final service = CommonContentService(
+        apiService: ApiService(sharedPreferences: prefs),
+      );
+      final response = await service.getStandInfo();
+      final data = response['data'];
+      if (data is! Map || !mounted) return;
+      final map = Map<String, dynamic>.from(data);
+      final title = '${map['title'] ?? ''}'.trim();
+      final description = '${map['description'] ?? ''}'.trim();
+      final imageUrl = '${map['imageUrl'] ?? ''}'.trim();
+      final hasImage = map['hasImage'] == true && imageUrl.isNotEmpty;
+      setState(() {
+        if (title.isNotEmpty) _title = title;
+        if (description.isNotEmpty) _subtitle = description;
+        _imageUrl = hasImage ? imageUrl : null;
+      });
+    } catch (_) {}
+  }
+
+  void _openGolfStand() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const GolfStandActivationScreen()),
     );
@@ -266,7 +306,7 @@ class _GolfStandConnectedRow extends StatelessWidget {
       borderRadius: AppRadii.cardBorderRadius,
       child: InkWell(
         borderRadius: AppRadii.cardBorderRadius,
-        onTap: () => _openGolfStand(context),
+        onTap: _openGolfStand,
         child: Container(
           height: 73,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -276,23 +316,24 @@ class _GolfStandConnectedRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _GolfStandThumb(),
-              SizedBox(width: 12),
+              _GolfStandThumb(imageUrl: _imageUrl),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('My GolfImprove Stand', style: AppTextStyles.listItemTitle),
-                    SizedBox(height: 2),
-                    Text(
-                      'Setup and recording guides',
-                      style: AppTextStyles.listItemSubtitle,
-                    ),
+                    Text(_title, style: AppTextStyles.listItemTitle),
+                    const SizedBox(height: 2),
+                    Text(_subtitle, style: AppTextStyles.listItemSubtitle),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
             ],
           ),
         ),
@@ -301,23 +342,16 @@ class _GolfStandConnectedRow extends StatelessWidget {
   }
 }
 
-/// Photo of the GolfImprove Stand. Drop the product photo into
-/// `assets/images/golf_stand.png`; until then a stand icon is shown.
 class _GolfStandThumb extends StatelessWidget {
-  const _GolfStandThumb();
+  const _GolfStandThumb({this.imageUrl});
 
+  final String? imageUrl;
   static const double _size = 48;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.asset(
-        'assets/images/golf_stand.png',
-        width: _size,
-        height: _size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
+    final remote = imageUrl?.trim() ?? '';
+    Widget fallback() => Container(
           width: _size,
           height: _size,
           color: AppColors.accentBlueBg,
@@ -327,8 +361,31 @@ class _GolfStandThumb extends StatelessWidget {
             color: AppColors.ctaBrightBlue,
             size: 24,
           ),
-        ),
-      ),
+        );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: remote.isNotEmpty
+          ? Image.network(
+              remote,
+              width: _size,
+              height: _size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Image.asset(
+                'assets/images/golf_stand.png',
+                width: _size,
+                height: _size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => fallback(),
+              ),
+            )
+          : Image.asset(
+              'assets/images/golf_stand.png',
+              width: _size,
+              height: _size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback(),
+            ),
     );
   }
 }
